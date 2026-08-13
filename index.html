@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>فهد إبراهيم | Marketing Strategist &amp; Trainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=El+Messiri:wght@500;600;700&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0A0E12;
+    --panel:#10161C;
+    --panel-2:#141B22;
+    --brass:#C9A24B;
+    --brass-soft:#E4C77A;
+    --brass-dim: rgba(201,162,75,0.22);
+    --text:#F2EFE9;
+    --muted:#8E97A0;
+    --line: rgba(201,162,75,0.16);
+    --serif:'El Messiri', serif;
+    --sans:'IBM Plex Sans Arabic', sans-serif;
+    --mono:'IBM Plex Mono', monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--ink);
+    color:var(--text);
+    font-family:var(--sans);
+    line-height:1.7;
+    overflow-x:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  @media (prefers-reduced-motion: reduce){
+    html{scroll-behavior:auto;}
+    *{animation-duration:0.01ms !important; animation-iteration-count:1 !important; transition-duration:0.01ms !important;}
+  }
+
+  .eyebrow{
+    font-family:var(--mono);
+    direction:ltr;
+    text-align:left;
+    font-size:12px;
+    letter-spacing:.22em;
+    text-transform:uppercase;
+    color:var(--brass);
+    display:inline-flex;
+    align-items:center;
+    gap:10px;
+  }
+  .eyebrow::before{
+    content:"";
+    width:26px;height:1px;
+    background:var(--brass);
+    display:inline-block;
+  }
+
+  .wrap{max-width:1180px; margin:0 auto; padding:0 32px;}
+
+  /* NAV */
+  nav{
+    position:fixed; inset:0 0 auto 0; height:78px; z-index:50;
+    display:flex; align-items:center;
+    background:linear-gradient(180deg, rgba(10,14,18,.92), rgba(10,14,18,.55) 70%, transparent);
+    backdrop-filter: blur(6px);
+  }
+  nav .wrap{display:flex; align-items:center; justify-content:space-between; width:100%;}
+  .brandmark{
+    font-family:var(--serif); font-weight:700; font-size:20px; color:var(--text);
+    display:flex; align-items:center; gap:10px;
+  }
+  .brandmark span{color:var(--brass);}
+  nav ul{list-style:none; display:flex; gap:34px;}
+  nav a{color:var(--muted); text-decoration:none; font-size:14.5px; transition:color .25s;}
+  nav a:hover{color:var(--brass-soft);}
+  .nav-cta{
+    border:1px solid var(--brass-dim); color:var(--brass-soft) !important;
+    padding:9px 18px; border-radius:2px; font-size:13.5px;
+  }
+  .nav-cta:hover{ background:var(--brass); color:var(--ink) !important; border-color:var(--brass);}
+  .navtoggle{display:none;}
+
+  /* HERO */
+  header.hero{
+    min-height:100svh;
+    position:relative;
+    display:flex; align-items:center;
+    padding-top:78px;
+    background:
+      radial-gradient(1100px 620px at 82% -10%, rgba(201,162,75,.10), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgba(201,162,75,.06), transparent 60%),
+      var(--ink);
+  }
+  .hero-grid{
+    display:grid; grid-template-columns: 1.15fr .85fr; gap:60px; align-items:center;
+    width:100%;
+  }
+  .hero-text .eyebrow{margin-bottom:22px;}
+  h1.name{
+    font-family:var(--serif); font-weight:700;
+    font-size:clamp(46px, 6.4vw, 84px);
+    line-height:1.04; letter-spacing:.2px;
+    margin-bottom:10px;
+    opacity:0; transform:translateY(18px);
+    animation: rise .9s .1s cubic-bezier(.2,.7,.2,1) forwards;
+  }
+  h1.name em{font-style:normal; color:var(--brass);}
+  .role-line{
+    direction:ltr; text-align:left;
+    font-family:var(--mono); font-size:14px; letter-spacing:.14em; color:var(--brass-soft);
+    margin-bottom:28px;
+    opacity:0; transform:translateY(14px);
+    animation: rise .9s .28s cubic-bezier(.2,.7,.2,1) forwards;
+  }
+  .hero-lede{
+    font-size:19px; color:#C9CDD1; max-width:560px; margin-bottom:38px;
+    opacity:0; transform:translateY(14px);
+    animation: rise .9s .42s cubic-bezier(.2,.7,.2,1) forwards;
+  }
+  .hero-cta{
+    display:flex; gap:16px; flex-wrap:wrap;
+    opacity:0; transform:translateY(14px);
+    animation: rise .9s .56s cubic-bezier(.2,.7,.2,1) forwards;
+  }
+  @keyframes rise{to{opacity:1; transform:translateY(0);}}
+
+  .btn{
+    display:inline-flex; align-items:center; gap:10px;
+    padding:15px 26px; border-radius:2px; font-size:15px; font-weight:600;
+    text-decoration:none; transition:all .28s ease; cursor:pointer; border:1px solid transparent;
+  }
+  .btn-solid{background:var(--brass); color:var(--ink);}
+  .btn-solid:hover{background:var(--brass-soft); transform:translateY(-2px);}
+  .btn-ghost{border-color:var(--brass-dim); color:var(--text);}
+  .btn-ghost:hover{border-color:var(--brass); color:var(--brass-soft);}
+
+  /* signature pulse graphic */
+  .signature{position:relative; height:420px;}
+  .signature svg{width:100%; height:100%;}
+  .pulse-path{
+    fill:none; stroke:var(--brass); stroke-width:2;
+    stroke-dasharray:1400; stroke-dashoffset:1400;
+    animation:draw 2.6s .3s cubic-bezier(.2,.7,.2,1) forwards;
+  }
+  .pulse-dot{
+    fill:var(--brass-soft);
+    opacity:0;
+    animation: fadein .6s 2.4s forwards, blip 2.4s 3s infinite;
+  }
+  .grid-line{stroke:var(--line); stroke-width:1;}
+  @keyframes draw{to{stroke-dashoffset:0;}}
+  @keyframes fadein{to{opacity:1;}}
+  @keyframes blip{0%,100%{r:4;} 50%{r:6;}}
+
+  .scroll-cue{
+    position:absolute; bottom:34px; right:32px;
+    font-family:var(--mono); font-size:11px; letter-spacing:.2em; color:var(--muted);
+    display:flex; align-items:center; gap:10px; direction:ltr;
+  }
+  .scroll-cue i{width:1px; height:34px; background:linear-gradient(var(--brass), transparent); display:block;}
+
+  /* SECTION generic */
+  section{padding:130px 0; position:relative;}
+  .section-head{max-width:680px; margin-bottom:64px;}
+  .section-head h2{
+    font-family:var(--serif); font-weight:600; font-size:clamp(32px,4vw,46px); margin-top:16px; line-height:1.25;
+  }
+  .section-head p{color:var(--muted); margin-top:16px; font-size:16.5px; max-width:560px;}
+
+  .reveal{opacity:0; transform:translateY(26px); transition:opacity .8s ease, transform .8s ease;}
+  .reveal.in{opacity:1; transform:translateY(0);}
+
+  /* SERVICES */
+  .services{background:var(--panel); border-top:1px solid var(--line); border-bottom:1px solid var(--line);}
+  .service-grid{
+    display:grid; grid-template-columns:repeat(3,1fr); gap:1px;
+    background:var(--line);
+    border:1px solid var(--line);
+  }
+  .service-card{
+    background:var(--panel); padding:40px 34px; transition:background .3s ease;
+    position:relative; overflow:hidden;
+  }
+  .service-card:hover{background:var(--panel-2);}
+  .service-card:hover .service-num{color:var(--brass-soft);}
+  .service-num{
+    font-family:var(--mono); font-size:12px; color:var(--brass); direction:ltr; text-align:left;
+    letter-spacing:.14em; margin-bottom:26px; display:block; transition:color .3s;
+  }
+  .service-card h3{
+    font-family:var(--serif); font-size:23px; font-weight:600; margin-bottom:14px; color:var(--text);
+  }
+  .service-card p{color:var(--muted); font-size:15px; line-height:1.75;}
+
+  /* PHILOSOPHY */
+  .philosophy{
+    background:
+      radial-gradient(700px 400px at 20% 20%, rgba(201,162,75,.07), transparent 60%),
+      var(--ink);
+    text-align:center;
+  }
+  .quote-mark{
+    font-family:var(--serif); font-size:90px; color:var(--brass); line-height:.4; margin-bottom:26px; display:block;
+  }
+  blockquote{
+    font-family:var(--serif); font-weight:600; font-size:clamp(26px,3.6vw,42px);
+    max-width:900px; margin:0 auto 26px; line-height:1.5;
+  }
+  .philosophy p.sub{color:var(--muted); max-width:640px; margin:0 auto; font-size:17px;}
+
+  /* WHY ME - split */
+  .why{background:var(--panel); border-top:1px solid var(--line); border-bottom:1px solid var(--line);}
+  .why-grid{display:grid; grid-template-columns:1fr 1fr; gap:70px; align-items:center;}
+  .why-text .eyebrow{margin-bottom:20px;}
+  .why-text h2{font-family:var(--serif); font-weight:600; font-size:clamp(28px,3.6vw,38px); line-height:1.4; margin-bottom:22px;}
+  .why-text p{color:#C4C9CD; font-size:16.5px; margin-bottom:16px;}
+  .manifesto{
+    font-family:var(--mono); direction:ltr; text-align:left; font-size:14px; letter-spacing:.05em;
+    color:var(--brass-soft); margin-top:28px; padding-top:22px; border-top:1px solid var(--line);
+  }
+  .converge{width:100%;}
+  .conv-label{
+    font-family:var(--mono); font-size:11px; fill:var(--muted); letter-spacing:.05em;
+  }
+
+  /* VISION band */
+  .vision{
+    background:var(--brass); color:var(--ink); padding:110px 0;
+  }
+  .vision .wrap{display:grid; grid-template-columns:.7fr 1.3fr; gap:50px; align-items:center;}
+  .vision .eyebrow{color:var(--ink); }
+  .vision .eyebrow::before{background:var(--ink);}
+  .vision h2{
+    font-family:var(--serif); font-weight:700; font-size:clamp(26px,3.2vw,34px); line-height:1.2;
+  }
+  .vision p{font-size:18px; line-height:1.85; font-weight:500;}
+
+  /* EXPERTISE tags */
+  .expertise .section-head{margin-bottom:44px;}
+  .tag-cloud{display:flex; flex-wrap:wrap; gap:14px;}
+  .tag{
+    border:1px solid var(--line); color:var(--text); padding:12px 22px; border-radius:2px;
+    font-size:14.5px; transition:all .25s ease; cursor:default;
+  }
+  .tag:hover{border-color:var(--brass); color:var(--brass-soft); transform:translateY(-2px);}
+
+  /* CONTACT / FOOTER */
+  footer{
+    background:var(--panel-2); border-top:1px solid var(--line); padding:120px 0 40px;
+    position:relative; overflow:hidden;
+  }
+  .footer-cta{text-align:center; max-width:760px; margin:0 auto 90px;}
+  .footer-cta .eyebrow{justify-content:center;}
+  .footer-cta h2{
+    font-family:var(--serif); font-weight:700; font-size:clamp(32px,5vw,54px); margin:22px 0 34px; line-height:1.2;
+  }
+  .footer-cta .btn{padding:18px 40px; font-size:16px;}
+  .footer-bottom{
+    display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:20px;
+    padding-top:40px; border-top:1px solid var(--line);
+    color:var(--muted); font-size:13.5px;
+  }
+  .footer-links{display:flex; gap:26px; direction:ltr;}
+  .footer-links a{color:var(--muted); text-decoration:none; font-family:var(--mono); font-size:13px; letter-spacing:.04em;}
+  .footer-links a:hover{color:var(--brass-soft);}
+
+  @media (max-width:940px){
+    .hero-grid{grid-template-columns:1fr;}
+    .signature{height:280px; order:-1;}
+    .service-grid{grid-template-columns:1fr;}
+    .why-grid{grid-template-columns:1fr; gap:40px;}
+    .vision .wrap{grid-template-columns:1fr;}
+    nav ul{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <div class="brandmark">فهد<span>.</span>إبراهيم</div>
+    <ul>
+      <li><a href="#services">الخدمات</a></li>
+      <li><a href="#philosophy">الفلسفة</a></li>
+      <li><a href="#why">ليه فهد</a></li>
+      <li><a href="#expertise">مجالات الخبرة</a></li>
+    </ul>
+    <a href="#contact" class="nav-cta">تواصل معايا</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div class="hero-text">
+      <span class="eyebrow">MARKETING STRATEGIST &amp; TRAINER</span>
+      <h1 class="name">فهد <em>إبراهيم</em></h1>
+      <div class="role-line">THINK STRATEGICALLY. EXECUTE CREATIVELY. MEASURE EVERYTHING.</div>
+      <p class="hero-lede">
+        متخصص في التسويق وتطوير الأعمال، بخبرة عملية في التسويق الرقمي، التسويق العقاري، بناء العلامات التجارية،
+        واستخدام الذكاء الاصطناعي لبناء أنظمة تسويقية قادرة على تحقيق نمو حقيقي ومستدام — للسوق المصري والخليجي.
+      </p>
+      <div class="hero-cta">
+        <a href="#services" class="btn btn-solid">شوف اللي بقدّمه</a>
+        <a href="#contact" class="btn btn-ghost">ابدأ مشروعك</a>
+      </div>
+    </div>
+
+    <div class="signature" aria-hidden="true">
+      <svg viewBox="0 0 480 420">
+        <line class="grid-line" x1="0" y1="80" x2="480" y2="80"/>
+        <line class="grid-line" x1="0" y1="180" x2="480" y2="180"/>
+        <line class="grid-line" x1="0" y1="280" x2="480" y2="280"/>
+        <line class="grid-line" x1="0" y1="380" x2="480" y2="380"/>
+        <path class="pulse-path" d="M0,300 C60,300 70,300 100,300 C130,300 140,220 170,220 C195,220 200,340 225,340 C250,340 255,60 280,60 C305,60 310,260 335,260 C365,260 375,150 410,150 C440,150 450,190 480,190"/>
+        <circle class="pulse-dot" cx="480" cy="190" r="5"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="scroll-cue"><i></i>SCROLL</div>
+</header>
+
+<section id="services" class="services">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow">WHAT I DELIVER</span>
+      <h2>ماذا أقدّم؟</h2>
+      <p>ست ركائز أبني عليها أي نظام تسويقي — من الاستراتيجية للتنفيذ للقياس.</p>
+    </div>
+  </div>
+  <div class="wrap">
+    <div class="service-grid reveal">
+      <div class="service-card">
+        <span class="service-num">01 / STRATEGY</span>
+        <h3>Marketing Strategy</h3>
+        <p>تصميم استراتيجيات تسويقية مبنية على تحليل السوق والمنافسين والجمهور المستهدف، مع تحديد القنوات والأهداف ومؤشرات الأداء المناسبة.</p>
+      </div>
+      <div class="service-card">
+        <span class="service-num">02 / DIGITAL</span>
+        <h3>Digital Marketing</h3>
+        <p>تطوير وإدارة الحملات الرقمية عبر السوشيال ميديا والإعلانات المدفوعة ومحركات البحث، بتركيز كامل على الأداء وأفضل عائد من الميزانية.</p>
+      </div>
+      <div class="service-card">
+        <span class="service-num">03 / REAL ESTATE</span>
+        <h3>Real Estate Marketing</h3>
+        <p>استراتيجيات متخصصة للتسويق العقاري تشمل البراند، توليد العملاء المحتملين، المحتوى، الإعلانات، وتحسين رحلة العميل حتى إتمام البيع.</p>
+      </div>
+      <div class="service-card">
+        <span class="service-num">04 / BRANDING</span>
+        <h3>Branding</h3>
+        <p>بناء العلامات التجارية عبر تحديد الـ Positioning والهوية والرسائل التسويقية ونبرة التواصل اللي تخلّي البراند أوضح وأكتر تميّزًا.</p>
+      </div>
+      <div class="service-card">
+        <span class="service-num">05 / AI</span>
+        <h3>AI in Marketing</h3>
+        <p>توظيف الذكاء الاصطناعي في صناعة المحتوى، تحليل السوق، تطوير الحملات، أتمتة العمليات التسويقية، وتحسين سرعة اتخاذ القرار.</p>
+      </div>
+      <div class="service-card">
+        <span class="service-num">06 / TRAINING</span>
+        <h3>Training &amp; Education</h3>
+        <p>برامج تدريبية ودبلومات وورش عمل عملية في التسويق الرقمي، التسويق العقاري، المبيعات، البراندينج، والذكاء الاصطناعي.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="philosophy" class="philosophy">
+  <div class="wrap">
+    <span class="quote-mark reveal">”</span>
+    <blockquote class="reveal">أنا لا أؤمن بالتسويق المبني على التخمين.</blockquote>
+    <p class="sub reveal">
+      التسويق الحقيقي يبدأ بفهم السوق، العميل، المنافس، والمنتج — ثم تحويل هذه المعرفة إلى استراتيجية واضحة،
+      وتنفيذ قابل للقياس، وتحسين مستمر. هدفي مش بس الوصول لمشاهدات أو Leads، لكن بناء
+      <strong style="color:var(--brass-soft); font-weight:600;">نظام تسويقي</strong> قادر على تحقيق نمو حقيقي ومستدام لأعمالك.
+    </p>
+  </div>
+</section>
+
+<section id="why" class="why">
+  <div class="wrap why-grid">
+    <div class="why-text reveal">
+      <span class="eyebrow">WHY FAHD</span>
+      <h2>الخبرة الحقيقية مش معرفة الأدوات بس — دي القدرة على الربط بينهم.</h2>
+      <p>الخبرة التسويقية الحقيقية تأتي من القدرة على الربط بين Strategy وMarketing وSales وTechnology وBusiness في نظام واحد متكامل.</p>
+      <p>وده النهج اللي بعتمد عليه في شغلي وتدريبي، مع أدوات الذكاء الاصطناعي والتقنيات الحديثة لبناء أنظمة أكتر كفاءة وفاعلية.</p>
+      <div class="manifesto">STRATEGY → MARKETING → SALES → TECHNOLOGY → BUSINESS</div>
+    </div>
+    <div class="reveal">
+      <svg class="converge" viewBox="0 0 460 360">
+        <g class="grid-line">
+          <line x1="0" y1="60" x2="460" y2="60"/>
+          <line x1="0" y1="150" x2="460" y2="150"/>
+          <line x1="0" y1="240" x2="460" y2="240"/>
+          <line x1="0" y1="330" x2="460" y2="330"/>
+        </g>
+        <line x1="30" y1="40" x2="380" y2="180" stroke="var(--brass-dim)" stroke-width="1.5"/>
+        <line x1="30" y1="120" x2="380" y2="180" stroke="var(--brass-dim)" stroke-width="1.5"/>
+        <line x1="30" y1="200" x2="380" y2="180" stroke="var(--brass-dim)" stroke-width="1.5"/>
+        <line x1="30" y1="280" x2="380" y2="180" stroke="var(--brass-dim)" stroke-width="1.5"/>
+        <line x1="30" y1="340" x2="380" y2="180" stroke="var(--brass-dim)" stroke-width="1.5"/>
+
+        <circle cx="30" cy="40" r="4" fill="var(--brass)"/>
+        <circle cx="30" cy="120" r="4" fill="var(--brass)"/>
+        <circle cx="30" cy="200" r="4" fill="var(--brass)"/>
+        <circle cx="30" cy="280" r="4" fill="var(--brass)"/>
+        <circle cx="30" cy="340" r="4" fill="var(--brass)"/>
+        <circle cx="380" cy="180" r="8" fill="var(--brass-soft)"/>
+
+        <text class="conv-label" x="45" y="44" fill="var(--muted)">Strategy</text>
+        <text class="conv-label" x="45" y="124" fill="var(--muted)">Marketing</text>
+        <text class="conv-label" x="45" y="204" fill="var(--muted)">Sales</text>
+        <text class="conv-label" x="45" y="284" fill="var(--muted)">Technology</text>
+        <text class="conv-label" x="45" y="344" fill="var(--muted)">Business</text>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<section class="vision">
+  <div class="wrap">
+    <div>
+      <span class="eyebrow">THE VISION</span>
+      <h2>الرؤية</h2>
+    </div>
+    <p>
+      أن أساهم في بناء جيل جديد من المسوقين ورواد الأعمال، القادرين على استخدام التكنولوجيا والذكاء الاصطناعي
+      لصناعة علامات تجارية وأعمال أكثر قوة وقدرة على المنافسة في السوق المصري والعربي.
+    </p>
+  </div>
+</section>
+
+<section id="expertise" class="expertise">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow">AREAS OF EXPERTISE</span>
+      <h2>مجالات الخبرة</h2>
+    </div>
+    <div class="tag-cloud reveal">
+      <span class="tag">Digital Marketing</span>
+      <span class="tag">Marketing Strategy</span>
+      <span class="tag">Real Estate Marketing</span>
+      <span class="tag">Performance Marketing</span>
+      <span class="tag">Social Media Marketing</span>
+      <span class="tag">Branding &amp; Brand Strategy</span>
+      <span class="tag">Sales &amp; Lead Generation</span>
+      <span class="tag">AI in Marketing</span>
+      <span class="tag">Business Development</span>
+      <span class="tag">Training &amp; Coaching</span>
+    </div>
+  </div>
+</section>
+
+<footer id="contact">
+  <div class="wrap">
+    <div class="footer-cta reveal">
+      <span class="eyebrow">LET'S BUILD</span>
+      <h2>جاهز تبني نظام تسويقي حقيقي لبراندك؟</h2>
+      <a href="mailto:info@example.com" class="btn btn-solid">راسلني دلوقتي</a>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 فهد إبراهيم — Marketing Strategist &amp; Trainer</span>
+      <div class="footer-links">
+        <a href="#">INSTAGRAM</a>
+        <a href="#">TIKTOK</a>
+        <a href="#">LINKEDIN</a>
+        <a href="mailto:info@example.com">EMAIL</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+  const items = document.querySelectorAll('.reveal');
+  const io = new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{
+      if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); }
+    });
+  }, {threshold:.15});
+  items.forEach(i=>io.observe(i));
+</script>
+
+</body>
+</html>
