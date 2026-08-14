@@ -183,6 +183,31 @@
   .reveal{opacity:0; transform:translateY(26px); transition:opacity .8s ease, transform .8s ease;}
   .reveal.in{opacity:1; transform:translateY(0);}
 
+  /* TRUSTED BY */
+  .trusted-by{
+    background:var(--panel); border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+    padding:70px 0;
+  }
+  .trusted-label{
+    text-align:center; font-family:var(--mono); font-size:12px; letter-spacing:.22em;
+    color:var(--muted); text-transform:uppercase; margin-bottom:40px;
+  }
+  .logo-strip{
+    display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:22px;
+  }
+  .logo-chip{
+    background:#F4F1EA; border-radius:6px; padding:18px 26px;
+    display:flex; align-items:center; justify-content:center;
+    width:180px; height:96px;
+    filter:grayscale(1) opacity(.75);
+    transition:filter .3s ease, transform .3s ease;
+  }
+  .logo-chip:hover{filter:grayscale(0) opacity(1); transform:translateY(-3px);}
+  .logo-chip img{max-width:100%; max-height:100%; object-fit:contain;}
+  @media (max-width:640px){
+    .logo-chip{width:140px; height:78px; padding:12px 18px;}
+  }
+
   /* SERVICES */
   .services{background:var(--panel); border-top:1px solid var(--line); border-bottom:1px solid var(--line);}
   .service-grid{
@@ -365,6 +390,21 @@
 
   <div class="scroll-cue"><i></i>SCROLL</div>
 </header>
+
+<section class="trusted-by">
+  <div class="wrap">
+    <div class="trusted-label" data-en="Brands &amp; Companies I've Worked With">علامات وشركات اشتغلت معاها</div>
+    <div class="logo-strip">
+      <div class="logo-chip"><img src="logos/arkan.png" alt="Arkan Law Firm"></div>
+      <div class="logo-chip"><img src="logos/namaa.png" alt="Namaa Real Estate"></div>
+      <div class="logo-chip"><img src="logos/elezz.jpg" alt="El Ezz Group Developments"></div>
+      <div class="logo-chip"><img src="logos/north-intl.jpg" alt="North International Business"></div>
+      <div class="logo-chip"><img src="logos/ndigital.jpg" alt="N Digital Academy"></div>
+      <div class="logo-chip"><img src="logos/alsheikh.jpg" alt="Ahmed Alsheikh"></div>
+      <div class="logo-chip"><img src="logos/novaprime.jpg" alt="NovaPrime Properties"></div>
+    </div>
+  </div>
+</section>
 
 <section id="services" class="services">
   <div class="wrap">
