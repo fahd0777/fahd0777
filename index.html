@@ -193,6 +193,35 @@
   }
   .service-card p{color:var(--muted); font-size:15px; line-height:1.75;}
 
+  /* TESTIMONIALS */
+  .testimonials{background:var(--ink);}
+  .t-grid{
+    display:grid; grid-template-columns:repeat(3,1fr); gap:24px;
+  }
+  .t-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:2px;
+    padding:32px 28px; display:flex; flex-direction:column; gap:18px;
+    transition:border-color .3s ease, transform .3s ease;
+  }
+  .t-card:hover{border-color:var(--brass-dim); transform:translateY(-3px);}
+  .t-quote-mark{
+    font-family:var(--serif); font-size:44px; color:var(--brass); line-height:.5;
+  }
+  .t-text{color:#C9CDD1; font-size:15px; line-height:1.85; flex:1;}
+  .t-foot{
+    display:flex; align-items:center; gap:12px; padding-top:14px; border-top:1px solid var(--line);
+  }
+  .t-avatar{
+    width:38px; height:38px; border-radius:50%; background:var(--brass-dim);
+    color:var(--brass-soft); display:flex; align-items:center; justify-content:center;
+    font-family:var(--serif); font-weight:700; font-size:15px; flex-shrink:0;
+  }
+  .t-name{font-size:14.5px; font-weight:600; color:var(--text);}
+  .t-role{font-size:12.5px; color:var(--muted); font-family:var(--mono); direction:ltr; text-align:left;}
+  @media (max-width:940px){
+    .t-grid{grid-template-columns:1fr;}
+  }
+
   /* PHILOSOPHY */
   .philosophy{
     background:
@@ -282,6 +311,7 @@
     <div class="brandmark">فهد<span>.</span>إبراهيم</div>
     <ul>
       <li><a href="#services">الخدمات</a></li>
+      <li><a href="#testimonials">آراء المتدربين</a></li>
       <li><a href="#philosophy">الفلسفة</a></li>
       <li><a href="#why">ليه فهد</a></li>
       <li><a href="#expertise">مجالات الخبرة</a></li>
@@ -361,6 +391,100 @@
         <h3>Training &amp; Education</h3>
         <p>برامج تدريبية ودبلومات وورش عمل عملية في التسويق الرقمي، التسويق العقاري، المبيعات، البراندينج، والذكاء الاصطناعي.</p>
       </div>
+    </div>
+  </div>
+</section>
+
+<section id="testimonials" class="testimonials">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow">WHAT TRAINEES SAY</span>
+      <h2>آراء المتدربين</h2>
+      <p>مش أنا اللي بقول — دول المتدربين اللي حضروا السيشنز والدبلومات وشافوا الفرق بنفسهم.</p>
+    </div>
+    <div class="t-grid reveal">
+
+      <div class="t-card">
+        <span class="t-quote-mark">”</span>
+        <p class="t-text">دكتور فهد محترم جدا وشرحه مبسط جدا وقدر يوصلنا المعلومة ببساطة طريقة، وبالنسبة لأول سيشن كان لذيذ.</p>
+        <div class="t-foot">
+          <div class="t-avatar">ر</div>
+          <div><div class="t-name">رحاب محمد</div><div class="t-role">TRAINEE</div></div>
+        </div>
+      </div>
+
+      <div class="t-card">
+        <span class="t-quote-mark">”</span>
+        <p class="t-text">دكتور فهد بصراحة ممتاز فيها وبيقدر يدخل دماغ كل طالب فينا، وده كان رأيي لأول سيشن.</p>
+        <div class="t-foot">
+          <div class="t-avatar">م</div>
+          <div><div class="t-name">Moaz Ahmed</div><div class="t-role">TRAINEE</div></div>
+        </div>
+      </div>
+
+      <div class="t-card">
+        <span class="t-quote-mark">”</span>
+        <p class="t-text">شخصية مثقفة عنده علم وخبرة في المجال، بالإضافة إلى بشاشة الوجه والقبول. متفائل إني أوصل لحاجة كويسة من خلال الكورس.</p>
+        <div class="t-foot">
+          <div class="t-avatar">ح</div>
+          <div><div class="t-name">Hamed Eldeeb</div><div class="t-role">TRAINEE</div></div>
+        </div>
+      </div>
+
+      <div class="t-card">
+        <span class="t-quote-mark">”</span>
+        <p class="t-text">قبول لا يوصف. شرح سلس مصحوب بالدليل. احترافية في الأداء العام. ونرجو من الله تحقيق أهدافنا من هذه الدبلومة.</p>
+        <div class="t-foot">
+          <div class="t-avatar">ف</div>
+          <div><div class="t-name">فاطمة صبري</div><div class="t-role">TRAINEE</div></div>
+        </div>
+      </div>
+
+      <div class="t-card">
+        <span class="t-quote-mark">”</span>
+        <p class="t-text">المحاضرة كانت حلوة جداً وبداية كويسة، والمستر كان حقيقي ممتاز وإن شاء الله نستمر على نفس النجاح ده.</p>
+        <div class="t-foot">
+          <div class="t-avatar">ف</div>
+          <div><div class="t-name">Fady Mounir</div><div class="t-role">TRAINEE</div></div>
+        </div>
+      </div>
+
+      <div class="t-card">
+        <span class="t-quote-mark">”</span>
+        <p class="t-text">دكتور فهد بسم الله ما شاء الله جدير بالثقة، وأسلوبه سهل ومبسط وفاهم كويس جداً — استفدت فعلاً من أول سيشن.</p>
+        <div class="t-foot">
+          <div class="t-avatar">ب</div>
+          <div><div class="t-name">MR. Bedro</div><div class="t-role">TRAINEE</div></div>
+        </div>
+      </div>
+
+      <div class="t-card">
+        <span class="t-quote-mark">”</span>
+        <p class="t-text">مستر فهد بجد حد شاطر جداً وبيوصل المعلومة بطريقة سلسة، ومش بيتأخر عن أي حد في أي معلومة — ربنا يباركله.</p>
+        <div class="t-foot">
+          <div class="t-avatar">ج</div>
+          <div><div class="t-name">Gehad</div><div class="t-role">TRAINEE</div></div>
+        </div>
+      </div>
+
+      <div class="t-card">
+        <span class="t-quote-mark">”</span>
+        <p class="t-text">ماشاء الله دكتور محترم أخلاق ومجتهد، وأهم حاجة إنه ذوق في الاستماع لآراء الآخرين حتى لو كانت آراء بسيطة.</p>
+        <div class="t-foot">
+          <div class="t-avatar">ر</div>
+          <div><div class="t-name">Rania Mohamed</div><div class="t-role">TRAINEE</div></div>
+        </div>
+      </div>
+
+      <div class="t-card">
+        <span class="t-quote-mark">”</span>
+        <p class="t-text">الدكتور فهد قمة في الأخلاق والرقي والتحضر، وتوصيل المعلومة بطريقة سلسة ورائعة. أكيد احنا في حاجة ليها.</p>
+        <div class="t-foot">
+          <div class="t-avatar">م</div>
+          <div><div class="t-name">محمد نتعي الحلواني</div><div class="t-role">AUTO NATIE</div></div>
+        </div>
+      </div>
+
     </div>
   </div>
 </section>
@@ -482,4 +606,3 @@
 
 </body>
 </html>
-<!-- rebuild trigger -->
