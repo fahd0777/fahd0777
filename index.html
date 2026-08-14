@@ -7,7 +7,7 @@
 <link rel="icon" type="image/png" href="logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=El+Messiri:wght@500;600;700&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=El+Messiri:wght@500;600;700&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@600;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
     --ink:#0A0E12;
@@ -22,6 +22,10 @@
     --serif:'El Messiri', serif;
     --sans:'IBM Plex Sans Arabic', sans-serif;
     --mono:'IBM Plex Mono', monospace;
+  }
+  html[lang="en"]{
+    --serif:'Playfair Display', serif;
+    --sans:'IBM Plex Sans', sans-serif;
   }
   *{margin:0;padding:0;box-sizing:border-box;}
   html{scroll-behavior:smooth;}
@@ -81,6 +85,12 @@
     padding:9px 18px; border-radius:2px; font-size:13.5px;
   }
   .nav-cta:hover{ background:var(--brass); color:var(--ink) !important; border-color:var(--brass);}
+  .lang-toggle{
+    font-family:var(--mono); font-size:12.5px; letter-spacing:.1em;
+    border:1px solid var(--line); background:transparent; color:var(--text);
+    padding:8px 14px; border-radius:2px; cursor:pointer; transition:all .25s ease;
+  }
+  .lang-toggle:hover{border-color:var(--brass); color:var(--brass-soft);}
   .navtoggle{display:none;}
 
   /* HERO */
@@ -310,15 +320,18 @@
 
 <nav>
   <div class="wrap">
-    <div class="brandmark"><img src="logo.png" alt="Fahd Ibrahim logo">فهد<span>.</span>إبراهيم</div>
+    <div class="brandmark"><img src="logo.png" alt="Fahd Ibrahim logo"><span data-en="Fahd">فهد</span><span>.</span><span data-en="Ibrahim">إبراهيم</span></div>
     <ul>
-      <li><a href="#services">الخدمات</a></li>
-      <li><a href="#testimonials">آراء المتدربين</a></li>
-      <li><a href="#philosophy">الفلسفة</a></li>
-      <li><a href="#why">ليه فهد</a></li>
-      <li><a href="#expertise">مجالات الخبرة</a></li>
+      <li><a href="#services" data-en="Services">الخدمات</a></li>
+      <li><a href="#testimonials" data-en="Testimonials">آراء المتدربين</a></li>
+      <li><a href="#philosophy" data-en="Philosophy">الفلسفة</a></li>
+      <li><a href="#why" data-en="Why Fahd">ليه فهد</a></li>
+      <li><a href="#expertise" data-en="Expertise">مجالات الخبرة</a></li>
     </ul>
-    <a href="https://wa.me/201013851353" class="nav-cta">تواصل معايا</a>
+    <div style="display:flex; align-items:center; gap:14px;">
+      <button id="langToggle" class="lang-toggle" type="button">EN</button>
+      <a href="https://wa.me/201013851353" class="nav-cta" data-en="Let's Talk">تواصل معايا</a>
+    </div>
   </div>
 </nav>
 
@@ -326,15 +339,15 @@
   <div class="wrap hero-grid">
     <div class="hero-text">
       <span class="eyebrow">MARKETING STRATEGIST &amp; TRAINER</span>
-      <h1 class="name">فهد <em>إبراهيم</em></h1>
+      <h1 class="name" data-en="Fahd <em>Ibrahim</em>">فهد <em>إبراهيم</em></h1>
       <div class="role-line">THINK STRATEGICALLY. EXECUTE CREATIVELY. MEASURE EVERYTHING.</div>
-      <p class="hero-lede">
+      <p class="hero-lede" data-en="A marketing and business growth specialist with hands-on experience in digital marketing, real estate marketing, brand building, and using AI to build marketing systems capable of real, sustainable growth — for the Egyptian and Gulf markets.">
         متخصص في التسويق وتطوير الأعمال، بخبرة عملية في التسويق الرقمي، التسويق العقاري، بناء العلامات التجارية،
         واستخدام الذكاء الاصطناعي لبناء أنظمة تسويقية قادرة على تحقيق نمو حقيقي ومستدام — للسوق المصري والخليجي.
       </p>
       <div class="hero-cta">
-        <a href="#services" class="btn btn-solid">شوف اللي بقدّمه</a>
-        <a href="#contact" class="btn btn-ghost">ابدأ مشروعك</a>
+        <a href="#services" class="btn btn-solid" data-en="See What I Deliver">شوف اللي بقدّمه</a>
+        <a href="#contact" class="btn btn-ghost" data-en="Start Your Project">ابدأ مشروعك</a>
       </div>
     </div>
 
@@ -357,8 +370,8 @@
   <div class="wrap">
     <div class="section-head reveal">
       <span class="eyebrow">WHAT I DELIVER</span>
-      <h2>ماذا أقدّم؟</h2>
-      <p>ست ركائز أبني عليها أي نظام تسويقي — من الاستراتيجية للتنفيذ للقياس.</p>
+      <h2 data-en="What I Deliver">ماذا أقدّم؟</h2>
+      <p data-en="Six pillars I build every marketing system on — from strategy, to execution, to measurement.">ست ركائز أبني عليها أي نظام تسويقي — من الاستراتيجية للتنفيذ للقياس.</p>
     </div>
   </div>
   <div class="wrap">
@@ -366,32 +379,32 @@
       <div class="service-card">
         <span class="service-num">01 / STRATEGY</span>
         <h3>Marketing Strategy</h3>
-        <p>تصميم استراتيجيات تسويقية مبنية على تحليل السوق والمنافسين والجمهور المستهدف، مع تحديد القنوات والأهداف ومؤشرات الأداء المناسبة.</p>
+        <p data-en="Designing marketing strategies built on market, competitor, and audience analysis, with the right channels, goals, and performance indicators.">تصميم استراتيجيات تسويقية مبنية على تحليل السوق والمنافسين والجمهور المستهدف، مع تحديد القنوات والأهداف ومؤشرات الأداء المناسبة.</p>
       </div>
       <div class="service-card">
         <span class="service-num">02 / DIGITAL</span>
         <h3>Digital Marketing</h3>
-        <p>تطوير وإدارة الحملات الرقمية عبر السوشيال ميديا والإعلانات المدفوعة ومحركات البحث، بتركيز كامل على الأداء وأفضل عائد من الميزانية.</p>
+        <p data-en="Developing and managing digital campaigns across social media, paid ads, and search engines, with full focus on performance and the best return on budget.">تطوير وإدارة الحملات الرقمية عبر السوشيال ميديا والإعلانات المدفوعة ومحركات البحث، بتركيز كامل على الأداء وأفضل عائد من الميزانية.</p>
       </div>
       <div class="service-card">
         <span class="service-num">03 / REAL ESTATE</span>
         <h3>Real Estate Marketing</h3>
-        <p>استراتيجيات متخصصة للتسويق العقاري تشمل البراند، توليد العملاء المحتملين، المحتوى، الإعلانات، وتحسين رحلة العميل حتى إتمام البيع.</p>
+        <p data-en="Specialized real estate marketing strategies covering brand, lead generation, content, ads, and optimizing the client journey through to closing the sale.">استراتيجيات متخصصة للتسويق العقاري تشمل البراند، توليد العملاء المحتملين، المحتوى، الإعلانات، وتحسين رحلة العميل حتى إتمام البيع.</p>
       </div>
       <div class="service-card">
         <span class="service-num">04 / BRANDING</span>
         <h3>Branding</h3>
-        <p>بناء العلامات التجارية عبر تحديد الـ Positioning والهوية والرسائل التسويقية ونبرة التواصل اللي تخلّي البراند أوضح وأكتر تميّزًا.</p>
+        <p data-en="Building brands by defining positioning, identity, marketing messages, and the tone of voice that makes a brand clearer and more distinctive.">بناء العلامات التجارية عبر تحديد الـ Positioning والهوية والرسائل التسويقية ونبرة التواصل اللي تخلّي البراند أوضح وأكتر تميّزًا.</p>
       </div>
       <div class="service-card">
         <span class="service-num">05 / AI</span>
         <h3>AI in Marketing</h3>
-        <p>توظيف الذكاء الاصطناعي في صناعة المحتوى، تحليل السوق، تطوير الحملات، أتمتة العمليات التسويقية، وتحسين سرعة اتخاذ القرار.</p>
+        <p data-en="Applying AI to content creation, market analysis, campaign development, marketing automation, and faster, sharper decision-making.">توظيف الذكاء الاصطناعي في صناعة المحتوى، تحليل السوق، تطوير الحملات، أتمتة العمليات التسويقية، وتحسين سرعة اتخاذ القرار.</p>
       </div>
       <div class="service-card">
         <span class="service-num">06 / TRAINING</span>
         <h3>Training &amp; Education</h3>
-        <p>برامج تدريبية ودبلومات وورش عمل عملية في التسويق الرقمي، التسويق العقاري، المبيعات، البراندينج، والذكاء الاصطناعي.</p>
+        <p data-en="Hands-on training programs, diplomas, and workshops in digital marketing, real estate marketing, sales, branding, and AI.">برامج تدريبية ودبلومات وورش عمل عملية في التسويق الرقمي، التسويق العقاري، المبيعات، البراندينج، والذكاء الاصطناعي.</p>
       </div>
     </div>
   </div>
@@ -401,14 +414,14 @@
   <div class="wrap">
     <div class="section-head reveal">
       <span class="eyebrow">WHAT TRAINEES SAY</span>
-      <h2>آراء المتدربين</h2>
-      <p>مش أنا اللي بقول — دول المتدربين اللي حضروا السيشنز والدبلومات وشافوا الفرق بنفسهم.</p>
+      <h2 data-en="What Trainees Say">آراء المتدربين</h2>
+      <p data-en="Not just my word for it — these are trainees who attended the sessions and diplomas and saw the difference for themselves.">مش أنا اللي بقول — دول المتدربين اللي حضروا السيشنز والدبلومات وشافوا الفرق بنفسهم.</p>
     </div>
     <div class="t-grid reveal">
 
       <div class="t-card">
         <span class="t-quote-mark">”</span>
-        <p class="t-text">دكتور فهد محترم جدا وشرحه مبسط جدا وقدر يوصلنا المعلومة ببساطة طريقة، وبالنسبة لأول سيشن كان لذيذ.</p>
+        <p class="t-text" data-en="Dr. Fahd is very respectful and his explanations are really simplified — he managed to get the information across to us so easily. As for the first session, it was great.">دكتور فهد محترم جدا وشرحه مبسط جدا وقدر يوصلنا المعلومة ببساطة طريقة، وبالنسبة لأول سيشن كان لذيذ.</p>
         <div class="t-foot">
           <div class="t-avatar">ر</div>
           <div><div class="t-name">رحاب محمد</div><div class="t-role">TRAINEE</div></div>
@@ -417,7 +430,7 @@
 
       <div class="t-card">
         <span class="t-quote-mark">”</span>
-        <p class="t-text">دكتور فهد بصراحة ممتاز فيها وبيقدر يدخل دماغ كل طالب فينا، وده كان رأيي لأول سيشن.</p>
+        <p class="t-text" data-en="Dr. Fahd is genuinely excellent at it, and he's able to get through to every trainee's mind. That was my take after the first session.">دكتور فهد بصراحة ممتاز فيها وبيقدر يدخل دماغ كل طالب فينا، وده كان رأيي لأول سيشن.</p>
         <div class="t-foot">
           <div class="t-avatar">م</div>
           <div><div class="t-name">Moaz Ahmed</div><div class="t-role">TRAINEE</div></div>
@@ -426,7 +439,7 @@
 
       <div class="t-card">
         <span class="t-quote-mark">”</span>
-        <p class="t-text">شخصية مثقفة عنده علم وخبرة في المجال، بالإضافة إلى بشاشة الوجه والقبول. متفائل إني أوصل لحاجة كويسة من خلال الكورس.</p>
+        <p class="t-text" data-en="A well-read personality with real knowledge and experience in the field, on top of an approachable, welcoming presence. Optimistic that I'll gain something valuable from this course.">شخصية مثقفة عنده علم وخبرة في المجال، بالإضافة إلى بشاشة الوجه والقبول. متفائل إني أوصل لحاجة كويسة من خلال الكورس.</p>
         <div class="t-foot">
           <div class="t-avatar">ح</div>
           <div><div class="t-name">Hamed Eldeeb</div><div class="t-role">TRAINEE</div></div>
@@ -435,7 +448,7 @@
 
       <div class="t-card">
         <span class="t-quote-mark">”</span>
-        <p class="t-text">قبول لا يوصف. شرح سلس مصحوب بالدليل. احترافية في الأداء العام. ونرجو من الله تحقيق أهدافنا من هذه الدبلومة.</p>
+        <p class="t-text" data-en="Indescribable reception. A warm face paired with genuine welcome. Explanation that's smooth and evidence-backed. Professionalism in every aspect of delivery. We hope this diploma achieves our goals.">قبول لا يوصف. شرح سلس مصحوب بالدليل. احترافية في الأداء العام. ونرجو من الله تحقيق أهدافنا من هذه الدبلومة.</p>
         <div class="t-foot">
           <div class="t-avatar">ف</div>
           <div><div class="t-name">فاطمة صبري</div><div class="t-role">TRAINEE</div></div>
@@ -444,7 +457,7 @@
 
       <div class="t-card">
         <span class="t-quote-mark">”</span>
-        <p class="t-text">المحاضرة كانت حلوة جداً وبداية كويسة، والمستر كان حقيقي ممتاز وإن شاء الله نستمر على نفس النجاح ده.</p>
+        <p class="t-text" data-en="The lecture was really great and a strong start, and the instructor was genuinely excellent — hoping we keep up this same success.">المحاضرة كانت حلوة جداً وبداية كويسة، والمستر كان حقيقي ممتاز وإن شاء الله نستمر على نفس النجاح ده.</p>
         <div class="t-foot">
           <div class="t-avatar">ف</div>
           <div><div class="t-name">Fady Mounir</div><div class="t-role">TRAINEE</div></div>
@@ -453,7 +466,7 @@
 
       <div class="t-card">
         <span class="t-quote-mark">”</span>
-        <p class="t-text">دكتور فهد بسم الله ما شاء الله جدير بالثقة، وأسلوبه سهل ومبسط وفاهم كويس جداً — استفدت فعلاً من أول سيشن.</p>
+        <p class="t-text" data-en="Dr. Fahd is genuinely trustworthy, and his approach is simple, clear, and easy to follow — I actually gained a lot from just the first session.">دكتور فهد بسم الله ما شاء الله جدير بالثقة، وأسلوبه سهل ومبسط وفاهم كويس جداً — استفدت فعلاً من أول سيشن.</p>
         <div class="t-foot">
           <div class="t-avatar">ب</div>
           <div><div class="t-name">MR. Bedro</div><div class="t-role">TRAINEE</div></div>
@@ -462,7 +475,7 @@
 
       <div class="t-card">
         <span class="t-quote-mark">”</span>
-        <p class="t-text">مستر فهد بجد حد شاطر جداً وبيوصل المعلومة بطريقة سلسة، ومش بيتأخر عن أي حد في أي معلومة — ربنا يباركله.</p>
+        <p class="t-text" data-en="Mr. Fahd is genuinely a very talented person and delivers information smoothly, and he never lags behind on any piece of information for anyone.">مستر فهد بجد حد شاطر جداً وبيوصل المعلومة بطريقة سلسة، ومش بيتأخر عن أي حد في أي معلومة — ربنا يباركله.</p>
         <div class="t-foot">
           <div class="t-avatar">ج</div>
           <div><div class="t-name">Gehad</div><div class="t-role">TRAINEE</div></div>
@@ -471,7 +484,7 @@
 
       <div class="t-card">
         <span class="t-quote-mark">”</span>
-        <p class="t-text">ماشاء الله دكتور محترم أخلاق ومجتهد، وأهم حاجة إنه ذوق في الاستماع لآراء الآخرين حتى لو كانت آراء بسيطة.</p>
+        <p class="t-text" data-en="A genuinely well-mannered and hard-working instructor, and most importantly, he's considerate enough to listen to others' opinions, even simple ones.">ماشاء الله دكتور محترم أخلاق ومجتهد، وأهم حاجة إنه ذوق في الاستماع لآراء الآخرين حتى لو كانت آراء بسيطة.</p>
         <div class="t-foot">
           <div class="t-avatar">ر</div>
           <div><div class="t-name">Rania Mohamed</div><div class="t-role">TRAINEE</div></div>
@@ -480,7 +493,7 @@
 
       <div class="t-card">
         <span class="t-quote-mark">”</span>
-        <p class="t-text">الدكتور فهد قمة في الأخلاق والرقي والتحضر، وتوصيل المعلومة بطريقة سلسة ورائعة. أكيد احنا في حاجة ليها.</p>
+        <p class="t-text" data-en="Dr. Fahd is the epitome of good character, refinement, and professionalism, delivering information in a smooth and wonderful way. We're definitely in need of this.">الدكتور فهد قمة في الأخلاق والرقي والتحضر، وتوصيل المعلومة بطريقة سلسة ورائعة. أكيد احنا في حاجة ليها.</p>
         <div class="t-foot">
           <div class="t-avatar">م</div>
           <div><div class="t-name">محمد نتعي الحلواني</div><div class="t-role">AUTO NATIE</div></div>
@@ -494,8 +507,8 @@
 <section id="philosophy" class="philosophy">
   <div class="wrap">
     <span class="quote-mark reveal">”</span>
-    <blockquote class="reveal">أنا لا أؤمن بالتسويق المبني على التخمين.</blockquote>
-    <p class="sub reveal">
+    <blockquote class="reveal" data-en="I don't believe in marketing built on guesswork.">أنا لا أؤمن بالتسويق المبني على التخمين.</blockquote>
+    <p class="sub reveal" data-en="Real marketing starts with understanding the market, the customer, the competitor, and the product — then turning that knowledge into a clear strategy, measurable execution, and continuous improvement. My goal isn't just more views or leads, but building a <strong style='color:var(--brass-soft); font-weight:600;'>marketing system</strong> capable of real, sustainable growth for your business.">
       التسويق الحقيقي يبدأ بفهم السوق، العميل، المنافس، والمنتج — ثم تحويل هذه المعرفة إلى استراتيجية واضحة،
       وتنفيذ قابل للقياس، وتحسين مستمر. هدفي مش بس الوصول لمشاهدات أو Leads، لكن بناء
       <strong style="color:var(--brass-soft); font-weight:600;">نظام تسويقي</strong> قادر على تحقيق نمو حقيقي ومستدام لأعمالك.
@@ -507,9 +520,9 @@
   <div class="wrap why-grid">
     <div class="why-text reveal">
       <span class="eyebrow">WHY FAHD</span>
-      <h2>الخبرة الحقيقية مش معرفة الأدوات بس — دي القدرة على الربط بينهم.</h2>
-      <p>الخبرة التسويقية الحقيقية تأتي من القدرة على الربط بين Strategy وMarketing وSales وTechnology وBusiness في نظام واحد متكامل.</p>
-      <p>وده النهج اللي بعتمد عليه في شغلي وتدريبي، مع أدوات الذكاء الاصطناعي والتقنيات الحديثة لبناء أنظمة أكتر كفاءة وفاعلية.</p>
+      <h2 data-en="Real expertise isn't just knowing the tools — it's the ability to connect them.">الخبرة الحقيقية مش معرفة الأدوات بس — دي القدرة على الربط بينهم.</h2>
+      <p data-en="Real marketing expertise comes from the ability to connect Strategy, Marketing, Sales, Technology, and Business into one integrated system.">الخبرة التسويقية الحقيقية تأتي من القدرة على الربط بين Strategy وMarketing وSales وTechnology وBusiness في نظام واحد متكامل.</p>
+      <p data-en="And that's the approach I rely on in my work and training, using AI tools and modern technology to build more efficient and effective systems.">وده النهج اللي بعتمد عليه في شغلي وتدريبي، مع أدوات الذكاء الاصطناعي والتقنيات الحديثة لبناء أنظمة أكتر كفاءة وفاعلية.</p>
       <div class="manifesto">STRATEGY → MARKETING → SALES → TECHNOLOGY → BUSINESS</div>
     </div>
     <div class="reveal">
@@ -547,9 +560,9 @@
   <div class="wrap">
     <div>
       <span class="eyebrow">THE VISION</span>
-      <h2>الرؤية</h2>
+      <h2 data-en="The Vision">الرؤية</h2>
     </div>
-    <p>
+    <p data-en="To help build a new generation of marketers and entrepreneurs, capable of using technology and AI to create brands and businesses that are stronger and more competitive in the Egyptian and Arab markets.">
       أن أساهم في بناء جيل جديد من المسوقين ورواد الأعمال، القادرين على استخدام التكنولوجيا والذكاء الاصطناعي
       لصناعة علامات تجارية وأعمال أكثر قوة وقدرة على المنافسة في السوق المصري والعربي.
     </p>
@@ -560,7 +573,7 @@
   <div class="wrap">
     <div class="section-head reveal">
       <span class="eyebrow">AREAS OF EXPERTISE</span>
-      <h2>مجالات الخبرة</h2>
+      <h2 data-en="Areas of Expertise">مجالات الخبرة</h2>
     </div>
     <div class="tag-cloud reveal">
       <span class="tag">Digital Marketing</span>
@@ -581,11 +594,11 @@
   <div class="wrap">
     <div class="footer-cta reveal">
       <span class="eyebrow">LET'S BUILD</span>
-      <h2>جاهز تبني نظام تسويقي حقيقي لبراندك؟</h2>
-      <a href="https://wa.me/201013851353" class="btn btn-solid">راسلني على واتساب</a>
+      <h2 data-en="Ready to build a real marketing system for your brand?">جاهز تبني نظام تسويقي حقيقي لبراندك؟</h2>
+      <a href="https://wa.me/201013851353" class="btn btn-solid" data-en="Message Me on WhatsApp">راسلني على واتساب</a>
     </div>
     <div class="footer-bottom">
-      <span>© 2026 فهد إبراهيم — Marketing Strategist &amp; Trainer</span>
+      <span data-en="© 2026 Fahd Ibrahim — Marketing Strategist &amp; Trainer">© 2026 فهد إبراهيم — Marketing Strategist &amp; Trainer</span>
       <div class="footer-links">
         <a href="https://www.instagram.com/fahd.ibrahiim">INSTAGRAM</a>
         <a href="https://www.tiktok.com/@fahd.ibrahiim">TIKTOK</a>
@@ -604,6 +617,32 @@
     });
   }, {threshold:.15});
   items.forEach(i=>io.observe(i));
+
+  // Language toggle (AR <-> EN)
+  const i18nEls = document.querySelectorAll('[data-en]');
+  const arCache = new Map();
+  i18nEls.forEach(el => arCache.set(el, el.innerHTML));
+
+  const langBtn = document.getElementById('langToggle');
+  const html = document.documentElement;
+
+  function applyLang(lang){
+    html.lang = lang;
+    html.dir = lang === 'en' ? 'ltr' : 'rtl';
+    i18nEls.forEach(el=>{
+      el.innerHTML = lang === 'en' ? el.dataset.en : arCache.get(el);
+    });
+    langBtn.textContent = lang === 'en' ? 'AR' : 'EN';
+    try{ localStorage.setItem('site-lang', lang); }catch(e){}
+  }
+
+  let savedLang = 'ar';
+  try{ savedLang = localStorage.getItem('site-lang') || 'ar'; }catch(e){}
+  applyLang(savedLang);
+
+  langBtn.addEventListener('click', ()=>{
+    applyLang(html.lang === 'en' ? 'ar' : 'en');
+  });
 </script>
 
 </body>
