@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://fahd0777.github.io/fahd0777/sitemap.xml
