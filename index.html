@@ -248,6 +248,26 @@
     .logo-chip{width:140px; height:78px; padding:12px 18px;}
   }
 
+  /* STATS */
+  .stats{
+    background:var(--ink); padding:90px 0;
+    text-align:center;
+  }
+  .stats-grid{
+    display:flex; justify-content:center; gap:80px; flex-wrap:wrap;
+  }
+  .stat-item{max-width:280px;}
+  .stat-number{
+    font-family:var(--serif); font-weight:700; color:var(--brass);
+    font-size:clamp(52px,7vw,80px); line-height:1; margin-bottom:14px;
+  }
+  .stat-label{
+    color:#C4C9CD; font-size:15.5px; line-height:1.6;
+  }
+  @media (max-width:640px){
+    .stats-grid{gap:44px;}
+  }
+
   /* SERVICES */
   .services{background:var(--panel); border-top:1px solid var(--line); border-bottom:1px solid var(--line);}
   .service-grid{
@@ -444,6 +464,17 @@
       <div class="logo-chip"><img src="logos/novaprime.jpg" alt="NovaPrime Properties"></div>
       <div class="logo-chip"><img src="logos/cib.jpg" alt="CIB - Commercial International Bank"></div>
       <div class="logo-chip"><img src="logos/emaar.jpg" alt="Emaar Misr"></div>
+    </div>
+  </div>
+</section>
+
+<section class="stats">
+  <div class="wrap">
+    <div class="stats-grid reveal">
+      <div class="stat-item">
+        <div class="stat-number">+500</div>
+        <div class="stat-label" data-en="Training sessions delivered in digital marketing">دورة تدريبية قدّمتها في مجال التسويق الإلكتروني</div>
+      </div>
     </div>
   </div>
 </section>
