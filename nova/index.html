@@ -1,0 +1,3019 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NOVA</title>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.3.1",
+    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+    "recharts": "https://esm.sh/recharts@2.12.7?external=react,react-dom",
+    "lucide-react": "https://esm.sh/lucide-react@0.383.0?external=react",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2"
+  }
+}
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.24.7/babel.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  html, body, #root { min-height: 100%; margin: 0; background: #050b13; }
+  * { box-sizing: border-box; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-type="module" data-presets="react">
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { createRoot } from "react-dom/client";
+import { createClient } from "@supabase/supabase-js";
+import {
+  Zap, Clock3, CheckCircle2, Circle, Trash2, Plus, AlertTriangle, Radio,
+  Loader2, Folder, Calendar, BookOpen, ChevronDown, ChevronRight, ChevronLeft, ChevronUp,
+  X, Sparkles, Bell, Wallet, Sun, Flame, Users, User, LayoutDashboard, Search, Repeat, ListChecks, Target, Dumbbell, RefreshCw, Download, Upload, ArrowLeftRight, Briefcase,
+  Mail, Lock, LogOut,
+} from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+
+/* ---------------- Supabase-backed storage (replaces the Claude-artifact window.storage) ---------------- */
+const supabase = createClient(
+  "https://kwcvhkpcprvnhmbqbqof.supabase.co",
+  "sb_publishable_gNQosyu4VlClelMORr7JLA_Zi0opb-J"
+);
+
+window.storage = {
+  async get(key, shared) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("مفيش تسجيل دخول");
+    const { data, error } = await supabase
+      .from("nova_state")
+      .select("value")
+      .eq("user_id", user.id)
+      .eq("key", key)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    return { key, value: JSON.stringify(data.value), shared: !!shared };
+  },
+  async set(key, value, shared) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("مفيش تسجيل دخول");
+    const parsed = JSON.parse(value);
+    const { error } = await supabase
+      .from("nova_state")
+      .upsert({ user_id: user.id, key, value: parsed }, { onConflict: "user_id,key" });
+    if (error) throw error;
+    return { key, value, shared: !!shared };
+  },
+};
+
+const PRIORITIES = {
+  urgent: { label: "عاجل", color: "#fb7185", order: 0 },
+  important: { label: "مهم", color: "#22d3ee", order: 1 },
+  later: { label: "لاحقًا", color: "#a3a3a3", order: 2 },
+};
+
+const PROJECT_COLORS = ["#22d3ee", "#fbbf24", "#a78bfa", "#34d399", "#fb7185", "#60a5fa"];
+
+const KEYS = {
+  projects: "jarvis:projects:v2",
+  appointments: "jarvis:appointments:v2",
+  courses: "jarvis:courses:v3",
+  accounts: "jarvis:accounts:v1",
+  daily: "jarvis:daily:v1",
+  commitments: "jarvis:commitments:v2",
+  goals: "jarvis:goals:v1",
+  topThree: "jarvis:topthree:v1",
+  workout: "jarvis:workout:v1",
+  novaTasks: "jarvis:nova-tasks:v1",
+};
+
+const NOVA_UNITS = [
+  { key: "prime", name: "NOVA PRIME" },
+  { key: "marketing", name: "NOVA FOR MARKETING" },
+];
+
+const QUOTES = [
+  "يوم النهاردة أساس بكرة — ابدأ بخطوة مش بحلم.",
+  "اللي بيشتغل وهو تعبان بيوصل قبل اللي بيستنى المزاج.",
+  "الاستمرارية بتكسب الموهبة في أي معركة.",
+  "خطوة صغيرة النهاردة أحسن من خطة كبيرة تفضل في دماغك.",
+  "النجاح مش لحظة، هو تراكم أيام زي النهاردة.",
+  "لو حسيت إنك تعبان، فاكر إنك بتبني حاجة محدش هيقدر ياخدها منك.",
+  "الفرصة مش بتيجي، إنت اللي بتصنعها بشغلك.",
+  "اليوم اللي بتضغط فيه على نفسك هو اليوم اللي بيفرقك عن الباقي.",
+  "ركز على اللي في إيدك، مش اللي مش في إيدك.",
+  "الانضباط بيبني الثقة، والثقة بتبني النتائج.",
+  "كل مهمة تخلصها النهاردة هي طوبة في براندك.",
+  "المنافس الحقيقي هو أنت بالأمس، اهزمه النهاردة.",
+  "الشغل المتقن مش محتاج دعاية، هو دعاية نفسه.",
+  "الطموح من غير تنفيذ مجرد حلم يقظة.",
+  "خد نفس، ركز، وابدأ — الباقي هيتظبط في الطريق.",
+  "أنت مش بس بتشتغل، أنت بتبني اسم هيفضل بعد ما تمشي.",
+  "التفاصيل الصغيرة هي اللي بتفرق بين الشغل العادي والشغل اللي يتفتكر.",
+  "استمر لما محدش شايفك، عشان تلمع لما الكل يشوفك.",
+  "اليوم فرصة تاخد فيها خطوة محدش توقعها منك.",
+  "الإنجاز مش بيحصل بالراحة، بيحصل بالإصرار.",
+  "لو النهاردة صعب، يبقى إنت بتكبر فعلاً.",
+  "خليك مختلف مش عشان الشكل، عشان النتيجة.",
+  "الثقة اللي بتشوفها في الناجحين هي نتيجة أيام زي دي.",
+  "شغلك النهاردة هو سمعتك بكرة.",
+  "ابدأ بلي قدامك، الباقي هيبان في الطريق.",
+];
+
+const WORKOUT_SLOTS = [
+  { key: "push", label: "صدر / كتف / تراي" },
+  { key: "legsSquat", label: "أرجل — سكوات" },
+  { key: "legsLunge", label: "أرجل — لانج" },
+  { key: "back", label: "ظهر / أسفل الظهر" },
+  { key: "core", label: "كور / بطن" },
+  { key: "fullbody", label: "فل بودي / كارديو ختامي" },
+];
+
+const EXERCISE_POOL = {
+  push: [
+    {
+      name: "ضغط عادي (Push-up)",
+      prescription: "3 مجموعات × 12-15 عدة",
+      steps: [
+        "ابدأ في وضع بلانك: إيديك تحت الكتفين بالظبط، وجسمك خط مستقيم من الراس للكعبين.",
+        "انزل ببطء لحد ما صدرك يقرب من الأرض، وكوعينك مايلين على الجسم بزاوية 45 درجة (مش مفرودين بره خالص).",
+        "اسحب نفسك تنفس وانت نازل، وازفر وانت طالع.",
+        "لو صعبة عليك بالطريقة العادية، اعملها من على ركبتيك لحد ما تقوى.",
+        "الغلطة الشائعة: تنزيل الحوض أو رفعه لفوق — خلي الجسم خط واحد طول الوقت.",
+      ],
+    },
+    {
+      name: "ضغط الماس (Diamond Push-up)",
+      prescription: "3 مجموعات × 8-12 عدة",
+      steps: [
+        "نفس وضع الضغط العادي، بس الإيدين تحت الصدر مباشرة وأصابع الإبهام والسبابة بتكوّن شكل ماسة/مثلث.",
+        "انزل ببطء والكوعين قريبين من الجسم — التمرين ده بيركز على العضلة الخلفية للدراع (تراي) بشكل أكبر.",
+        "حافظ على الجسم مستقيم من غير ما الحوض ينزل.",
+        "لو صعبة، ابدأ من على الركب.",
+      ],
+    },
+    {
+      name: "ضغط بايك (Pike Push-up)",
+      prescription: "3 مجموعات × 8-10 عدة",
+      steps: [
+        "اعمل شكل حرف A مقلوب: إيديك ورجليك على الأرض والحوض لفوق، زي وضع الكلب الناظر لتحت في اليوجا.",
+        "انزل رأسك ببطء لحد ما يقرب من الأرض بين إيديك، مع خلي الحوض لفوق.",
+        "ادفع نفسك لفوق تاني — التمرين ده بيشتغل على الكتف بشكل مباشر أكتر من الضغط العادي.",
+        "خلي المسافة بين إيديك ورجليك مريحة، مش قريبة أوي عشان توازنك يفضل ثابت.",
+      ],
+    },
+  ],
+  legsSquat: [
+    {
+      name: "سكوات عادي (Bodyweight Squat)",
+      prescription: "3 مجموعات × 15-20 عدة",
+      steps: [
+        "قف ورجليك بعرض الكتفين، صدرك لفوق ونظرك للأمام.",
+        "انزل زي ما هتقعد على كرسي وهمي — الوزن على الكعبين مش على صوابع الرجل.",
+        "انزل لحد ما فخدك يبقى موازي للأرض (أو أقرب ما يكون)، وركبتيك متماشية مع اتجاه صوابعك مش بتتقفل جوه.",
+        "ادفع من الكعبين وارجع لفوق.",
+        "الغلطة الشائعة: الركب بتتقفل لجوه أو الضهر بيتحني قدام.",
+      ],
+    },
+    {
+      name: "سكوات القفز (Jump Squat)",
+      prescription: "3 مجموعات × 10-12 عدة",
+      steps: [
+        "ابدأ بنفس وضع السكوات العادي.",
+        "انزل لحد نص المسافة، وبعدين اقفز لفوق بأقصى قوة ممكنة مع مد الإيدين لفوق.",
+        "اهبط بلطف على صوابع رجلك الأول وبعدين الكعب، وانزل على طول لسكوات تاني — ده بيدي شحنة كارديو زيادة فوق بناء العضل.",
+        "حافظ على الركب مرنة وقت الهبوط عشان متضغطش عليها.",
+      ],
+    },
+    {
+      name: "سكوات سومو (Sumo Squat)",
+      prescription: "3 مجموعات × 15 عدة",
+      steps: [
+        "وقفة أوسع من عرض الكتفين، وصوابع رجلك متجهة لبره بزاوية بسيطة.",
+        "انزل لتحت مباشرة (مش لورا) لحد ما فخدك يوازي الأرض.",
+        "التمرين ده بيركز على الجزء الداخلي من الفخد والجلوتس بشكل أكبر من السكوات العادي.",
+        "خلي الضهر مفرود طول الوقت والنظر للأمام.",
+      ],
+    },
+  ],
+  legsLunge: [
+    {
+      name: "لانج أمامي (Forward Lunge)",
+      prescription: "3 مجموعات × 10 عدة لكل رجل",
+      steps: [
+        "قف باستقامة، وخطوة كبيرة للأمام برجل واحدة.",
+        "انزل لحد ما الركبة الخلفية تقرب من الأرض من غير ما تلمسها، والركبة الأمامية فوق الكعب مباشرة (مش قدام صوابعك).",
+        "ادفع من الرجل الأمامية وارجع للوضع الأصلي، وبدّل الرجل.",
+        "خلي الجذع مستقيم طول الوقت من غير ما تميل للأمام.",
+      ],
+    },
+    {
+      name: "لانج خلفي (Reverse Lunge)",
+      prescription: "3 مجموعات × 10 عدة لكل رجل",
+      steps: [
+        "من وضع الوقوف، اخطو برجل واحدة للخلف بدل الأمام.",
+        "انزل لحد ما الركبة الخلفية تقرب من الأرض، والركبة الأمامية بزاوية 90 درجة تقريبًا.",
+        "التمرين ده أسهل على الركبة الأمامية من اللانج الأمامي، ومناسب لو حاسس بضغط على الركبة.",
+        "ارجع للوقوف وبدّل الرجل.",
+      ],
+    },
+    {
+      name: "لانج جانبي (Side Lunge)",
+      prescription: "3 مجموعات × 10 عدة لكل جنب",
+      steps: [
+        "وقفة عريضة، وانزل بجسمك ناحية رجل واحدة مع ثني ركبتها والرجل التانية فاضية.",
+        "خلي وزنك على الرجل المثنية، والرجل التانية مفرودة تمامًا.",
+        "ادفع من الرجل المثنية وارجع للنص، وبدّل الجنب.",
+        "بيشتغل بشكل قوي على العضلة الداخلية والخارجية للفخد.",
+      ],
+    },
+  ],
+  back: [
+    {
+      name: "سوبرمان (Superman)",
+      prescription: "3 مجموعات × 12-15 عدة",
+      steps: [
+        "استلقِ على بطنك وإيديك مفرودة قدامك على الأرض.",
+        "ارفع إيديك ورجليك وصدرك سوا في نفس اللحظة لأعلى ارتفاع ممكن.",
+        "امسك اللقطة ثانية أو اتنين فوق، وانزل ببطء.",
+        "التمرين ده بيقوي أسفل الظهر وهو من أهم التمارين اللي بيتجاهلها الناس في المنزل.",
+      ],
+    },
+    {
+      name: "بلانك عكسي (Reverse Plank)",
+      prescription: "3 مجموعات × 20-30 ثانية",
+      steps: [
+        "اقعد ورجليك مفرودة قدامك، وإيديك ورا ضهرك وكفوفك على الأرض.",
+        "ارفع الحوض لفوق لحد ما جسمك يبقى خط مستقيم من الكتف للكعب.",
+        "خلي صدرك مفتوح وكتفيك بعيدة عن ودانك.",
+        "التمرين ده بيشتغل على أسفل الظهر والكتف الخلفي وخلفية الفخد.",
+      ],
+    },
+    {
+      name: "بيرد دوج (Bird-Dog)",
+      prescription: "3 مجموعات × 10 عدة لكل جنب",
+      steps: [
+        "ابدأ على أربع (إيديك وركبك على الأرض).",
+        "مد إيد واحدة قدامك ورجل العكس ورا في نفس الوقت، وحافظ على الظهر مستقيم وميتلوش.",
+        "امسك ثانيتين، وارجع، وبدّل الجنب التاني.",
+        "التمرين ده بيقوي عضلات الكور العميقة وثبات الظهر — بسيط بس فعال جدًا.",
+      ],
+    },
+  ],
+  core: [
+    {
+      name: "بلانك (Plank)",
+      prescription: "3 مجموعات × 30-45 ثانية",
+      steps: [
+        "استلقِ على بطنك، وارفع جسمك على الساعدين وصوابع رجلك.",
+        "خلي الكوع تحت الكتف مباشرة، والجسم خط مستقيم من الراس للكعب.",
+        "شد البطن والجلوتس، وماتخليش الحوض ينزل أو يرتفع.",
+        "نفَّس بشكل طبيعي طول اللقطة، ماتحبسش نفسك.",
+      ],
+    },
+    {
+      name: "بلانك جانبي (Side Plank)",
+      prescription: "3 مجموعات × 20-30 ثانية لكل جنب",
+      steps: [
+        "استلقِ على جنبك، وارفع جسمك على ساعد واحد ورجليك فوق بعض.",
+        "خلي الحوض مرفوع والجسم خط مستقيم من الراس للكعب.",
+        "لو صعبة، اثني الركبة اللي تحت للأرض عشان دعم إضافي.",
+        "بيشتغل بقوة على العضلات الجانبية للبطن (المائلة).",
+      ],
+    },
+    {
+      name: "متسلق الجبل (Mountain Climbers)",
+      prescription: "3 مجموعات × 30 ثانية",
+      steps: [
+        "ابدأ في وضع الضغط العادي (بلانك على الإيدين).",
+        "اسحب ركبة واحدة تجاه صدرك بسرعة، وبعدين ارجعها وبدّل بالرجل التانية بشكل متتالي زي الجري في مكانك.",
+        "خلي الحوض ثابت وماتخليهوش يرتفع لفوق.",
+        "التمرين ده بيجمع بين الكور والكارديو في نفس الوقت.",
+      ],
+    },
+    {
+      name: "رفع الرجلين (Leg Raises)",
+      prescription: "3 مجموعات × 12-15 عدة",
+      steps: [
+        "استلقِ على ضهرك، ورجليك مفرودة وإيديك جنب جسمك أو تحت الحوض للدعم.",
+        "ارفع رجليك سوا لفوق لحد زاوية 90 درجة من غير ما تثني ركبتك.",
+        "انزل ببطء شديد لحد قريب من الأرض من غير ما تلمسها، وكرر.",
+        "لو حسيت بضغط على أسفل الظهر، قلل مدى الحركة أو اثني الركب شوية.",
+      ],
+    },
+  ],
+  fullbody: [
+    {
+      name: "بيربي (Burpee)",
+      prescription: "3 مجموعات × 8-10 عدة",
+      steps: [
+        "ابدأ واقف، وانزل لسكوات وحط إيديك على الأرض.",
+        "ارمي رجليك لورا لوضع البلانك، واعمل ضغطة واحدة (اختياري لو تقدر).",
+        "ارجع برجليك تاني لوضع السكوات، واقفز لفوق بأقصى قوة مع مد الإيدين.",
+        "ده أشمل تمرين بيشغل الجسم كله ويرفع نبض القلب بسرعة — ممكن تبطّئه لو لسه بتبدأ.",
+      ],
+    },
+    {
+      name: "ركبتين عاليين (High Knees)",
+      prescription: "3 مجموعات × 30-40 ثانية",
+      steps: [
+        "اجري في مكانك ورفع ركبتك لحد مستوى الحوض بالتبادل بأسرع ما تقدر.",
+        "حرّك إيديك زي الجري العادي عشان توازن أكتر وشغل أكبر.",
+        "خلي الجذع منتصب طول الوقت وماتميلش لقدام.",
+        "تمرين كارديو ممتاز يقفل تمرين الجسم كامل بشحنة نشاط.",
+      ],
+    },
+    {
+      name: "جامبينج جاكس (Jumping Jacks)",
+      prescription: "3 مجموعات × 40 ثانية",
+      steps: [
+        "قف ورجليك مضمومة وإيديك جنبك.",
+        "اقفز وافتح رجليك بره مع رفع إيديك فوق راسك في نفس اللحظة.",
+        "اقفز تاني وارجع للوضع الأصلي.",
+        "حافظ على إيقاع ثابت وهبوط ناعم على الركب.",
+      ],
+    },
+  ],
+};
+
+const WALLETS = [
+  { key: "cash", label: "كاش في الإيد", color: "#34d399" },
+  { key: "vodafone", label: "فودافون كاش", color: "#fb7185" },
+  { key: "bank", label: "حساب بنكي", color: "#60a5fa" },
+];
+const DEFAULT_WALLET = "cash";
+const walletLabel = (key) => (WALLETS.find((w) => w.key === key) || WALLETS[0]).label;
+const walletColor = (key) => (WALLETS.find((w) => w.key === key) || WALLETS[0]).color;
+
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const clip = "polygon(0 6px, 6px 0, 100% 0, 100% 100%, 0 100%)";
+const clipBig = "polygon(0 10px, 10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%)";
+
+const pad2 = (n) => String(n).padStart(2, "0");
+const toISO = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const parseISO = (dateStr) => {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d);
+};
+const todayISO = () => toISO(new Date());
+
+function addDaysToISO(dateStr, n) {
+  const d = parseISO(dateStr);
+  d.setDate(d.getDate() + n);
+  return toISO(d);
+}
+
+function addMonthToISO(dateStr) {
+  const d = parseISO(dateStr);
+  d.setMonth(d.getMonth() + 1);
+  return toISO(d);
+}
+
+function dayOfYear(d) {
+  const start = new Date(d.getFullYear(), 0, 0);
+  return Math.floor((d - start) / 86400000);
+}
+
+function eightHourBlockIndex(d) {
+  const blocksPerDay = 3; // 00:00, 08:00, 16:00
+  return dayOfYear(d) * blocksPerDay + Math.floor(d.getHours() / 8);
+}
+
+function toMinutes(hhmm) {
+  if (!hhmm) return null;
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function findConflicts(appointments, date, time, duration, excludeId) {
+  const start = toMinutes(time);
+  if (start == null || !date) return [];
+  const end = start + (Number(duration) || 60);
+  return appointments.filter((a) => {
+    if (a.id === excludeId || a.date !== date) return false;
+    const aStart = toMinutes(a.time);
+    const aEnd = aStart + (Number(a.duration) || 60);
+    return start < aEnd && aStart < end;
+  });
+}
+
+function computeGrandTotal(accounts) {
+  return accounts.reduce((sum, c) => sum + c.entries.reduce((s, e) => s + (e.type === "income" ? Number(e.amount) : -Number(e.amount)), 0), 0);
+}
+
+function monthlyTotals(accounts) {
+  const map = {};
+  accounts.forEach((cat) =>
+    cat.entries.forEach((e) => {
+      const month = e.date.slice(0, 7);
+      const val = e.type === "income" ? Number(e.amount) : -Number(e.amount);
+      map[month] = (map[month] || 0) + val;
+    })
+  );
+  return Object.entries(map)
+    .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+    .slice(-6)
+    .map(([month, total]) => ({ month, total }));
+}
+
+function Panel({ children, className = "", glow = false, big = true }) {
+  return (
+    <div
+      className={`relative border ${className}`}
+      style={{
+        background: "linear-gradient(180deg, rgba(10,20,32,0.9), rgba(6,13,22,0.9))",
+        borderColor: glow ? "rgba(34,211,238,0.45)" : "rgba(34,211,238,0.18)",
+        clipPath: big ? clipBig : clip,
+        boxShadow: glow ? "0 0 24px rgba(34,211,238,0.12)" : "inset 0 0 30px rgba(34,211,238,0.02)",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function CornerTicks() {
+  return (
+    <>
+      <span className="absolute top-0 right-0 w-3 h-3 border-t border-r pointer-events-none" style={{ borderColor: "#22d3ee" }} />
+      <span className="absolute top-0 left-0 w-3 h-3 border-t border-l pointer-events-none" style={{ borderColor: "rgba(34,211,238,0.4)" }} />
+      <span className="absolute bottom-0 left-0 w-3 h-3 border-b border-l pointer-events-none" style={{ borderColor: "#22d3ee" }} />
+      <span className="absolute bottom-0 right-0 w-3 h-3 border-b border-r pointer-events-none" style={{ borderColor: "rgba(34,211,238,0.4)" }} />
+    </>
+  );
+}
+
+function TabButton({ active, onClick, icon: Icon, label }) {
+  return (
+    <button
+      onClick={onClick}
+      className="relative flex items-center gap-2 px-4 py-2 text-sm transition-colors border"
+      style={{
+        clipPath: clip,
+        borderColor: active ? "rgba(34,211,238,0.5)" : "rgba(148,163,184,0.18)",
+        color: active ? "#a5f3fc" : "#94a3b8",
+        background: active ? "rgba(34,211,238,0.08)" : "transparent",
+      }}
+    >
+      <Icon size={15} /> {label}
+      {active && (
+        <span
+          className="absolute left-2 right-2 -bottom-[1px] h-[2px]"
+          style={{ background: "#22d3ee", boxShadow: "0 0 6px #22d3ee" }}
+        />
+      )}
+    </button>
+  );
+}
+
+/* ---------------- Appointment mini-form ---------------- */
+function AppointmentForm({ appointments, initialTitle = "", initialDate = "", initialTime = "", onAdd, onCancel, compact = false }) {
+  const [title, setTitle] = useState(initialTitle);
+  const [date, setDate] = useState(initialDate);
+  const [time, setTime] = useState(initialTime);
+  const [duration, setDuration] = useState(60);
+  const [confirming, setConfirming] = useState(false);
+
+  const conflicts = useMemo(() => findConflicts(appointments, date, time, duration, null), [appointments, date, time, duration]);
+
+  const submit = () => {
+    if (!title.trim() || !date || !time) return;
+    if (conflicts.length > 0 && !confirming) {
+      setConfirming(true);
+      return;
+    }
+    onAdd({ id: uid(), title: title.trim(), date, time, duration: Number(duration) || 60 });
+    setConfirming(false);
+    if (compact && onCancel) onCancel();
+  };
+
+  const inputCls = "bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none px-2.5 py-1.5 text-sm text-slate-100 placeholder:text-slate-500";
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap gap-2 items-stretch">
+        {!compact && (
+          <input value={title} onChange={(e) => { setTitle(e.target.value); setConfirming(false); }} placeholder="عنوان الميعاد" className={`${inputCls} flex-1 min-w-[140px]`} style={{ clipPath: clip }} />
+        )}
+        <input type="date" value={date} onChange={(e) => { setDate(e.target.value); setConfirming(false); }} className={inputCls} style={{ clipPath: clip }} />
+        <input type="time" value={time} onChange={(e) => { setTime(e.target.value); setConfirming(false); }} className={inputCls} style={{ clipPath: clip }} />
+        <div className="flex items-center gap-1.5 border border-cyan-500/25 focus-within:border-cyan-400/60 px-2.5" style={{ clipPath: clip }}>
+          <span className="text-[10px] text-slate-500 shrink-0">المدة</span>
+          <input
+            type="number"
+            min="15"
+            step="15"
+            value={duration}
+            onChange={(e) => { setDuration(e.target.value); setConfirming(false); }}
+            className="w-12 bg-transparent outline-none text-sm text-slate-100 text-center py-1.5"
+          />
+          <span className="text-[10px] text-slate-500 shrink-0">دقيقة</span>
+        </div>
+        <button
+          onClick={submit}
+          className="flex items-center gap-1 px-3 py-1.5 text-sm border transition-colors"
+          style={{
+            clipPath: clip,
+            borderColor: confirming ? "#fbbf24" : "rgba(34,211,238,0.5)",
+            color: confirming ? "#fbbf24" : "#a5f3fc",
+            background: confirming ? "rgba(251,191,36,0.1)" : "transparent",
+          }}
+        >
+          <Plus size={14} /> {confirming ? "تأكيد رغم التعارض" : "إضافة للكاليندر"}
+        </button>
+        {compact && onCancel && (
+          <button onClick={onCancel} className="text-slate-500 hover:text-slate-300 px-2">
+            <X size={16} />
+          </button>
+        )}
+      </div>
+      {conflicts.length > 0 && (
+        <div className="flex items-start gap-1.5 text-xs text-amber-300 border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5" style={{ clipPath: clip }}>
+          <Bell size={13} className="mt-0.5 shrink-0" />
+          <span>في تعارض مع: {conflicts.map((c) => `${c.title} (${c.time})`).join("، ")}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- Task item ---------------- */
+function TaskItem({ task, project, appointments, onToggle, onDelete, onAiUpdate, onAddAppointment, selectMode, selected, onToggleSelect }) {
+  const [scheduling, setScheduling] = useState(false);
+  const p = PRIORITIES[task.priority];
+
+  const runAI = async () => {
+    onAiUpdate(task.id, { loading: true, error: null });
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6",
+          max_tokens: 1000,
+          messages: [
+            {
+              role: "user",
+              content: `أنت مساعد تنفيذي لمسوّق رقمي مصري بيشتغل في التسويق العقاري والدبلومات التدريبية والسوشيال ميديا. نفّذ المهمة دي فعليًا وقدّم مخرج جاهز للاستخدام مباشرة، مش شرح نظري.\n\nالمشروع: ${project.name}\nالمهمة: ${task.text}\n\nاكتب بالعربية المصرية، مباشر وعملي، ومنظم بنقاط أو خطوات واضحة لو يفيد المحتوى.`,
+            },
+          ],
+        }),
+      });
+      if (!res.ok) throw new Error("bad_response");
+      const data = await res.json();
+      const out = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n");
+      onAiUpdate(task.id, { loading: false, error: null, result: out || "مفيش رد.", open: true });
+    } catch (e) {
+      onAiUpdate(task.id, { loading: false, error: "حصل خطأ في التنفيذ — جرّب تاني." });
+    }
+  };
+
+  return (
+    <div className="border" style={{ borderColor: "rgba(148,163,184,0.15)", clipPath: clip, opacity: task.done ? 0.55 : 1 }}>
+      <div className="flex items-center gap-3 px-3 py-2.5 group">
+        {selectMode && (
+          <button onClick={onToggleSelect} className="shrink-0">
+            <div
+              className="w-4 h-4 flex items-center justify-center"
+              style={{ border: `1.5px solid ${selected ? "#a78bfa" : "rgba(148,163,184,0.4)"}`, background: selected ? "#a78bfa" : "transparent" }}
+            >
+              {selected && <CheckCircle2 size={12} className="text-slate-900" />}
+            </div>
+          </button>
+        )}
+        <button onClick={() => onToggle(task.id)} className="shrink-0">
+          {task.done ? <CheckCircle2 size={18} className="text-cyan-400" /> : <Circle size={18} className="text-slate-500 hover:text-cyan-400" />}
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className={`text-sm text-slate-100 ${task.done ? "line-through" : ""}`}>{task.text}</div>
+          {task.time && (
+            <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
+              <Clock3 size={11} /> {task.time}
+            </div>
+          )}
+        </div>
+        <span className="text-[10px] px-2 py-0.5 shrink-0" style={{ color: p.color, border: `1px solid ${p.color}55`, background: `${p.color}12` }}>
+          {p.label}
+        </span>
+        <button
+          onClick={runAI}
+          disabled={task.ai?.loading}
+          title="ينفذ الفكرة بالـ AI"
+          className="shrink-0 flex items-center gap-1 text-[11px] px-2 py-1 border border-violet-400/40 text-violet-300 hover:bg-violet-400/10 transition-colors"
+          style={{ clipPath: clip }}
+        >
+          {task.ai?.loading ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />} نفّذ
+        </button>
+        <button
+          onClick={() => setScheduling((s) => !s)}
+          title="جدولة ميعاد"
+          className="shrink-0 flex items-center gap-1 text-[11px] px-2 py-1 border border-cyan-400/40 text-cyan-300 hover:bg-cyan-400/10 transition-colors"
+          style={{ clipPath: clip }}
+        >
+          <Calendar size={12} /> جدول
+        </button>
+        <button onClick={() => onDelete(task.id)} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-slate-500 hover:text-rose-400">
+          <Trash2 size={15} />
+        </button>
+      </div>
+
+      {scheduling && (
+        <div className="px-3 pb-3 pt-1 border-t" style={{ borderColor: "rgba(148,163,184,0.1)" }}>
+          <AppointmentForm
+            appointments={appointments}
+            initialTitle={`${project.name} — ${task.text}`}
+            initialDate={todayISO()}
+            compact
+            onCancel={() => setScheduling(false)}
+            onAdd={(appt) => {
+              onAddAppointment({ ...appt, projectName: project.name, taskId: task.id, source: "task" });
+              setScheduling(false);
+            }}
+          />
+        </div>
+      )}
+
+      {(task.ai?.result || task.ai?.error) && (
+        <div className="px-3 pb-3 pt-1 border-t" style={{ borderColor: "rgba(148,163,184,0.1)" }}>
+          {task.ai.error ? (
+            <div className="text-xs text-rose-300">{task.ai.error}</div>
+          ) : (
+            <details open={task.ai.open}>
+              <summary className="text-xs text-violet-300 cursor-pointer select-none">مخرج التنفيذ (AI)</summary>
+              <div className="text-sm text-slate-200 whitespace-pre-wrap mt-2 leading-relaxed">{task.ai.result}</div>
+            </details>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- Projects tab ---------------- */
+function ProjectsTab({ projects, appointments, updateProjects, addAppointment }) {
+  const [newProject, setNewProject] = useState("");
+  const [openIds, setOpenIds] = useState({});
+  const [draft, setDraft] = useState({});
+  const [search, setSearch] = useState("");
+  const [selectMode, setSelectMode] = useState({});
+  const [selectedTasks, setSelectedTasks] = useState({});
+  const [bulkAI, setBulkAI] = useState({});
+
+  const addProject = () => {
+    if (!newProject.trim()) return;
+    const color = PROJECT_COLORS[projects.length % PROJECT_COLORS.length];
+    updateProjects([...projects, { id: uid(), name: newProject.trim(), color, tasks: [] }]);
+    setNewProject("");
+  };
+
+  const deleteProject = (id) => updateProjects(projects.filter((p) => p.id !== id));
+
+  const addTask = (projectId) => {
+    const d = draft[projectId] || {};
+    if (!d.text?.trim()) return;
+    updateProjects(
+      projects.map((p) =>
+        p.id === projectId
+          ? { ...p, tasks: [...p.tasks, { id: uid(), text: d.text.trim(), priority: d.priority || "important", time: d.time || "", done: false, ai: null }] }
+          : p
+      )
+    );
+    setDraft({ ...draft, [projectId]: { text: "", priority: d.priority || "important", time: "" } });
+  };
+
+  const toggleTask = (projectId, taskId) => {
+    updateProjects(projects.map((p) => (p.id === projectId ? { ...p, tasks: p.tasks.map((t) => (t.id === taskId ? { ...t, done: !t.done } : t)) } : p)));
+  };
+
+  const deleteTask = (projectId, taskId) => {
+    updateProjects(projects.map((p) => (p.id === projectId ? { ...p, tasks: p.tasks.filter((t) => t.id !== taskId) } : p)));
+  };
+
+  const updateAI = (projectId, taskId, patch) => {
+    updateProjects(projects.map((p) => (p.id === projectId ? { ...p, tasks: p.tasks.map((t) => (t.id === taskId ? { ...t, ai: { ...t.ai, ...patch } } : t)) } : p)));
+  };
+
+  const toggleSelectMode = (projectId) => {
+    setSelectMode({ ...selectMode, [projectId]: !selectMode[projectId] });
+    setSelectedTasks({ ...selectedTasks, [projectId]: new Set() });
+    setBulkAI({ ...bulkAI, [projectId]: null });
+  };
+
+  const toggleTaskSelected = (projectId, taskId) => {
+    const set = new Set(selectedTasks[projectId] || []);
+    if (set.has(taskId)) set.delete(taskId);
+    else set.add(taskId);
+    setSelectedTasks({ ...selectedTasks, [projectId]: set });
+  };
+
+  const runBulkAI = async (project) => {
+    const ids = Array.from(selectedTasks[project.id] || []);
+    if (ids.length === 0) return;
+    const tasksList = project.tasks.filter((t) => ids.includes(t.id));
+    setBulkAI({ ...bulkAI, [project.id]: { loading: true, error: null, result: null } });
+    try {
+      const tasksText = tasksList.map((t, i) => `${i + 1}. ${t.text}`).join("\n");
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6",
+          max_tokens: 1500,
+          messages: [
+            {
+              role: "user",
+              content: `أنت مساعد تنفيذي لمسوّق رقمي مصري. نفّذ كل مهمة من المهام دي فعليًا وقدّم مخرج جاهز لكل واحدة تحت عنوان برقمها، مش شرح نظري.\n\nالمشروع: ${project.name}\nالمهام:\n${tasksText}\n\nاكتب بالعربية المصرية، مباشر وعملي.`,
+            },
+          ],
+        }),
+      });
+      if (!res.ok) throw new Error("bad_response");
+      const data = await res.json();
+      const out = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n");
+      setBulkAI((prev) => ({ ...prev, [project.id]: { loading: false, error: null, result: out || "مفيش رد." } }));
+    } catch (e) {
+      setBulkAI((prev) => ({ ...prev, [project.id]: { loading: false, error: "حصل خطأ في التنفيذ الجماعي — جرّب تاني." } }));
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Panel className="p-3">
+        <CornerTicks />
+        <div className="flex gap-2 mb-2">
+          <input
+            value={newProject}
+            onChange={(e) => setNewProject(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addProject()}
+            placeholder="اسم مشروع جديد... مثال: ARKAN"
+            className="flex-1 bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none px-3 py-2 text-sm placeholder:text-slate-500 text-slate-100"
+            style={{ clipPath: clip }}
+          />
+          <button onClick={addProject} className="flex items-center gap-1.5 px-4 py-2 text-sm text-cyan-100 border border-cyan-400/50 hover:bg-cyan-400/10" style={{ clipPath: clip }}>
+            <Plus size={15} /> مشروع
+          </button>
+        </div>
+        <div className="flex items-center gap-2 border border-slate-700/60 px-2.5 py-1.5" style={{ clipPath: clip }}>
+          <Search size={14} className="text-slate-500 shrink-0" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="دور على تاسك أو مشروع..."
+            className="flex-1 bg-transparent outline-none text-sm text-slate-100 placeholder:text-slate-500"
+          />
+          {search && (
+            <button onClick={() => setSearch("")} className="text-slate-500 hover:text-slate-300 shrink-0">
+              <X size={14} />
+            </button>
+          )}
+        </div>
+      </Panel>
+
+      {projects.length === 0 && <div className="text-sm text-slate-500 text-center py-6">لسه مفيش مشاريع — ضيف أول واحد فوق.</div>}
+
+      {projects
+        .map((project) => {
+          const q = search.trim();
+          const matchesProject = !q || project.name.includes(q);
+          const filteredTasks = q ? project.tasks.filter((t) => t.text.includes(q)) : project.tasks;
+          return { project, matchesProject, filteredTasks };
+        })
+        .filter(({ matchesProject, filteredTasks }) => !search.trim() || matchesProject || filteredTasks.length > 0)
+        .map(({ project, filteredTasks }) => {
+          const open = openIds[project.id] ?? true;
+          const d = draft[project.id] || { text: "", priority: "important", time: "" };
+          const pendingCount = project.tasks.filter((t) => !t.done).length;
+          const inSelectMode = !!selectMode[project.id];
+          const selectedCount = (selectedTasks[project.id] || new Set()).size;
+          const bulk = bulkAI[project.id];
+          return (
+            <Panel key={project.id} className="p-0 overflow-hidden">
+              <CornerTicks />
+              <button onClick={() => setOpenIds({ ...openIds, [project.id]: !open })} className="w-full flex items-center justify-between px-4 py-3">
+                <div className="flex items-center gap-2">
+                  {open ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
+                  <span className="w-2 h-2 rounded-full" style={{ background: project.color, boxShadow: `0 0 6px ${project.color}` }} />
+                  <span className="text-sm font-medium text-slate-100">{project.name}</span>
+                  <span className="text-[11px] text-slate-500">({pendingCount} معلقة)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    onClick={(e) => { e.stopPropagation(); toggleSelectMode(project.id); }}
+                    className="flex items-center gap-1 text-[10px] px-2 py-1 border cursor-pointer"
+                    style={{ clipPath: clip, borderColor: inSelectMode ? "#a78bfa" : "rgba(148,163,184,0.25)", color: inSelectMode ? "#a78bfa" : "#94a3b8" }}
+                  >
+                    <ListChecks size={11} /> تحديد جماعي
+                  </span>
+                  <span onClick={(e) => { e.stopPropagation(); deleteProject(project.id); }} className="text-slate-500 hover:text-rose-400 p-1">
+                    <Trash2 size={14} />
+                  </span>
+                </div>
+              </button>
+
+              {open && (
+                <div className="px-4 pb-4 flex flex-col gap-3">
+                  {inSelectMode && (
+                    <div className="flex flex-wrap items-center gap-2 border border-violet-400/30 bg-violet-400/5 px-3 py-2" style={{ clipPath: clip }}>
+                      <span className="text-xs text-violet-300">محدد: {selectedCount}</span>
+                      <button
+                        onClick={() => runBulkAI(project)}
+                        disabled={selectedCount === 0 || bulk?.loading}
+                        className="flex items-center gap-1 text-xs px-3 py-1 border border-violet-400/50 text-violet-200 hover:bg-violet-400/10 disabled:opacity-40"
+                        style={{ clipPath: clip }}
+                      >
+                        {bulk?.loading ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />} نفّذ المحدد (AI)
+                      </button>
+                    </div>
+                  )}
+                  {bulk?.error && <div className="text-xs text-rose-300">{bulk.error}</div>}
+                  {bulk?.result && (
+                    <details open className="border border-violet-400/20 px-3 py-2" style={{ clipPath: clip }}>
+                      <summary className="text-xs text-violet-300 cursor-pointer select-none">مخرج التنفيذ الجماعي (AI)</summary>
+                      <div className="text-sm text-slate-200 whitespace-pre-wrap mt-2 leading-relaxed">{bulk.result}</div>
+                    </details>
+                  )}
+
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      value={d.text}
+                      onChange={(e) => setDraft({ ...draft, [project.id]: { ...d, text: e.target.value } })}
+                      onKeyDown={(e) => e.key === "Enter" && addTask(project.id)}
+                      placeholder="مهمة جديدة في المشروع ده..."
+                      className="flex-1 bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none px-3 py-1.5 text-sm placeholder:text-slate-500 text-slate-100"
+                      style={{ clipPath: clip }}
+                    />
+                    <div className="flex gap-1.5">
+                      {Object.entries(PRIORITIES).map(([key, p]) => (
+                        <button
+                          key={key}
+                          onClick={() => setDraft({ ...draft, [project.id]: { ...d, priority: key } })}
+                          className="text-xs px-2.5 py-1 border"
+                          style={{
+                            borderColor: d.priority === key ? p.color : "rgba(148,163,184,0.25)",
+                            color: d.priority === key ? p.color : "#94a3b8",
+                            background: d.priority === key ? `${p.color}15` : "transparent",
+                            clipPath: clip,
+                          }}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                      <button onClick={() => addTask(project.id)} className="text-xs px-3 py-1 border border-cyan-400/50 text-cyan-200 hover:bg-cyan-400/10 flex items-center gap-1" style={{ clipPath: clip }}>
+                        <Plus size={13} /> ضيف
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    {[...filteredTasks]
+                      .sort((a, b) => (a.done !== b.done ? (a.done ? 1 : -1) : PRIORITIES[a.priority].order - PRIORITIES[b.priority].order))
+                      .map((task) => (
+                        <TaskItem
+                          key={task.id}
+                          task={task}
+                          project={project}
+                          appointments={appointments}
+                          onToggle={(taskId) => toggleTask(project.id, taskId)}
+                          onDelete={(taskId) => deleteTask(project.id, taskId)}
+                          onAiUpdate={(taskId, patch) => updateAI(project.id, taskId, patch)}
+                          onAddAppointment={addAppointment}
+                          selectMode={inSelectMode}
+                          selected={(selectedTasks[project.id] || new Set()).has(task.id)}
+                          onToggleSelect={() => toggleTaskSelected(project.id, task.id)}
+                        />
+                      ))}
+                    {filteredTasks.length === 0 && <div className="text-xs text-slate-500 py-2">{search.trim() ? "مفيش تاسكات مطابقة." : "مفيش مهام في المشروع ده لسه."}</div>}
+                  </div>
+                </div>
+              )}
+            </Panel>
+          );
+        })}
+    </div>
+  );
+}
+
+/* ---------------- Daily tab (habits + one-time items) ---------------- */
+function last7Dates() {
+  const arr = [];
+  for (let i = 6; i >= 0; i--) arr.push(addDaysToISO(todayISO(), -i));
+  return arr;
+}
+
+function computeStreak(history) {
+  let streak = 0;
+  let d = todayISO();
+  while (history[d]) {
+    streak++;
+    d = addDaysToISO(d, -1);
+  }
+  return streak;
+}
+
+function HabitRow({ habit, onToggleToday, onDelete }) {
+  const today = todayISO();
+  const done = !!habit.history[today];
+  const streak = computeStreak(habit.history);
+  const days = last7Dates();
+  const weekDayLetters = ["ح", "ن", "ث", "ر", "خ", "ج", "س"];
+
+  return (
+    <Panel className="p-3">
+      <CornerTicks />
+      <div className="flex items-center gap-3">
+        <button onClick={onToggleToday} className="shrink-0">
+          {done ? <CheckCircle2 size={22} className="text-emerald-400" /> : <Circle size={22} className="text-slate-500 hover:text-emerald-400" />}
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-slate-100">{habit.name}</span>
+            <span className="text-[9px] px-1.5 py-0.5 border border-cyan-400/30 text-cyan-300 shrink-0" style={{ clipPath: clip }}>عادة يومية</span>
+          </div>
+          <div className="flex items-center gap-1 mt-1.5">
+            {days.map((d) => {
+              const isToday = d === today;
+              const doneDay = !!habit.history[d];
+              return (
+                <span
+                  key={d}
+                  title={d}
+                  className="w-4 h-4 flex items-center justify-center text-[8px]"
+                  style={{
+                    clipPath: clip,
+                    background: doneDay ? "rgba(52,211,153,0.7)" : "transparent",
+                    border: `1px solid ${isToday ? "#22d3ee" : "rgba(148,163,184,0.25)"}`,
+                    color: doneDay ? "#052e1f" : "#64748b",
+                  }}
+                >
+                  {weekDayLetters[new Date(d).getDay()]}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+        {streak > 0 && (
+          <span className="flex items-center gap-1 text-xs text-amber-300 shrink-0">
+            <Flame size={14} /> {streak}
+          </span>
+        )}
+        <button onClick={onDelete} className="text-slate-500 hover:text-rose-400 shrink-0">
+          <Trash2 size={15} />
+        </button>
+      </div>
+    </Panel>
+  );
+}
+
+function OnceRow({ item, onToggle, onDelete }) {
+  return (
+    <Panel className="p-3">
+      <CornerTicks />
+      <div className="flex items-center gap-3">
+        <button onClick={onToggle} className="shrink-0">
+          {item.done ? <CheckCircle2 size={22} className="text-emerald-400" /> : <Circle size={22} className="text-slate-500 hover:text-emerald-400" />}
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className={`text-sm text-slate-100 ${item.done ? "line-through opacity-60" : ""}`}>{item.name}</span>
+            <span className="text-[9px] px-1.5 py-0.5 border border-violet-400/30 text-violet-300 shrink-0" style={{ clipPath: clip }}>لمرة واحدة</span>
+          </div>
+          {item.done && item.doneDate && <div className="text-[11px] text-slate-500 mt-0.5">خلصت في {item.doneDate}</div>}
+        </div>
+        <button onClick={onDelete} className="text-slate-500 hover:text-rose-400 shrink-0">
+          <Trash2 size={15} />
+        </button>
+      </div>
+    </Panel>
+  );
+}
+
+function DailyTab({ daily, updateDaily }) {
+  const [newItem, setNewItem] = useState("");
+  const [newType, setNewType] = useState("habit");
+
+  const addItem = () => {
+    if (!newItem.trim()) return;
+    if (newType === "habit") {
+      updateDaily([...daily, { id: uid(), name: newItem.trim(), type: "habit", history: {} }]);
+    } else {
+      updateDaily([...daily, { id: uid(), name: newItem.trim(), type: "once", done: false, doneDate: null }]);
+    }
+    setNewItem("");
+  };
+
+  const toggleToday = (id) => {
+    const today = todayISO();
+    updateDaily(daily.map((h) => (h.id === id ? { ...h, history: { ...h.history, [today]: !h.history[today] } } : h)));
+  };
+
+  const toggleOnce = (id) => {
+    updateDaily(daily.map((h) => (h.id === id ? { ...h, done: !h.done, doneDate: !h.done ? todayISO() : null } : h)));
+  };
+
+  const deleteItem = (id) => updateDaily(daily.filter((h) => h.id !== id));
+
+  return (
+    <div className="flex flex-col gap-3">
+      <Panel className="p-3">
+        <CornerTicks />
+        <div className="flex flex-wrap gap-2">
+          <input
+            value={newItem}
+            onChange={(e) => setNewItem(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addItem()}
+            placeholder="عنصر جديد... مثال: وِرد الصبح، أو حجز الدومين"
+            className="flex-1 min-w-[160px] bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none px-3 py-2 text-sm placeholder:text-slate-500 text-slate-100"
+            style={{ clipPath: clip }}
+          />
+          <div className="flex gap-1.5">
+            <button
+              onClick={() => setNewType("habit")}
+              className="text-xs px-3 py-2 border flex items-center gap-1"
+              style={{
+                clipPath: clip,
+                borderColor: newType === "habit" ? "#22d3ee" : "rgba(148,163,184,0.25)",
+                color: newType === "habit" ? "#22d3ee" : "#94a3b8",
+                background: newType === "habit" ? "rgba(34,211,238,0.1)" : "transparent",
+              }}
+            >
+              <Sun size={12} /> عادة يومية
+            </button>
+            <button
+              onClick={() => setNewType("once")}
+              className="text-xs px-3 py-2 border flex items-center gap-1"
+              style={{
+                clipPath: clip,
+                borderColor: newType === "once" ? "#a78bfa" : "rgba(148,163,184,0.25)",
+                color: newType === "once" ? "#a78bfa" : "#94a3b8",
+                background: newType === "once" ? "rgba(167,139,250,0.1)" : "transparent",
+              }}
+            >
+              لمرة واحدة
+            </button>
+            <button onClick={addItem} className="flex items-center gap-1.5 px-4 py-2 text-sm text-cyan-100 border border-cyan-400/50 hover:bg-cyan-400/10" style={{ clipPath: clip }}>
+              <Plus size={15} /> ضيف
+            </button>
+          </div>
+        </div>
+      </Panel>
+      {daily.length === 0 && <div className="text-sm text-slate-500 text-center py-6">لسه مفيش عناصر مسجلة — ضيف أول واحد فوق وحدد نوعه.</div>}
+      {daily.map((item) =>
+        item.type === "once" ? (
+          <OnceRow key={item.id} item={item} onToggle={() => toggleOnce(item.id)} onDelete={() => deleteItem(item.id)} />
+        ) : (
+          <HabitRow key={item.id} habit={item} onToggleToday={() => toggleToday(item.id)} onDelete={() => deleteItem(item.id)} />
+        )
+      )}
+    </div>
+  );
+}
+
+/* ---------------- Calendar tab ---------------- */
+function CalendarTab({ appointments, addAppointment, deleteAppointment }) {
+  const [monthDate, setMonthDate] = useState(new Date());
+  const [selectedDay, setSelectedDay] = useState(todayISO());
+
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const startOffset = firstDay.getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const cells = [];
+  for (let i = 0; i < startOffset; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  const dateStr = (d) => `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  const countFor = (d) => appointments.filter((a) => a.date === dateStr(d)).length;
+
+  const dayAppointments = useMemo(
+    () => appointments.filter((a) => a.date === selectedDay).sort((a, b) => toMinutes(a.time) - toMinutes(b.time)),
+    [appointments, selectedDay]
+  );
+
+  const weekDays = ["أحد", "اثنين", "ثلاثاء", "أربعاء", "خميس", "جمعة", "سبت"];
+  const monthLabel = monthDate.toLocaleDateString("ar-EG", { month: "long", year: "numeric" });
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <Panel className="p-3 lg:col-span-2">
+        <CornerTicks />
+        <div className="flex items-center justify-between mb-3">
+          <button onClick={() => setMonthDate(new Date(year, month - 1, 1))} className="text-slate-400 hover:text-cyan-300 p-1">
+            <ChevronRight size={16} />
+          </button>
+          <div className="text-sm text-cyan-100 font-medium">{monthLabel}</div>
+          <button onClick={() => setMonthDate(new Date(year, month + 1, 1))} className="text-slate-400 hover:text-cyan-300 p-1">
+            <ChevronLeft size={16} />
+          </button>
+        </div>
+        <div className="grid grid-cols-7 gap-1 text-center mb-1.5">
+          {weekDays.map((w) => (
+            <div key={w} className="text-[10px] text-slate-500">{w}</div>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-1">
+          {cells.map((d, i) => {
+            if (d === null) return <div key={i} />;
+            const ds = dateStr(d);
+            const count = countFor(d);
+            const isToday = ds === todayISO();
+            const isSelected = ds === selectedDay;
+            return (
+              <button
+                key={i}
+                onClick={() => setSelectedDay(ds)}
+                className="h-8 sm:h-9 flex flex-col items-center justify-center border text-[11px] relative"
+                style={{
+                  clipPath: clip,
+                  borderColor: isSelected ? "#22d3ee" : isToday ? "rgba(251,191,36,0.5)" : "rgba(148,163,184,0.15)",
+                  background: isSelected ? "rgba(34,211,238,0.12)" : "transparent",
+                  color: isToday ? "#fbbf24" : "#cbd5e1",
+                }}
+              >
+                {d}
+                {count > 0 && <span className="absolute bottom-0.5 w-1 h-1 rounded-full bg-cyan-400" style={{ boxShadow: "0 0 4px #22d3ee" }} />}
+              </button>
+            );
+          })}
+        </div>
+      </Panel>
+
+      <div className="flex flex-col gap-4">
+        <Panel className="p-4">
+          <CornerTicks />
+          <div className="text-xs tracking-wide text-slate-400 mb-3">
+            مواعيد يوم {new Date(selectedDay).toLocaleDateString("ar-EG", { day: "numeric", month: "long" })}
+          </div>
+          {dayAppointments.length === 0 ? (
+            <div className="text-xs text-slate-500 mb-3">مفيش مواعيد في اليوم ده.</div>
+          ) : (
+            <div className="flex flex-col gap-2 mb-3">
+              {dayAppointments.map((a) => (
+                <div key={a.id} className="flex items-center gap-2 text-sm border px-2.5 py-1.5" style={{ borderColor: "rgba(148,163,184,0.15)", clipPath: clip }}>
+                  <Clock3 size={13} className="text-cyan-400 shrink-0" />
+                  <span className="text-slate-400 text-xs font-mono">{a.time}</span>
+                  <span className="flex-1 text-slate-100 truncate">{a.title}</span>
+                  {a.projectName && <span className="text-[10px] text-slate-500 shrink-0">{a.projectName}</span>}
+                  <button onClick={() => deleteAppointment(a.id)} className="text-slate-500 hover:text-rose-400 shrink-0">
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <AppointmentForm appointments={appointments} initialDate={selectedDay} onAdd={addAppointment} />
+        </Panel>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Courses tab ---------------- */
+function LectureRow({ lecture, idx, appointments, onUpdate, addAppointment, deleteAppointment }) {
+  const [scheduling, setScheduling] = useState(false);
+  const l = { title: "", description: "", notes: "", done: false, date: "", time: "", apptId: null, ...lecture };
+
+  const handleSchedule = (appt) => {
+    if (l.apptId) deleteAppointment(l.apptId);
+    addAppointment(appt);
+    onUpdate({ date: appt.date, time: appt.time, apptId: appt.id });
+    setScheduling(false);
+  };
+
+  return (
+    <div className="border px-3 py-2.5" style={{ borderColor: "rgba(148,163,184,0.15)", clipPath: clip, opacity: l.done ? 0.6 : 1 }}>
+      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+        <span className="text-[11px] w-6 h-6 flex items-center justify-center shrink-0 border border-amber-400/40 text-amber-300" style={{ clipPath: clip }}>
+          {idx + 1}
+        </span>
+        <button onClick={() => onUpdate({ done: !l.done })} className="shrink-0">
+          {l.done ? <CheckCircle2 size={17} className="text-emerald-400" /> : <Circle size={17} className="text-slate-500 hover:text-emerald-400" />}
+        </button>
+        <input
+          value={l.title}
+          onChange={(e) => onUpdate({ title: e.target.value })}
+          placeholder={`عنوان المحاضرة ${idx + 1}`}
+          className={`flex-1 min-w-[120px] bg-transparent border-b border-slate-700 focus:border-cyan-400 outline-none text-sm text-slate-100 placeholder:text-slate-500 pb-1 ${l.done ? "line-through" : ""}`}
+        />
+        <button
+          onClick={() => setScheduling((s) => !s)}
+          className="shrink-0 flex items-center gap-1 text-[11px] px-2 py-1 border border-cyan-400/40 text-cyan-300 hover:bg-cyan-400/10"
+          style={{ clipPath: clip }}
+        >
+          <Calendar size={11} /> {l.date ? `${l.date} ${l.time || ""}` : "حدد الميعاد"}
+        </button>
+      </div>
+
+      {scheduling && (
+        <div className="mb-2">
+          <AppointmentForm
+            appointments={appointments}
+            initialTitle={l.title || `محاضرة ${idx + 1}`}
+            initialDate={l.date || todayISO()}
+            initialTime={l.time || ""}
+            compact
+            onCancel={() => setScheduling(false)}
+            onAdd={handleSchedule}
+          />
+        </div>
+      )}
+
+      <textarea
+        value={l.description}
+        onChange={(e) => onUpdate({ description: e.target.value })}
+        placeholder="هيتشرح فيها إيه بالظبط..."
+        rows={2}
+        className="w-full bg-transparent border border-slate-700/60 focus:border-cyan-400/50 outline-none text-sm text-slate-300 placeholder:text-slate-600 px-2 py-1.5 resize-y mb-1.5"
+        style={{ clipPath: clip }}
+      />
+      <textarea
+        value={l.notes}
+        onChange={(e) => onUpdate({ notes: e.target.value })}
+        placeholder="ملاحظات بعد ما تخلّص السيشن..."
+        rows={2}
+        className="w-full bg-transparent border border-emerald-700/30 focus:border-emerald-400/50 outline-none text-sm text-emerald-100/80 placeholder:text-slate-600 px-2 py-1.5 resize-y"
+        style={{ clipPath: clip }}
+      />
+    </div>
+  );
+}
+
+function CourseCard({ course, appointments, onUpdate, onDelete, addAppointment, deleteAppointment, addAccountEntry, removeAccountEntry, onMoveUp, onMoveDown, canMoveUp, canMoveDown }) {
+  const [open, setOpen] = useState(true);
+
+  const updateLecture = (idx, patch) => {
+    const lectures = course.lectures.map((l, i) => (i === idx ? { ...l, ...patch } : l));
+    onUpdate({ ...course, lectures });
+  };
+
+  const toggleCourseDone = () => {
+    if (!course.done) {
+      const entry = {
+        id: uid(),
+        description: `دورة: ${course.name}`,
+        amount: Number(course.price) || 0,
+        type: "income",
+        date: todayISO(),
+        wallet: DEFAULT_WALLET,
+      };
+      addAccountEntry("كورسات", entry);
+      onUpdate({ ...course, done: true, accountEntryId: entry.id });
+    } else {
+      if (course.accountEntryId) removeAccountEntry("كورسات", course.accountEntryId);
+      onUpdate({ ...course, done: false, accountEntryId: null });
+    }
+  };
+
+  const toggleType = () => {
+    onUpdate({ ...course, type: course.type === "private" ? "group" : "private" });
+  };
+
+  const filled = course.lectures.filter((l) => l.title?.trim() || l.description?.trim()).length;
+  const doneCount = course.lectures.filter((l) => l.done).length;
+  const isPrivate = course.type === "private";
+
+  return (
+    <Panel className="p-0 overflow-hidden">
+      <CornerTicks />
+      <div className="w-full flex items-center justify-between px-4 py-3 gap-2 flex-wrap">
+        <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-2 flex-1 min-w-0">
+          {open ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
+          <BookOpen size={15} className="text-amber-300 shrink-0" />
+          <span className={`text-sm font-medium text-slate-100 truncate ${course.done ? "line-through opacity-60" : ""}`}>{course.name}</span>
+          <span className="text-[11px] text-slate-500 shrink-0">({filled}/{course.lectures.length} جاهزة · {doneCount}/{course.lectures.length} خلصت)</span>
+        </button>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="text-sm font-mono text-cyan-200 shrink-0">{Number(course.price).toLocaleString("ar-EG")}</span>
+          <button
+            onClick={toggleType}
+            className="flex items-center gap-1 text-[11px] px-2 py-1 border transition-colors"
+            style={{
+              clipPath: clip,
+              borderColor: isPrivate ? "rgba(167,139,250,0.5)" : "rgba(96,165,250,0.5)",
+              color: isPrivate ? "#a78bfa" : "#60a5fa",
+              background: isPrivate ? "rgba(167,139,250,0.1)" : "rgba(96,165,250,0.1)",
+            }}
+          >
+            {isPrivate ? <User size={12} /> : <Users size={12} />} {isPrivate ? "برايفيت" : "جروب"}
+          </button>
+          {!course.done && (
+            <div className="flex flex-col">
+              <button onClick={onMoveUp} disabled={!canMoveUp} className="text-slate-500 hover:text-cyan-300 disabled:opacity-20 leading-none">
+                <ChevronUp size={13} />
+              </button>
+              <button onClick={onMoveDown} disabled={!canMoveDown} className="text-slate-500 hover:text-cyan-300 disabled:opacity-20 leading-none">
+                <ChevronDown size={13} />
+              </button>
+            </div>
+          )}
+          <button
+            onClick={toggleCourseDone}
+            className="flex items-center gap-1 text-[11px] px-2.5 py-1 border transition-colors"
+            style={{
+              clipPath: clip,
+              borderColor: course.done ? "#34d399" : "rgba(148,163,184,0.3)",
+              color: course.done ? "#34d399" : "#94a3b8",
+              background: course.done ? "rgba(52,211,153,0.1)" : "transparent",
+            }}
+          >
+            {course.done ? <CheckCircle2 size={13} /> : <Circle size={13} />} {course.done ? "خلص" : "علّم كخلصان"}
+          </button>
+          <span onClick={() => onDelete(course.id)} className="text-slate-500 hover:text-rose-400 p-1 cursor-pointer">
+            <Trash2 size={14} />
+          </span>
+        </div>
+      </div>
+
+      {open && (
+        <div className="px-4 pb-4 flex flex-col gap-2">
+          {course.lectures.map((lecture, idx) => (
+            <LectureRow
+              key={idx}
+              lecture={lecture}
+              idx={idx}
+              appointments={appointments}
+              onUpdate={(patch) => updateLecture(idx, patch)}
+              addAppointment={(appt) => addAppointment({ ...appt, courseId: course.id, lectureIdx: idx, projectName: course.name, source: "lecture" })}
+              deleteAppointment={deleteAppointment}
+            />
+          ))}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+function CoursesTab({ courses, appointments, updateCourses, addAppointment, deleteAppointment, addAccountEntry, removeAccountEntry }) {
+  const [newCourse, setNewCourse] = useState("");
+  const [newPrice, setNewPrice] = useState("");
+  const [newType, setNewType] = useState("group");
+  const [newSessions, setNewSessions] = useState(8);
+  const [priceError, setPriceError] = useState(false);
+
+  const addCourse = () => {
+    const priceNum = Number(newPrice);
+    if (!newCourse.trim() || !newPrice || priceNum <= 0) {
+      setPriceError(true);
+      return;
+    }
+    const count = Math.max(1, Number(newSessions) || 1);
+    const lectures = Array.from({ length: count }, () => ({ title: "", description: "", notes: "", done: false, date: "", time: "", apptId: null }));
+    updateCourses([...courses, { id: uid(), name: newCourse.trim(), price: priceNum, type: newType, done: false, accountEntryId: null, lectures }]);
+    setNewCourse("");
+    setNewPrice("");
+    setNewSessions(8);
+    setPriceError(false);
+  };
+
+  const moveCourse = (id, direction) => {
+    const activeIds = courses.filter((c) => !c.done).map((c) => c.id);
+    const pos = activeIds.indexOf(id);
+    const swapPos = direction === "up" ? pos - 1 : pos + 1;
+    if (swapPos < 0 || swapPos >= activeIds.length) return;
+    const otherId = activeIds[swapPos];
+    const idxA = courses.findIndex((c) => c.id === id);
+    const idxB = courses.findIndex((c) => c.id === otherId);
+    const next = [...courses];
+    [next[idxA], next[idxB]] = [next[idxB], next[idxA]];
+    updateCourses(next);
+  };
+
+  const activeCourses = courses.filter((c) => !c.done);
+  const doneCourses = courses.filter((c) => c.done);
+
+  const renderCourse = (course, withMove) => {
+    const activeIds = activeCourses.map((c) => c.id);
+    const pos = activeIds.indexOf(course.id);
+    return (
+      <CourseCard
+        key={course.id}
+        course={course}
+        appointments={appointments}
+        addAppointment={addAppointment}
+        deleteAppointment={deleteAppointment}
+        addAccountEntry={addAccountEntry}
+        removeAccountEntry={removeAccountEntry}
+        onUpdate={(updated) => updateCourses(courses.map((c) => (c.id === course.id ? updated : c)))}
+        onDelete={(id) => updateCourses(courses.filter((c) => c.id !== id))}
+        onMoveUp={withMove ? () => moveCourse(course.id, "up") : undefined}
+        onMoveDown={withMove ? () => moveCourse(course.id, "down") : undefined}
+        canMoveUp={withMove ? pos > 0 : false}
+        canMoveDown={withMove ? pos < activeIds.length - 1 : false}
+      />
+    );
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Panel className="p-3">
+        <CornerTicks />
+        <div className="flex flex-wrap gap-2 items-stretch">
+          <input
+            value={newCourse}
+            onChange={(e) => setNewCourse(e.target.value)}
+            placeholder="اسم كورس/دبلومة جديدة... مثال: دبلومة التسويق العقاري"
+            className="flex-1 min-w-[180px] bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none px-3 py-2 text-sm placeholder:text-slate-500 text-slate-100"
+            style={{ clipPath: clip }}
+          />
+          <input
+            value={newPrice}
+            onChange={(e) => { setNewPrice(e.target.value); setPriceError(false); }}
+            type="number"
+            placeholder="السعر (مطلوب)"
+            className="w-32 bg-transparent border outline-none px-3 py-2 text-sm placeholder:text-slate-500 text-slate-100"
+            style={{ clipPath: clip, borderColor: priceError ? "#fb7185" : "rgba(34,211,238,0.25)" }}
+          />
+          <div className="flex items-center gap-1.5 border border-cyan-500/25 px-2.5" style={{ clipPath: clip }}>
+            <span className="text-[10px] text-slate-500 shrink-0">السيشنز</span>
+            <input
+              value={newSessions}
+              onChange={(e) => setNewSessions(e.target.value)}
+              type="number"
+              min="1"
+              className="w-12 bg-transparent outline-none text-sm text-slate-100 text-center py-2"
+            />
+          </div>
+          <div className="flex gap-1.5">
+            <button
+              onClick={() => setNewType("group")}
+              className="text-xs px-3 py-2 border flex items-center gap-1"
+              style={{ clipPath: clip, borderColor: newType === "group" ? "#60a5fa" : "rgba(148,163,184,0.25)", color: newType === "group" ? "#60a5fa" : "#94a3b8", background: newType === "group" ? "rgba(96,165,250,0.1)" : "transparent" }}
+            >
+              <Users size={12} /> جروب
+            </button>
+            <button
+              onClick={() => setNewType("private")}
+              className="text-xs px-3 py-2 border flex items-center gap-1"
+              style={{ clipPath: clip, borderColor: newType === "private" ? "#a78bfa" : "rgba(148,163,184,0.25)", color: newType === "private" ? "#a78bfa" : "#94a3b8", background: newType === "private" ? "rgba(167,139,250,0.1)" : "transparent" }}
+            >
+              <User size={12} /> برايفيت
+            </button>
+          </div>
+          <button onClick={addCourse} className="flex items-center gap-1.5 px-4 py-2 text-sm text-cyan-100 border border-cyan-400/50 hover:bg-cyan-400/10" style={{ clipPath: clip }}>
+            <Plus size={15} /> كورس
+          </button>
+        </div>
+        {priceError && <div className="text-xs text-rose-300 mt-2">لازم تحط سعر الكورس عشان تقدر تضيفه.</div>}
+      </Panel>
+
+      {courses.length === 0 && <div className="text-sm text-slate-500 text-center py-6">لسه مفيش كورسات — ضيف أول واحد فوق.</div>}
+
+      {activeCourses.map((course) => renderCourse(course, true))}
+
+      {doneCourses.length > 0 && (
+        <>
+          <div className="flex items-center gap-2 mt-2 mb-1">
+            <div className="h-px flex-1 bg-slate-700/50" />
+            <span className="text-xs text-emerald-400 flex items-center gap-1">
+              <CheckCircle2 size={13} /> كورسات خلصت ({doneCourses.length})
+            </span>
+            <div className="h-px flex-1 bg-slate-700/50" />
+          </div>
+          {doneCourses.map((course) => renderCourse(course, false))}
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- Accounts tab ---------------- */
+function MonthlyChartPanel({ accounts }) {
+  const data = monthlyTotals(accounts);
+  if (data.length === 0) return null;
+  return (
+    <Panel className="p-4">
+      <CornerTicks />
+      <div className="text-xs tracking-wide text-slate-400 mb-2">صافي آخر 6 شهور</div>
+      <div style={{ width: "100%", height: 180 }}>
+        <ResponsiveContainer>
+          <BarChart data={data} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+            <XAxis dataKey="month" tick={{ fill: "#94a3b8", fontSize: 10 }} axisLine={{ stroke: "rgba(148,163,184,0.2)" }} tickLine={false} />
+            <YAxis tick={{ fill: "#94a3b8", fontSize: 10 }} axisLine={{ stroke: "rgba(148,163,184,0.2)" }} tickLine={false} />
+            <Tooltip
+              contentStyle={{ background: "#0a1420", border: "1px solid rgba(34,211,238,0.3)", fontSize: 12 }}
+              labelStyle={{ color: "#a5f3fc" }}
+              formatter={(v) => [Number(v).toLocaleString("ar-EG"), "الصافي"]}
+            />
+            <Bar dataKey="total" radius={[2, 2, 0, 0]}>
+              {data.map((d, i) => (
+                <Cell key={i} fill={d.total >= 0 ? "#34d399" : "#fb7185"} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </Panel>
+  );
+}
+
+function CommitmentsPanel({ commitments, updateCommitments, addAccountEntry, removeAccountEntry }) {
+  const [name, setName] = useState("");
+  const [amount, setAmount] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [recurring, setRecurring] = useState(false);
+  const today = todayISO();
+
+  const addCommitment = () => {
+    if (!name.trim() || !amount || !dueDate) return;
+    updateCommitments([...commitments, { id: uid(), name: name.trim(), amount: Number(amount), dueDate, paid: false, paidEntryId: null, recurring }]);
+    setName("");
+    setAmount("");
+    setDueDate("");
+    setRecurring(false);
+  };
+
+  const togglePaid = (c) => {
+    if (!c.paid) {
+      const entry = { id: uid(), description: c.name, amount: Number(c.amount), type: "expense", date: today, wallet: DEFAULT_WALLET };
+      addAccountEntry("التزامات", entry);
+      let next = commitments.map((x) => (x.id === c.id ? { ...x, paid: true, paidEntryId: entry.id } : x));
+      if (c.recurring) {
+        next = [...next, { id: uid(), name: c.name, amount: c.amount, dueDate: addMonthToISO(c.dueDate), paid: false, paidEntryId: null, recurring: true }];
+      }
+      updateCommitments(next);
+    } else {
+      if (c.paidEntryId) removeAccountEntry("التزامات", c.paidEntryId);
+      updateCommitments(commitments.map((x) => (x.id === c.id ? { ...x, paid: false, paidEntryId: null } : x)));
+    }
+  };
+
+  const sorted = [...commitments].sort((a, b) => (a.dueDate < b.dueDate ? -1 : 1));
+
+  return (
+    <Panel className="p-4">
+      <CornerTicks />
+      <div className="text-xs tracking-wide text-slate-400 mb-3">الالتزامات — أقساط ودفعات مستحقة</div>
+      <div className="flex flex-col gap-2 mb-3">
+        {sorted.length === 0 && <div className="text-xs text-slate-500">مفيش التزامات مسجلة.</div>}
+        {sorted.map((c) => {
+          const overdue = !c.paid && c.dueDate < today;
+          const soon = !c.paid && !overdue && c.dueDate <= addDaysToISO(today, 3);
+          return (
+            <div
+              key={c.id}
+              className="flex items-center gap-2 text-sm border px-2.5 py-1.5"
+              style={{
+                borderColor: overdue ? "rgba(251,113,133,0.4)" : soon ? "rgba(251,191,36,0.4)" : "rgba(148,163,184,0.15)",
+                clipPath: clip,
+                opacity: c.paid ? 0.5 : 1,
+              }}
+            >
+              <button onClick={() => togglePaid(c)} className="shrink-0">
+                {c.paid ? <CheckCircle2 size={16} className="text-emerald-400" /> : <Circle size={16} className="text-slate-500 hover:text-emerald-400" />}
+              </button>
+              <span className={`flex-1 text-slate-100 truncate ${c.paid ? "line-through" : ""}`}>{c.name}</span>
+              {c.recurring && <Repeat size={12} className="text-cyan-400 shrink-0" />}
+              {overdue && <AlertTriangle size={13} className="text-rose-400 shrink-0" />}
+              <span className="text-[11px] font-mono shrink-0" style={{ color: overdue ? "#fb7185" : soon ? "#fbbf24" : "#94a3b8" }}>
+                {c.dueDate}
+              </span>
+              <span className="text-sm font-mono text-slate-200 shrink-0">{Number(c.amount).toLocaleString("ar-EG")}</span>
+              <button onClick={() => updateCommitments(commitments.filter((x) => x.id !== c.id))} className="text-slate-500 hover:text-rose-400 shrink-0">
+                <Trash2 size={13} />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="اسم الالتزام (قسط، إيجار، اشتراك...)"
+          className="flex-1 min-w-[160px] bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none px-2.5 py-1.5 text-sm text-slate-100 placeholder:text-slate-500"
+          style={{ clipPath: clip }}
+        />
+        <input
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          type="number"
+          placeholder="المبلغ"
+          className="w-28 bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none px-2.5 py-1.5 text-sm text-slate-100 placeholder:text-slate-500"
+          style={{ clipPath: clip }}
+        />
+        <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none px-2.5 py-1.5 text-sm text-slate-100" style={{ clipPath: clip }} />
+        <button
+          onClick={() => setRecurring((r) => !r)}
+          className="flex items-center gap-1 text-xs px-2.5 py-1.5 border"
+          style={{ clipPath: clip, borderColor: recurring ? "#22d3ee" : "rgba(148,163,184,0.25)", color: recurring ? "#22d3ee" : "#94a3b8", background: recurring ? "rgba(34,211,238,0.1)" : "transparent" }}
+        >
+          <Repeat size={12} /> شهري متكرر
+        </button>
+        <button onClick={addCommitment} className="text-xs px-3 py-1.5 border border-cyan-400/50 text-cyan-200 hover:bg-cyan-400/10 flex items-center gap-1" style={{ clipPath: clip }}>
+          <Plus size={13} /> ضيف
+        </button>
+      </div>
+    </Panel>
+  );
+}
+
+function CategoryCard({ category, onAddEntry, onDeleteEntry, onDeleteCategory }) {
+  const [open, setOpen] = useState(true);
+  const [desc, setDesc] = useState("");
+  const [amount, setAmount] = useState("");
+  const [type, setType] = useState("income");
+  const [date, setDate] = useState(todayISO());
+  const [wallet, setWallet] = useState(DEFAULT_WALLET);
+
+  const total = category.entries.reduce((sum, e) => sum + (e.type === "income" ? Number(e.amount) : -Number(e.amount)), 0);
+
+  const submit = () => {
+    if (!desc.trim() || !amount) return;
+    onAddEntry({ id: uid(), description: desc.trim(), amount: Number(amount), type, date, wallet });
+    setDesc("");
+    setAmount("");
+  };
+
+  return (
+    <Panel className="p-0 overflow-hidden">
+      <CornerTicks />
+      <button onClick={() => setOpen((o) => !o)} className="w-full flex items-center justify-between px-4 py-3">
+        <div className="flex items-center gap-2">
+          {open ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
+          <Wallet size={15} className="text-amber-300" />
+          <span className="text-sm font-medium text-slate-100">{category.name}</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-mono" style={{ color: total >= 0 ? "#34d399" : "#fb7185" }}>
+            {total.toLocaleString("ar-EG")}
+          </span>
+          <span onClick={(e) => { e.stopPropagation(); onDeleteCategory(); }} className="text-slate-500 hover:text-rose-400 p-1">
+            <Trash2 size={14} />
+          </span>
+        </div>
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 flex flex-col gap-2">
+          {category.entries.length === 0 ? (
+            <div className="text-xs text-slate-500">مفيش عمليات مسجلة في القسم ده لسه.</div>
+          ) : (
+            [...category.entries].sort((a, b) => (a.date < b.date ? 1 : -1)).map((e) => (
+              <div key={e.id} className="flex items-center gap-2 text-sm border px-2.5 py-1.5" style={{ borderColor: "rgba(148,163,184,0.15)", clipPath: clip }}>
+                <span className="text-[10px] text-slate-500 font-mono shrink-0">{e.date}</span>
+                <span className="flex-1 text-slate-100 truncate">{e.description}</span>
+                {e.subtype && (
+                  <span className="text-[9px] px-1.5 py-0.5 border border-amber-400/30 text-amber-300 shrink-0" style={{ clipPath: clip }}>
+                    {e.subtype}
+                  </span>
+                )}
+                <span
+                  className="text-[9px] px-1.5 py-0.5 shrink-0"
+                  style={{ border: `1px solid ${walletColor(e.wallet)}55`, color: walletColor(e.wallet), clipPath: clip }}
+                >
+                  {walletLabel(e.wallet)}
+                </span>
+                <span className="text-sm font-mono shrink-0" style={{ color: e.type === "income" ? "#34d399" : "#fb7185" }}>
+                  {e.type === "income" ? "+" : "−"}{Number(e.amount).toLocaleString("ar-EG")}
+                </span>
+                <button onClick={() => onDeleteEntry(e.id)} className="text-slate-500 hover:text-rose-400 shrink-0">
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            ))
+          )}
+
+          <div className="flex flex-wrap gap-2 mt-1">
+            <input
+              value={desc}
+              onChange={(e) => setDesc(e.target.value)}
+              placeholder="وصف العملية"
+              className="flex-1 min-w-[140px] bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none px-2.5 py-1.5 text-sm text-slate-100 placeholder:text-slate-500"
+              style={{ clipPath: clip }}
+            />
+            <input
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              type="number"
+              placeholder="المبلغ"
+              className="w-28 bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none px-2.5 py-1.5 text-sm text-slate-100 placeholder:text-slate-500"
+              style={{ clipPath: clip }}
+            />
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none px-2.5 py-1.5 text-sm text-slate-100" style={{ clipPath: clip }} />
+            <button onClick={() => setType("income")} className="text-xs px-2.5 py-1 border" style={{ clipPath: clip, borderColor: type === "income" ? "#34d399" : "rgba(148,163,184,0.25)", color: type === "income" ? "#34d399" : "#94a3b8", background: type === "income" ? "rgba(52,211,153,0.1)" : "transparent" }}>
+              دخل
+            </button>
+            <button onClick={() => setType("expense")} className="text-xs px-2.5 py-1 border" style={{ clipPath: clip, borderColor: type === "expense" ? "#fb7185" : "rgba(148,163,184,0.25)", color: type === "expense" ? "#fb7185" : "#94a3b8", background: type === "expense" ? "rgba(251,113,133,0.1)" : "transparent" }}>
+              مصروف
+            </button>
+            <button onClick={submit} className="text-xs px-3 py-1.5 border border-cyan-400/50 text-cyan-200 hover:bg-cyan-400/10 flex items-center gap-1" style={{ clipPath: clip }}>
+              <Plus size={13} /> ضيف
+            </button>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[10px] text-slate-500 shrink-0">يترحّل على:</span>
+            {WALLETS.map((w) => (
+              <button
+                key={w.key}
+                onClick={() => setWallet(w.key)}
+                className="text-xs px-2.5 py-1 border"
+                style={{
+                  clipPath: clip,
+                  borderColor: wallet === w.key ? w.color : "rgba(148,163,184,0.25)",
+                  color: wallet === w.key ? w.color : "#94a3b8",
+                  background: wallet === w.key ? `${w.color}15` : "transparent",
+                }}
+              >
+                {w.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+function WalletsPanel({ accounts }) {
+  const balances = {};
+  WALLETS.forEach((w) => (balances[w.key] = 0));
+  accounts.forEach((cat) =>
+    cat.entries.forEach((e) => {
+      const key = balances[e.wallet] !== undefined ? e.wallet : DEFAULT_WALLET;
+      balances[key] += e.type === "income" ? Number(e.amount) : -Number(e.amount);
+    })
+  );
+
+  return (
+    <Panel className="p-4">
+      <CornerTicks />
+      <div className="text-xs tracking-wide text-slate-400 mb-3">أرصدة الخزن</div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        {WALLETS.map((w) => (
+          <div key={w.key} className="border px-3 py-2.5" style={{ borderColor: `${w.color}40`, clipPath: clip, background: `${w.color}0a` }}>
+            <div className="text-[11px] text-slate-400 mb-1">{w.label}</div>
+            <div className="text-lg font-mono" style={{ color: balances[w.key] >= 0 ? w.color : "#fb7185" }}>
+              {balances[w.key].toLocaleString("ar-EG")}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+function TransferPanel({ addAccountEntry }) {
+  const [from, setFrom] = useState(WALLETS[0].key);
+  const [to, setTo] = useState(WALLETS[1].key);
+  const [amount, setAmount] = useState("");
+  const [date, setDate] = useState(todayISO());
+  const [done, setDone] = useState(false);
+
+  const invalid = from === to || !amount || Number(amount) <= 0;
+
+  const submit = () => {
+    if (invalid) return;
+    const amt = Number(amount);
+    addAccountEntry("تحويلات", { id: uid(), description: `تحويل إلى ${walletLabel(to)}`, amount: amt, type: "expense", date, wallet: from });
+    addAccountEntry("تحويلات", { id: uid(), description: `تحويل من ${walletLabel(from)}`, amount: amt, type: "income", date, wallet: to });
+    setAmount("");
+    setDone(true);
+    setTimeout(() => setDone(false), 2000);
+  };
+
+  const selectCls = "bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none text-sm text-slate-100 px-2.5 py-1.5";
+
+  return (
+    <Panel className="p-4">
+      <CornerTicks />
+      <div className="text-xs tracking-wide text-slate-400 mb-3">تحويل بين الخزن</div>
+      <div className="flex flex-wrap items-center gap-2">
+        <select value={from} onChange={(e) => setFrom(e.target.value)} className={selectCls} style={{ clipPath: clip }}>
+          {WALLETS.map((w) => (
+            <option key={w.key} value={w.key} className="bg-slate-900">{w.label}</option>
+          ))}
+        </select>
+        <ArrowLeftRight size={14} className="text-slate-500 shrink-0" />
+        <select value={to} onChange={(e) => setTo(e.target.value)} className={selectCls} style={{ clipPath: clip }}>
+          {WALLETS.map((w) => (
+            <option key={w.key} value={w.key} className="bg-slate-900">{w.label}</option>
+          ))}
+        </select>
+        <input
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          type="number"
+          placeholder="المبلغ"
+          className="w-28 bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none text-sm text-slate-100 placeholder:text-slate-500 px-2.5 py-1.5"
+          style={{ clipPath: clip }}
+        />
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none text-sm text-slate-100 px-2.5 py-1.5" style={{ clipPath: clip }} />
+        <button
+          onClick={submit}
+          disabled={invalid}
+          className="flex items-center gap-1 text-xs px-3 py-1.5 border border-cyan-400/50 text-cyan-200 hover:bg-cyan-400/10 disabled:opacity-40"
+          style={{ clipPath: clip }}
+        >
+          <ArrowLeftRight size={13} /> {done ? "اتحوّل ✅" : "حوّل"}
+        </button>
+      </div>
+      {from === to && <div className="text-xs text-rose-300 mt-2">لازم الخزنة المصدر والهدف يكونوا مختلفين.</div>}
+    </Panel>
+  );
+}
+
+function AccountsTab({ accounts, updateAccounts, commitments, updateCommitments, addAccountEntry, removeAccountEntry }) {
+  const [newCategory, setNewCategory] = useState("");
+
+  const addCategory = () => {
+    if (!newCategory.trim()) return;
+    if (accounts.find((c) => c.name === newCategory.trim())) { setNewCategory(""); return; }
+    updateAccounts([...accounts, { id: uid(), name: newCategory.trim(), entries: [] }]);
+    setNewCategory("");
+  };
+
+  const grandTotal = computeGrandTotal(accounts);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Panel className="p-4" glow>
+        <CornerTicks />
+        <div className="flex items-center justify-between">
+          <div className="text-xs tracking-wide text-slate-400">الصافي الإجمالي — كل الأقسام</div>
+          <div className="text-xl font-mono" style={{ color: grandTotal >= 0 ? "#34d399" : "#fb7185" }}>
+            {grandTotal.toLocaleString("ar-EG")}
+          </div>
+        </div>
+      </Panel>
+
+      <WalletsPanel accounts={accounts} />
+
+      <TransferPanel addAccountEntry={addAccountEntry} />
+
+      <MonthlyChartPanel accounts={accounts} />
+
+      <CommitmentsPanel commitments={commitments} updateCommitments={updateCommitments} addAccountEntry={addAccountEntry} removeAccountEntry={removeAccountEntry} />
+
+      <Panel className="p-3">
+        <CornerTicks />
+        <div className="flex gap-2">
+          <input
+            value={newCategory}
+            onChange={(e) => setNewCategory(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addCategory()}
+            placeholder="قسم جديد... مثال: شغل فريلانس"
+            className="flex-1 bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none px-3 py-2 text-sm placeholder:text-slate-500 text-slate-100"
+            style={{ clipPath: clip }}
+          />
+          <button onClick={addCategory} className="flex items-center gap-1.5 px-4 py-2 text-sm text-cyan-100 border border-cyan-400/50 hover:bg-cyan-400/10" style={{ clipPath: clip }}>
+            <Plus size={15} /> قسم
+          </button>
+        </div>
+      </Panel>
+
+      {accounts.length === 0 && <div className="text-sm text-slate-500 text-center py-6">لسه مفيش أقسام حسابات — ضيف أول واحد فوق (أو خلّص كورس/سدد التزام وهيتضاف القسم أوتوماتيك).</div>}
+
+      {accounts.map((category) => (
+        <CategoryCard
+          key={category.id}
+          category={category}
+          onAddEntry={(entry) => updateAccounts(accounts.map((c) => (c.id === category.id ? { ...c, entries: [...c.entries, entry] } : c)))}
+          onDeleteEntry={(entryId) => updateAccounts(accounts.map((c) => (c.id === category.id ? { ...c, entries: c.entries.filter((e) => e.id !== entryId) } : c)))}
+          onDeleteCategory={() => updateAccounts(accounts.filter((c) => c.id !== category.id))}
+        />
+      ))}
+    </div>
+  );
+}
+
+/* ---------------- Goals tab ---------------- */
+function GoalRow({ goal, onProgress, onComplete, onDelete }) {
+  const today = todayISO();
+  const overdue = goal.progress < 100 && goal.deadline < today;
+  const daysLeft = Math.ceil((new Date(goal.deadline) - new Date(today)) / 86400000);
+
+  return (
+    <Panel className="p-4">
+      <CornerTicks />
+      <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+        <div className="flex items-center gap-2 min-w-0">
+          <span
+            className="text-[9px] px-1.5 py-0.5 border shrink-0"
+            style={{ clipPath: clip, borderColor: goal.type === "weekly" ? "rgba(34,211,238,0.4)" : "rgba(167,139,250,0.4)", color: goal.type === "weekly" ? "#22d3ee" : "#a78bfa" }}
+          >
+            {goal.type === "weekly" ? "أسبوعي" : "شهري"}
+          </span>
+          <span className={`text-sm text-slate-100 truncate ${goal.progress >= 100 ? "line-through opacity-60" : ""}`}>{goal.title}</span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {goal.progress >= 100 ? (
+            <span className="text-xs text-emerald-400 flex items-center gap-1"><CheckCircle2 size={13} /> خلص</span>
+          ) : overdue ? (
+            <span className="text-xs text-rose-400 flex items-center gap-1"><AlertTriangle size={13} /> الميعاد فات</span>
+          ) : (
+            <span className="text-xs text-slate-400">متبقي {daysLeft} يوم</span>
+          )}
+          <button onClick={onDelete} className="text-slate-500 hover:text-rose-400"><Trash2 size={14} /></button>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <div className="flex-1 h-2 bg-slate-800/60 overflow-hidden" style={{ clipPath: clip }}>
+          <div
+            className="h-full transition-all duration-300"
+            style={{ width: `${goal.progress}%`, background: goal.progress >= 100 ? "#34d399" : "#22d3ee" }}
+          />
+        </div>
+        <span className="text-xs font-mono text-slate-300 w-9 text-left shrink-0">{goal.progress}%</span>
+      </div>
+
+      <div className="flex items-center gap-1.5 mt-2">
+        <button onClick={() => onProgress(Math.max(0, goal.progress - 10))} className="text-xs px-2 py-1 border border-slate-600 text-slate-300 hover:bg-slate-700/40" style={{ clipPath: clip }}>-10</button>
+        <button onClick={() => onProgress(Math.min(100, goal.progress + 10))} className="text-xs px-2 py-1 border border-slate-600 text-slate-300 hover:bg-slate-700/40" style={{ clipPath: clip }}>+10</button>
+        {goal.progress < 100 && (
+          <button onClick={onComplete} className="text-xs px-2.5 py-1 border border-emerald-400/50 text-emerald-300 hover:bg-emerald-400/10 flex items-center gap-1" style={{ clipPath: clip }}>
+            <CheckCircle2 size={12} /> خلّص الهدف
+          </button>
+        )}
+      </div>
+    </Panel>
+  );
+}
+
+function GoalsTab({ goals, updateGoals }) {
+  const [title, setTitle] = useState("");
+  const [type, setType] = useState("weekly");
+
+  const addGoal = () => {
+    if (!title.trim()) return;
+    const deadline = type === "weekly" ? addDaysToISO(todayISO(), 7) : addMonthToISO(todayISO());
+    updateGoals([...goals, { id: uid(), title: title.trim(), type, createdDate: todayISO(), deadline, progress: 0 }]);
+    setTitle("");
+  };
+
+  const setProgress = (id, val) => updateGoals(goals.map((g) => (g.id === id ? { ...g, progress: val } : g)));
+  const complete = (id) => updateGoals(goals.map((g) => (g.id === id ? { ...g, progress: 100 } : g)));
+  const remove = (id) => updateGoals(goals.filter((g) => g.id !== id));
+
+  const active = [...goals].filter((g) => g.progress < 100).sort((a, b) => (a.deadline < b.deadline ? -1 : 1));
+  const done = goals.filter((g) => g.progress >= 100);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Panel className="p-3">
+        <CornerTicks />
+        <div className="flex flex-wrap gap-2">
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addGoal()}
+            placeholder="هدف جديد... مثال: قفل 3 عملاء جدد"
+            className="flex-1 min-w-[180px] bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none px-3 py-2 text-sm placeholder:text-slate-500 text-slate-100"
+            style={{ clipPath: clip }}
+          />
+          <div className="flex gap-1.5">
+            <button
+              onClick={() => setType("weekly")}
+              className="text-xs px-3 py-2 border flex items-center gap-1"
+              style={{ clipPath: clip, borderColor: type === "weekly" ? "#22d3ee" : "rgba(148,163,184,0.25)", color: type === "weekly" ? "#22d3ee" : "#94a3b8", background: type === "weekly" ? "rgba(34,211,238,0.1)" : "transparent" }}
+            >
+              أسبوعي
+            </button>
+            <button
+              onClick={() => setType("monthly")}
+              className="text-xs px-3 py-2 border flex items-center gap-1"
+              style={{ clipPath: clip, borderColor: type === "monthly" ? "#a78bfa" : "rgba(148,163,184,0.25)", color: type === "monthly" ? "#a78bfa" : "#94a3b8", background: type === "monthly" ? "rgba(167,139,250,0.1)" : "transparent" }}
+            >
+              شهري
+            </button>
+            <button onClick={addGoal} className="flex items-center gap-1.5 px-4 py-2 text-sm text-cyan-100 border border-cyan-400/50 hover:bg-cyan-400/10" style={{ clipPath: clip }}>
+              <Plus size={15} /> هدف
+            </button>
+          </div>
+        </div>
+      </Panel>
+
+      {goals.length === 0 && <div className="text-sm text-slate-500 text-center py-6">لسه مفيش أهداف مسجلة — ضيف أول واحد فوق.</div>}
+
+      {active.map((g) => (
+        <GoalRow key={g.id} goal={g} onProgress={(v) => setProgress(g.id, v)} onComplete={() => complete(g.id)} onDelete={() => remove(g.id)} />
+      ))}
+
+      {done.length > 0 && (
+        <>
+          <div className="flex items-center gap-2 mt-2 mb-1">
+            <div className="h-px flex-1 bg-slate-700/50" />
+            <span className="text-xs text-emerald-400 flex items-center gap-1"><CheckCircle2 size={13} /> أهداف خلصت ({done.length})</span>
+            <div className="h-px flex-1 bg-slate-700/50" />
+          </div>
+          {done.map((g) => (
+            <GoalRow key={g.id} goal={g} onProgress={(v) => setProgress(g.id, v)} onComplete={() => complete(g.id)} onDelete={() => remove(g.id)} />
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- Top 3 focus panel ---------------- */
+function Top3Panel({ top3, updateTop3 }) {
+  const today = todayISO();
+  const current = top3.date === today ? top3 : { date: today, items: [{ text: "", done: false }, { text: "", done: false }, { text: "", done: false }] };
+
+  const setItem = (idx, patch) => {
+    const items = current.items.map((it, i) => (i === idx ? { ...it, ...patch } : it));
+    updateTop3({ date: today, items });
+  };
+
+  const doneCount = current.items.filter((it) => it.done && it.text.trim()).length;
+
+  return (
+    <Panel className="p-4" glow>
+      <CornerTicks />
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-sm text-cyan-100 font-medium flex items-center gap-1.5">
+          <Target size={15} /> أهم 3 حاجات النهاردة
+        </span>
+        <span className="text-xs text-slate-400">{doneCount}/3</span>
+      </div>
+      <div className="flex flex-col gap-2.5">
+        {current.items.map((it, idx) => (
+          <div key={idx} className="flex items-center gap-2">
+            <button onClick={() => setItem(idx, { done: !it.done })} className="shrink-0">
+              {it.done ? <CheckCircle2 size={19} className="text-emerald-400" /> : <Circle size={19} className="text-slate-500 hover:text-emerald-400" />}
+            </button>
+            <input
+              value={it.text}
+              onChange={(e) => setItem(idx, { text: e.target.value })}
+              placeholder={`الأولوية ${idx + 1}`}
+              className={`flex-1 bg-transparent border-b border-slate-700 focus:border-cyan-400 outline-none text-sm text-slate-100 placeholder:text-slate-500 pb-1 ${it.done ? "line-through opacity-60" : ""}`}
+            />
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+/* ---------------- Workout tab ---------------- */
+function ExerciseSlotCard({ slot, exercise, onSwap }) {
+  return (
+    <Panel className="p-4">
+      <CornerTicks />
+      <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+        <span className="text-[10px] px-2 py-0.5 border border-amber-400/30 text-amber-300 shrink-0" style={{ clipPath: clip }}>
+          {slot.label}
+        </span>
+        <button
+          onClick={onSwap}
+          className="flex items-center gap-1 text-[11px] px-2.5 py-1 border border-cyan-400/40 text-cyan-300 hover:bg-cyan-400/10 shrink-0"
+          style={{ clipPath: clip }}
+        >
+          <RefreshCw size={12} /> غيّر التمرين
+        </button>
+      </div>
+      <div className="text-base font-medium text-slate-100 mb-1">{exercise.name}</div>
+      <div className="text-xs text-cyan-300/80 font-mono mb-2">{exercise.prescription}</div>
+      <details>
+        <summary className="text-xs text-violet-300 cursor-pointer select-none">طريقة الأداء بالتفصيل</summary>
+        <ol className="mt-2 flex flex-col gap-1.5 list-decimal pr-4">
+          {exercise.steps.map((s, i) => (
+            <li key={i} className="text-sm text-slate-300 leading-relaxed">{s}</li>
+          ))}
+        </ol>
+      </details>
+    </Panel>
+  );
+}
+
+function WorkoutTab({ workout, updateWorkout }) {
+  const today = todayISO();
+  const selections = workout.selections || {};
+  const doneToday = workout.doneDate === today;
+
+  useEffect(() => {
+    if (workout.planDate !== today) {
+      const nextSelections = {};
+      WORKOUT_SLOTS.forEach((slot) => {
+        const poolLen = EXERCISE_POOL[slot.key].length;
+        const cur = (workout.selections || {})[slot.key] || 0;
+        nextSelections[slot.key] = poolLen > 1 ? (cur + 1) % poolLen : 0;
+      });
+      updateWorkout({ ...workout, selections: nextSelections, planDate: today });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workout.planDate]);
+
+  const swap = (slotKey) => {
+    const pool = EXERCISE_POOL[slotKey];
+    const current = selections[slotKey] || 0;
+    const next = (current + 1) % pool.length;
+    updateWorkout({ ...workout, selections: { ...selections, [slotKey]: next } });
+  };
+
+  const toggleDone = () => {
+    updateWorkout({ ...workout, doneDate: doneToday ? "" : today });
+  };
+
+  const swapAll = () => {
+    const nextSelections = {};
+    WORKOUT_SLOTS.forEach((slot) => {
+      const poolLen = EXERCISE_POOL[slot.key].length;
+      const cur = selections[slot.key] || 0;
+      nextSelections[slot.key] = poolLen > 1 ? (cur + 1) % poolLen : 0;
+    });
+    updateWorkout({ ...workout, selections: nextSelections });
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Panel className="p-4" glow>
+        <CornerTicks />
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Dumbbell size={18} className="text-amber-300" />
+            <div>
+              <div className="text-sm text-slate-100 font-medium">تمرين اليوم — فل بودي بدون معدات</div>
+              <div className="text-xs text-slate-400 mt-0.5">حوالي 20 دقيقة، 6 تمارين × 3 مجموعات، بيغطي الجسم كله لبناء العضل وتقويته</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={swapAll}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-cyan-400/40 text-cyan-300 hover:bg-cyan-400/10"
+              style={{ clipPath: clip }}
+            >
+              <RefreshCw size={13} /> غيّر التمرين كله
+            </button>
+            <button
+              onClick={toggleDone}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 border transition-colors"
+              style={{
+                clipPath: clip,
+                borderColor: doneToday ? "#34d399" : "rgba(148,163,184,0.3)",
+                color: doneToday ? "#34d399" : "#94a3b8",
+                background: doneToday ? "rgba(52,211,153,0.1)" : "transparent",
+              }}
+            >
+              {doneToday ? <CheckCircle2 size={13} /> : <Circle size={13} />} {doneToday ? "خلصت النهاردة" : "علّم إنك خلصت"}
+            </button>
+          </div>
+        </div>
+      </Panel>
+
+      {WORKOUT_SLOTS.map((slot) => {
+        const idx = selections[slot.key] || 0;
+        const exercise = EXERCISE_POOL[slot.key][idx];
+        return <ExerciseSlotCard key={slot.key} slot={slot} exercise={exercise} onSwap={() => swap(slot.key)} />;
+      })}
+    </div>
+  );
+}
+
+/* ---------------- Backup panel ---------------- */
+function BackupPanel() {
+  const [exportText, setExportText] = useState("");
+  const [importText, setImportText] = useState("");
+  const [status, setStatus] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const doExport = async () => {
+    setBusy(true);
+    setStatus("جاري تجميع البيانات...");
+    const data = {};
+    for (const [name, key] of Object.entries(KEYS)) {
+      try {
+        const r = await window.storage.get(key, false);
+        data[name] = r ? JSON.parse(r.value) : null;
+      } catch (e) {
+        data[name] = null;
+      }
+    }
+    const payload = { exportedAt: new Date().toISOString(), app: "NOVA", data };
+    setExportText(JSON.stringify(payload));
+    setStatus("جاهز — دوس \"نسخ\" وابعت النص هنا في الشات عشان أرفعه في جوجل درايف بتاعك.");
+    setBusy(false);
+  };
+
+  const copyExport = async () => {
+    try {
+      await navigator.clipboard.writeText(exportText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch (e) {
+      setStatus("متقدرش أنسخ تلقائي — حدد النص من الصندوق وانسخه يدوي (Ctrl/Cmd+C).");
+    }
+  };
+
+  const doImport = async () => {
+    setBusy(true);
+    try {
+      const parsed = JSON.parse(importText);
+      const data = parsed.data || parsed;
+      for (const [name, key] of Object.entries(KEYS)) {
+        if (data[name] !== undefined && data[name] !== null) {
+          await window.storage.set(key, JSON.stringify(data[name]), false);
+        }
+      }
+      setStatus("تم الاسترجاع — الصفحة هتتحدّث دلوقتي...");
+      setTimeout(() => window.location.reload(), 1200);
+    } catch (e) {
+      setStatus("النص مش صالح — تأكد إنك لاصق نسخة احتياطية سليمة اتصدرت من نفس الأداة.");
+    }
+    setBusy(false);
+  };
+
+  return (
+    <Panel className="p-4">
+      <CornerTicks />
+      <div className="text-xs tracking-wide text-slate-400 mb-3">نسخة احتياطية — تصدير واسترجاع</div>
+
+      <div className="flex flex-wrap items-center gap-2 mb-2">
+        <button
+          onClick={doExport}
+          disabled={busy}
+          className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-cyan-400/50 text-cyan-200 hover:bg-cyan-400/10 disabled:opacity-50"
+          style={{ clipPath: clip }}
+        >
+          {busy ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />} تصدير كل البيانات
+        </button>
+        {exportText && (
+          <button onClick={copyExport} className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-emerald-400/50 text-emerald-200 hover:bg-emerald-400/10" style={{ clipPath: clip }}>
+            {copied ? "اتنسخ ✅" : "نسخ النص"}
+          </button>
+        )}
+      </div>
+
+      {exportText && (
+        <textarea
+          readOnly
+          value={exportText}
+          rows={3}
+          className="w-full bg-transparent border border-slate-700 text-[10px] font-mono text-slate-400 p-2 mb-2"
+          style={{ clipPath: clip }}
+          onFocus={(e) => e.target.select()}
+        />
+      )}
+
+      {status && <div className="text-xs text-cyan-300 mb-2">{status}</div>}
+
+      <div className="mt-2 pt-3 border-t" style={{ borderColor: "rgba(148,163,184,0.15)" }}>
+        <div className="text-xs text-slate-500 mb-1.5">استرجاع من نسخة قديمة:</div>
+        <textarea
+          value={importText}
+          onChange={(e) => setImportText(e.target.value)}
+          placeholder="الصق هنا نص نسخة احتياطية سابقة..."
+          rows={2}
+          className="w-full bg-transparent border border-slate-700 text-xs text-slate-300 placeholder:text-slate-600 p-2 mb-2"
+          style={{ clipPath: clip }}
+        />
+        <button
+          onClick={doImport}
+          disabled={!importText.trim() || busy}
+          className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-amber-400/50 text-amber-200 hover:bg-amber-400/10 disabled:opacity-40"
+          style={{ clipPath: clip }}
+        >
+          <Upload size={13} /> استيراد واسترجاع
+        </button>
+      </div>
+    </Panel>
+  );
+}
+
+/* ---------------- NOVA business units tab ---------------- */
+function NovaTaskItem({ task, onToggle, onDelete }) {
+  const p = PRIORITIES[task.priority];
+  return (
+    <div className="flex items-center gap-2 border px-2.5 py-1.5" style={{ borderColor: "rgba(148,163,184,0.15)", clipPath: clip, opacity: task.done ? 0.55 : 1 }}>
+      <button onClick={onToggle} className="shrink-0">
+        {task.done ? <CheckCircle2 size={16} className="text-cyan-400" /> : <Circle size={16} className="text-slate-500 hover:text-cyan-400" />}
+      </button>
+      <span className={`flex-1 text-sm text-slate-100 truncate ${task.done ? "line-through" : ""}`}>{task.text}</span>
+      <span className="text-[10px] px-1.5 py-0.5 shrink-0" style={{ color: p.color, border: `1px solid ${p.color}55`, background: `${p.color}12` }}>{p.label}</span>
+      <button onClick={onDelete} className="text-slate-500 hover:text-rose-400 shrink-0"><Trash2 size={13} /></button>
+    </div>
+  );
+}
+
+function NovaUnitCard({ unit, accounts, addAccountEntry, removeAccountEntry, tasks, updateTasks }) {
+  const [taskText, setTaskText] = useState("");
+  const [taskPriority, setTaskPriority] = useState("important");
+  const [costDesc, setCostDesc] = useState("");
+  const [costAmount, setCostAmount] = useState("");
+  const [costSubtype, setCostSubtype] = useState("إعلانية");
+  const [costDate, setCostDate] = useState(todayISO());
+  const [costWallet, setCostWallet] = useState(DEFAULT_WALLET);
+  const [collDesc, setCollDesc] = useState("تحصيل الشهر");
+  const [collAmount, setCollAmount] = useState("");
+  const [collDate, setCollDate] = useState(todayISO());
+  const [collWallet, setCollWallet] = useState(DEFAULT_WALLET);
+
+  const category = accounts.find((c) => c.name === unit.name);
+  const entries = category ? category.entries : [];
+  const costs = entries.filter((e) => e.type === "expense");
+  const collections = entries.filter((e) => e.type === "income");
+  const totalCosts = costs.reduce((s, e) => s + Number(e.amount), 0);
+  const totalCollections = collections.reduce((s, e) => s + Number(e.amount), 0);
+  const net = totalCollections - totalCosts;
+
+  const addTask = () => {
+    if (!taskText.trim()) return;
+    updateTasks([...tasks, { id: uid(), text: taskText.trim(), priority: taskPriority, done: false }]);
+    setTaskText("");
+  };
+  const toggleTask = (id) => updateTasks(tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
+  const deleteTask = (id) => updateTasks(tasks.filter((t) => t.id !== id));
+
+  const addCost = () => {
+    if (!costDesc.trim() || !costAmount) return;
+    addAccountEntry(unit.name, { id: uid(), description: costDesc.trim(), amount: Number(costAmount), type: "expense", date: costDate, wallet: costWallet, subtype: costSubtype });
+    setCostDesc("");
+    setCostAmount("");
+  };
+
+  const addCollection = () => {
+    if (!collAmount) return;
+    addAccountEntry(unit.name, { id: uid(), description: collDesc.trim() || "تحصيل الشهر", amount: Number(collAmount), type: "income", date: collDate, wallet: collWallet });
+    setCollAmount("");
+  };
+
+  const inputCls = "bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none px-2.5 py-1.5 text-sm text-slate-100 placeholder:text-slate-500";
+
+  return (
+    <Panel className="p-4 flex flex-col gap-4">
+      <CornerTicks />
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <span className="text-base font-semibold text-cyan-100 tracking-wide">{unit.name}</span>
+        <span className="text-sm font-mono" style={{ color: net >= 0 ? "#34d399" : "#fb7185" }}>الصافي: {net.toLocaleString("ar-EG")}</span>
+      </div>
+
+      <div>
+        <div className="text-xs tracking-wide text-slate-400 mb-2">التاسكات</div>
+        <div className="flex flex-wrap gap-2 mb-2">
+          <input
+            value={taskText}
+            onChange={(e) => setTaskText(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addTask()}
+            placeholder="تاسك جديد..."
+            className={`${inputCls} flex-1 min-w-[140px]`}
+            style={{ clipPath: clip }}
+          />
+          <div className="flex gap-1.5">
+            {Object.entries(PRIORITIES).map(([key, p]) => (
+              <button
+                key={key}
+                onClick={() => setTaskPriority(key)}
+                className="text-xs px-2.5 py-1 border"
+                style={{ clipPath: clip, borderColor: taskPriority === key ? p.color : "rgba(148,163,184,0.25)", color: taskPriority === key ? p.color : "#94a3b8", background: taskPriority === key ? `${p.color}15` : "transparent" }}
+              >
+                {p.label}
+              </button>
+            ))}
+            <button onClick={addTask} className="text-xs px-3 py-1 border border-cyan-400/50 text-cyan-200 hover:bg-cyan-400/10 flex items-center gap-1" style={{ clipPath: clip }}>
+              <Plus size={13} /> ضيف
+            </button>
+          </div>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          {tasks.length === 0 && <div className="text-xs text-slate-500">مفيش تاسكات لسه.</div>}
+          {[...tasks].sort((a, b) => (a.done !== b.done ? (a.done ? 1 : -1) : PRIORITIES[a.priority].order - PRIORITIES[b.priority].order)).map((t) => (
+            <NovaTaskItem key={t.id} task={t} onToggle={() => toggleTask(t.id)} onDelete={() => deleteTask(t.id)} />
+          ))}
+        </div>
+      </div>
+
+      <div className="pt-3 border-t" style={{ borderColor: "rgba(148,163,184,0.15)" }}>
+        <div className="text-xs tracking-wide text-slate-400 mb-2">تكاليف إعلانية وتشغيلية</div>
+        <div className="flex flex-col gap-1.5 mb-2">
+          {costs.length === 0 && <div className="text-xs text-slate-500">مفيش تكاليف مسجلة لسه.</div>}
+          {[...costs].sort((a, b) => (a.date < b.date ? 1 : -1)).map((e) => (
+            <div key={e.id} className="flex items-center gap-2 text-sm border px-2.5 py-1.5" style={{ borderColor: "rgba(148,163,184,0.15)", clipPath: clip }}>
+              <span className="text-[10px] text-slate-500 font-mono shrink-0">{e.date}</span>
+              <span className="flex-1 text-slate-100 truncate">{e.description}</span>
+              {e.subtype && <span className="text-[9px] px-1.5 py-0.5 border border-amber-400/30 text-amber-300 shrink-0" style={{ clipPath: clip }}>{e.subtype}</span>}
+              <span className="text-sm font-mono text-rose-300 shrink-0">−{Number(e.amount).toLocaleString("ar-EG")}</span>
+              <button onClick={() => removeAccountEntry(unit.name, e.id)} className="text-slate-500 hover:text-rose-400 shrink-0"><Trash2 size={13} /></button>
+            </div>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <input value={costDesc} onChange={(e) => setCostDesc(e.target.value)} placeholder="وصف التكلفة" className={`${inputCls} flex-1 min-w-[120px]`} style={{ clipPath: clip }} />
+          <input value={costAmount} onChange={(e) => setCostAmount(e.target.value)} type="number" placeholder="المبلغ" className={`${inputCls} w-24`} style={{ clipPath: clip }} />
+          <input type="date" value={costDate} onChange={(e) => setCostDate(e.target.value)} className={inputCls} style={{ clipPath: clip }} />
+          <button
+            onClick={() => setCostSubtype("إعلانية")}
+            className="text-xs px-2.5 py-1 border"
+            style={{ clipPath: clip, borderColor: costSubtype === "إعلانية" ? "#fbbf24" : "rgba(148,163,184,0.25)", color: costSubtype === "إعلانية" ? "#fbbf24" : "#94a3b8", background: costSubtype === "إعلانية" ? "rgba(251,191,36,0.1)" : "transparent" }}
+          >
+            إعلانية
+          </button>
+          <button
+            onClick={() => setCostSubtype("تشغيلية")}
+            className="text-xs px-2.5 py-1 border"
+            style={{ clipPath: clip, borderColor: costSubtype === "تشغيلية" ? "#60a5fa" : "rgba(148,163,184,0.25)", color: costSubtype === "تشغيلية" ? "#60a5fa" : "#94a3b8", background: costSubtype === "تشغيلية" ? "rgba(96,165,250,0.1)" : "transparent" }}
+          >
+            تشغيلية
+          </button>
+          <button onClick={addCost} className="text-xs px-3 py-1.5 border border-rose-400/50 text-rose-200 hover:bg-rose-400/10 flex items-center gap-1" style={{ clipPath: clip }}>
+            <Plus size={13} /> ضيف تكلفة
+          </button>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+          <span className="text-[10px] text-slate-500 shrink-0">من خزنة:</span>
+          {WALLETS.map((w) => (
+            <button
+              key={w.key}
+              onClick={() => setCostWallet(w.key)}
+              className="text-xs px-2.5 py-1 border"
+              style={{ clipPath: clip, borderColor: costWallet === w.key ? w.color : "rgba(148,163,184,0.25)", color: costWallet === w.key ? w.color : "#94a3b8", background: costWallet === w.key ? `${w.color}15` : "transparent" }}
+            >
+              {w.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="pt-3 border-t" style={{ borderColor: "rgba(148,163,184,0.15)" }}>
+        <div className="text-xs tracking-wide text-slate-400 mb-2">تحصيل الشهر</div>
+          <div className="flex flex-col gap-1.5 mb-2">
+            {collections.length === 0 && <div className="text-xs text-slate-500">مفيش تحصيل مسجل لسه.</div>}
+            {[...collections].sort((a, b) => (a.date < b.date ? 1 : -1)).map((e) => (
+              <div key={e.id} className="flex items-center gap-2 text-sm border px-2.5 py-1.5" style={{ borderColor: "rgba(148,163,184,0.15)", clipPath: clip }}>
+                <span className="text-[10px] text-slate-500 font-mono shrink-0">{e.date}</span>
+                <span className="flex-1 text-slate-100 truncate">{e.description}</span>
+                <span className="text-sm font-mono text-emerald-300 shrink-0">+{Number(e.amount).toLocaleString("ar-EG")}</span>
+                <button onClick={() => removeAccountEntry(unit.name, e.id)} className="text-slate-500 hover:text-rose-400 shrink-0"><Trash2 size={13} /></button>
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-2 mb-3">
+            <input value={collDesc} onChange={(e) => setCollDesc(e.target.value)} placeholder="وصف (اختياري)" className={`${inputCls} flex-1 min-w-[120px]`} style={{ clipPath: clip }} />
+            <input value={collAmount} onChange={(e) => setCollAmount(e.target.value)} type="number" placeholder="المبلغ" className={`${inputCls} w-24`} style={{ clipPath: clip }} />
+            <input type="date" value={collDate} onChange={(e) => setCollDate(e.target.value)} className={inputCls} style={{ clipPath: clip }} />
+            <button onClick={addCollection} className="text-xs px-3 py-1.5 border border-emerald-400/50 text-emerald-200 hover:bg-emerald-400/10 flex items-center gap-1" style={{ clipPath: clip }}>
+              <Plus size={13} /> ضيف تحصيل
+            </button>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5 mb-3">
+            <span className="text-[10px] text-slate-500 shrink-0">يترحّل على:</span>
+            {WALLETS.map((w) => (
+              <button
+                key={w.key}
+                onClick={() => setCollWallet(w.key)}
+                className="text-xs px-2.5 py-1 border"
+                style={{ clipPath: clip, borderColor: collWallet === w.key ? w.color : "rgba(148,163,184,0.25)", color: collWallet === w.key ? w.color : "#94a3b8", background: collWallet === w.key ? `${w.color}15` : "transparent" }}
+              >
+                {w.label}
+              </button>
+            ))}
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="border px-2 py-1.5" style={{ borderColor: "rgba(52,211,153,0.3)", clipPath: clip }}>
+              <div className="text-[10px] text-slate-400">تحصيل</div>
+              <div className="text-sm font-mono text-emerald-300">{totalCollections.toLocaleString("ar-EG")}</div>
+            </div>
+            <div className="border px-2 py-1.5" style={{ borderColor: "rgba(251,113,133,0.3)", clipPath: clip }}>
+              <div className="text-[10px] text-slate-400">مصروفات</div>
+              <div className="text-sm font-mono text-rose-300">{totalCosts.toLocaleString("ar-EG")}</div>
+            </div>
+            <div className="border px-2 py-1.5" style={{ borderColor: net >= 0 ? "rgba(34,211,238,0.3)" : "rgba(251,113,133,0.3)", clipPath: clip }}>
+              <div className="text-[10px] text-slate-400">الصافي</div>
+              <div className="text-sm font-mono" style={{ color: net >= 0 ? "#22d3ee" : "#fb7185" }}>{net.toLocaleString("ar-EG")}</div>
+            </div>
+          </div>
+      </div>
+    </Panel>
+  );
+}
+
+function NovaTab({ accounts, addAccountEntry, removeAccountEntry, novaTasks, updateNovaTasks }) {
+  return (
+    <div className="flex flex-col gap-4">
+      {NOVA_UNITS.map((unit) => (
+        <NovaUnitCard
+          key={unit.key}
+          unit={unit}
+          accounts={accounts}
+          addAccountEntry={addAccountEntry}
+          removeAccountEntry={removeAccountEntry}
+          tasks={novaTasks[unit.key] || []}
+          updateTasks={(next) => updateNovaTasks({ ...novaTasks, [unit.key]: next })}
+        />
+      ))}
+    </div>
+  );
+}
+
+/* ---------------- Dashboard tab ---------------- */
+function DashboardTab({ projects, appointments, daily, accounts, courses, commitments, goals, top3, updateTop3, onGo }) {
+  const today = todayISO();
+
+  const urgentTasks = [];
+  projects.forEach((p) => p.tasks.forEach((t) => { if (t.priority === "urgent" && !t.done) urgentTasks.push({ ...t, projectName: p.name }); }));
+
+  const todayAppts = appointments.filter((a) => a.date === today).sort((a, b) => toMinutes(a.time) - toMinutes(b.time));
+  const pendingHabits = daily.filter((d) => d.type === "habit" && !d.history[today]);
+  const grandTotal = computeGrandTotal(accounts);
+  const nearDoneCourses = courses.filter((c) => !c.done && c.lectures.length > 0 && c.lectures.filter((l) => l.done).length / c.lectures.length >= 0.75);
+  const overdueCommitments = commitments.filter((c) => !c.paid && c.dueDate < today);
+  const dueSoonCommitments = commitments.filter((c) => !c.paid && c.dueDate >= today && c.dueDate <= addDaysToISO(today, 3));
+  const activeGoals = [...goals].filter((g) => g.progress < 100).sort((a, b) => (a.deadline < b.deadline ? -1 : 1));
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Top3Panel top3={top3} updateTop3={updateTop3} />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <Panel className="p-4" glow>
+        <CornerTicks />
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs tracking-wide text-slate-400">مهام عاجلة معلقة</span>
+          <span className="text-lg font-mono text-rose-300">{urgentTasks.length}</span>
+        </div>
+        {urgentTasks.length === 0 ? (
+          <div className="text-xs text-slate-500">مفيش مهام عاجلة معلقة. 👌</div>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {urgentTasks.slice(0, 5).map((t) => (
+              <div key={t.id} className="text-sm text-slate-200 truncate">• {t.text} <span className="text-[11px] text-slate-500">({t.projectName})</span></div>
+            ))}
+            {urgentTasks.length > 5 && <button onClick={() => onGo("projects")} className="text-xs text-cyan-300 text-right hover:underline">وكمان {urgentTasks.length - 5}...</button>}
+          </div>
+        )}
+      </Panel>
+
+      <Panel className="p-4">
+        <CornerTicks />
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs tracking-wide text-slate-400">مواعيد النهاردة</span>
+          <span className="text-lg font-mono text-cyan-300">{todayAppts.length}</span>
+        </div>
+        {todayAppts.length === 0 ? (
+          <div className="text-xs text-slate-500">مفيش مواعيد النهاردة.</div>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {todayAppts.slice(0, 5).map((a) => (
+              <div key={a.id} className="text-sm text-slate-200 truncate">🕐 {a.time} — {a.title}</div>
+            ))}
+          </div>
+        )}
+      </Panel>
+
+      <Panel className="p-4">
+        <CornerTicks />
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs tracking-wide text-slate-400">عادات لسه ماخلصتهاش النهاردة</span>
+          <span className="text-lg font-mono text-amber-300">{pendingHabits.length}</span>
+        </div>
+        {pendingHabits.length === 0 ? (
+          <div className="text-xs text-slate-500">كل عاداتك النهاردة خلصت. 🔥</div>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {pendingHabits.map((h) => (
+              <div key={h.id} className="text-sm text-slate-200 truncate">• {h.name}</div>
+            ))}
+          </div>
+        )}
+      </Panel>
+
+      <Panel className="p-4">
+        <CornerTicks />
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs tracking-wide text-slate-400">صافي الحسابات</span>
+          <span className="text-lg font-mono" style={{ color: grandTotal >= 0 ? "#34d399" : "#fb7185" }}>{grandTotal.toLocaleString("ar-EG")}</span>
+        </div>
+        {(overdueCommitments.length > 0 || dueSoonCommitments.length > 0) ? (
+          <div className="flex flex-col gap-1">
+            {overdueCommitments.length > 0 && <div className="text-xs text-rose-300 flex items-center gap-1"><AlertTriangle size={12} /> {overdueCommitments.length} التزام فات ميعاده</div>}
+            {dueSoonCommitments.length > 0 && <div className="text-xs text-amber-300">{dueSoonCommitments.length} التزام مستحق قريب</div>}
+          </div>
+        ) : (
+          <div className="text-xs text-slate-500">مفيش التزامات مستعجلة.</div>
+        )}
+      </Panel>
+
+      <Panel className="p-4 md:col-span-2">
+        <CornerTicks />
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs tracking-wide text-slate-400">أهداف نشطة</span>
+          <span className="text-lg font-mono text-cyan-300">{activeGoals.length}</span>
+        </div>
+        {activeGoals.length === 0 ? (
+          <div className="text-xs text-slate-500 mb-3">مفيش أهداف نشطة دلوقتي.</div>
+        ) : (
+          <div className="flex flex-col gap-1.5 mb-3">
+            {activeGoals.slice(0, 4).map((g) => (
+              <div key={g.id} className="flex items-center gap-2 text-sm text-slate-200">
+                <span className="flex-1 truncate">• {g.title}</span>
+                <span className="text-xs text-slate-500 font-mono">{g.progress}%</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
+
+      <Panel className="p-4 md:col-span-2">
+        <CornerTicks />
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs tracking-wide text-slate-400">كورسات قربت تخلص (75%+)</span>
+          <span className="text-lg font-mono text-emerald-300">{nearDoneCourses.length}</span>
+        </div>
+        {nearDoneCourses.length === 0 ? (
+          <div className="text-xs text-slate-500">مفيش كورسات قربت تخلص دلوقتي.</div>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {nearDoneCourses.map((c) => {
+              const doneCount = c.lectures.filter((l) => l.done).length;
+              return <div key={c.id} className="text-sm text-slate-200">• {c.name} ({doneCount}/{c.lectures.length})</div>;
+            })}
+          </div>
+        )}
+      </Panel>
+      </div>
+      <BackupPanel />
+    </div>
+  );
+}
+
+/* ---------------- App ---------------- */
+function App() {
+  const [tab, setTab] = useState("dashboard");
+  const [projects, setProjects] = useState([]);
+  const [appointments, setAppointments] = useState([]);
+  const [courses, setCourses] = useState([]);
+  const [accounts, setAccounts] = useState([]);
+  const [daily, setDaily] = useState([]);
+  const [commitments, setCommitments] = useState([]);
+  const [goals, setGoals] = useState([]);
+  const [topThree, setTopThree] = useState({ date: "", items: [] });
+  const [workout, setWorkout] = useState({ selections: {}, doneDate: "", planDate: "" });
+  const [novaTasks, setNovaTasks] = useState({ prime: [], marketing: [] });
+  const [loaded, setLoaded] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+  const [now, setNow] = useState(new Date());
+  const debounceRef = useRef({});
+
+  useEffect(() => {
+    try { document.title = "NOVA"; } catch (e) { /* sandboxed, ignore */ }
+  }, []);
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      const loadOne = async (key, setter) => {
+        try {
+          const r = await window.storage.get(key, false);
+          if (r && r.value) setter(JSON.parse(r.value));
+        } catch (e) {
+          /* nothing saved yet */
+        }
+      };
+      await Promise.all([
+        loadOne(KEYS.projects, setProjects),
+        loadOne(KEYS.appointments, setAppointments),
+        loadOne(KEYS.courses, setCourses),
+        loadOne(KEYS.accounts, setAccounts),
+        loadOne(KEYS.daily, setDaily),
+        loadOne(KEYS.commitments, setCommitments),
+        loadOne(KEYS.goals, setGoals),
+        loadOne(KEYS.topThree, setTopThree),
+        loadOne(KEYS.workout, setWorkout),
+        loadOne(KEYS.novaTasks, setNovaTasks),
+      ]);
+      setLoaded(true);
+    })();
+  }, []);
+
+  const persist = useCallback((key, value, debounceMs = 0) => {
+    const doSave = async () => {
+      try {
+        const r = await window.storage.set(key, JSON.stringify(value), false);
+        setSaveError(!r);
+      } catch (e) {
+        setSaveError(true);
+      }
+    };
+    if (!debounceMs) return doSave();
+    clearTimeout(debounceRef.current[key]);
+    debounceRef.current[key] = setTimeout(doSave, debounceMs);
+  }, []);
+
+  const updateProjects = (next) => { setProjects(next); persist(KEYS.projects, next); };
+  const updateCourses = (next) => { setCourses(next); persist(KEYS.courses, next, 400); };
+  const updateAccounts = (next) => { setAccounts(next); persist(KEYS.accounts, next); };
+  const updateDaily = (next) => { setDaily(next); persist(KEYS.daily, next); };
+  const updateCommitments = (next) => { setCommitments(next); persist(KEYS.commitments, next); };
+  const updateGoals = (next) => { setGoals(next); persist(KEYS.goals, next, 300); };
+  const updateTopThree = (next) => { setTopThree(next); persist(KEYS.topThree, next, 300); };
+  const updateWorkout = (next) => { setWorkout(next); persist(KEYS.workout, next); };
+  const updateNovaTasks = (next) => { setNovaTasks(next); persist(KEYS.novaTasks, next, 300); };
+  const addAppointment = (appt) => { setAppointments((prev) => { const next = [...prev, appt]; persist(KEYS.appointments, next); return next; }); };
+  const deleteAppointment = (id) => { setAppointments((prev) => { const next = prev.filter((a) => a.id !== id); persist(KEYS.appointments, next); return next; }); };
+
+  const addAccountEntry = (categoryName, entry) => {
+    setAccounts((prev) => {
+      const exists = prev.find((c) => c.name === categoryName);
+      const withCat = exists ? prev : [...prev, { id: uid(), name: categoryName, entries: [] }];
+      const next = withCat.map((c) => (c.name === categoryName ? { ...c, entries: [...c.entries, entry] } : c));
+      persist(KEYS.accounts, next);
+      return next;
+    });
+  };
+
+  const removeAccountEntry = (categoryName, entryId) => {
+    setAccounts((prev) => {
+      const next = prev.map((c) => (c.name === categoryName ? { ...c, entries: c.entries.filter((e) => e.id !== entryId) } : c));
+      persist(KEYS.accounts, next);
+      return next;
+    });
+  };
+
+  const dateStr = now.toLocaleDateString("ar-EG", { weekday: "long", day: "numeric", month: "long" });
+  const timeStr = now.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const todayCount = appointments.filter((a) => a.date === todayISO()).length;
+  const quote = QUOTES[eightHourBlockIndex(now) % QUOTES.length];
+
+  const overdueCommitmentsCount = commitments.filter((c) => !c.paid && c.dueDate < todayISO()).length;
+  const dueTodayCommitmentsCount = commitments.filter((c) => !c.paid && c.dueDate === todayISO()).length;
+
+  return (
+    <div
+      dir="rtl"
+      className="min-h-screen w-full font-sans text-slate-200 p-4 md:p-6"
+      style={{
+        background:
+          "radial-gradient(ellipse at top, rgba(34,211,238,0.06), transparent 60%), " +
+          "linear-gradient(rgba(34,211,238,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(34,211,238,0.035) 1px, transparent 1px), #050b13",
+        backgroundSize: "auto, 34px 34px, 34px 34px, auto",
+      }}
+    >
+      <style>{`
+        @keyframes nova-glow-pulse {
+          0%, 100% { opacity: 0.15; transform: scale(0.85); }
+          50% { opacity: 0.7; transform: scale(1.35); }
+        }
+        @keyframes nova-core-flicker {
+          0%, 100% { box-shadow: 0 0 10px rgba(34,211,238,0.3); }
+          50% { box-shadow: 0 0 22px rgba(34,211,238,0.65); }
+        }
+      `}</style>
+      <Panel className="p-4 md:p-5 mb-4" glow>
+        <CornerTicks />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="relative flex items-center justify-center w-14 h-14 shrink-0">
+              <span className="absolute inset-0 rounded-full" style={{ border: "1px solid rgba(34,211,238,0.25)" }} />
+              <span className="absolute inset-[2px] rounded-full" style={{ border: "1px solid #22d3ee", animation: "nova-glow-pulse 4s ease-in-out infinite" }} />
+              <div
+                className="relative w-8 h-8 rounded-full flex items-center justify-center"
+                style={{ background: "rgba(34,211,238,0.12)", animation: "nova-core-flicker 4s ease-in-out infinite" }}
+              >
+                <Zap size={16} className="text-cyan-300" style={{ filter: "drop-shadow(0 0 4px #22d3ee)" }} />
+              </div>
+            </div>
+            <div>
+              <div className="flex items-baseline gap-2 flex-wrap">
+                <span className="text-2xl font-bold tracking-[0.25em] text-cyan-100" style={{ textShadow: "0 0 18px rgba(34,211,238,0.45)" }}>
+                  NOVA
+                </span>
+              </div>
+              <div className="text-sm text-cyan-200/80 mt-0.5">أهلاً يا فهد</div>
+              <div className="text-[11px] text-amber-300/90 italic mt-0.5">{quote}</div>
+              <div className="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">
+                <Radio size={11} className="text-emerald-400" /> {todayCount > 0 ? `عندك ${todayCount} ميعاد النهاردة` : "مفيش مواعيد النهاردة"}
+              </div>
+              <button
+                onClick={() => setTab("workout")}
+                className="text-xs flex items-center gap-1.5 mt-1 hover:underline"
+                style={{ color: workout.doneDate === todayISO() ? "#34d399" : "#fbbf24" }}
+              >
+                <Dumbbell size={11} />
+                {workout.doneDate === todayISO() ? "خلصت تمرين النهاردة ✅" : "تمرين النهاردة لسه — Workout (20 دقيقة)"}
+              </button>
+            </div>
+          </div>
+          <div className="text-left shrink-0">
+            <div className="text-2xl font-mono tabular-nums text-cyan-200">{timeStr}</div>
+            <div className="text-xs text-slate-400">{dateStr}</div>
+          </div>
+        </div>
+        {(overdueCommitmentsCount > 0 || dueTodayCommitmentsCount > 0) && (
+          <div
+            className="mt-3 flex items-center gap-1.5 text-xs px-2.5 py-1.5 border"
+            style={{
+              clipPath: clip,
+              borderColor: overdueCommitmentsCount > 0 ? "rgba(251,113,133,0.4)" : "rgba(251,191,36,0.4)",
+              color: overdueCommitmentsCount > 0 ? "#fb7185" : "#fbbf24",
+              background: overdueCommitmentsCount > 0 ? "rgba(251,113,133,0.08)" : "rgba(251,191,36,0.08)",
+            }}
+          >
+            <AlertTriangle size={13} />
+            {overdueCommitmentsCount > 0
+              ? `عندك ${overdueCommitmentsCount} التزام فات ميعاده — راجع تاب الحسابات`
+              : `عندك ${dueTodayCommitmentsCount} التزام مستحق النهاردة`}
+          </div>
+        )}
+      </Panel>
+
+      {saveError && (
+        <div className="mb-4 text-xs text-rose-300 border border-rose-500/30 bg-rose-500/10 px-3 py-2" style={{ clipPath: clip }}>
+          حصل خطأ في الحفظ — التعديل اتسجل بس ممكن يضيع لو قفلت الصفحة.
+        </div>
+      )}
+
+      <div className="flex gap-2 mb-4 flex-wrap">
+        <TabButton active={tab === "dashboard"} onClick={() => setTab("dashboard")} icon={LayoutDashboard} label="الرئيسية" />
+        <TabButton active={tab === "projects"} onClick={() => setTab("projects")} icon={Folder} label="المشاريع" />
+        <TabButton active={tab === "daily"} onClick={() => setTab("daily")} icon={Sun} label="يومي" />
+        <TabButton active={tab === "calendar"} onClick={() => setTab("calendar")} icon={Calendar} label="الكاليندر" />
+        <TabButton active={tab === "courses"} onClick={() => setTab("courses")} icon={BookOpen} label="الكورسات" />
+        <TabButton active={tab === "goals"} onClick={() => setTab("goals")} icon={Target} label="الأهداف" />
+        <TabButton active={tab === "accounts"} onClick={() => setTab("accounts")} icon={Wallet} label="الحسابات" />
+        <TabButton active={tab === "workout"} onClick={() => setTab("workout")} icon={Dumbbell} label="Workout" />
+        <TabButton active={tab === "nova"} onClick={() => setTab("nova")} icon={Briefcase} label="NOVA" />
+      </div>
+
+      {!loaded ? (
+        <div className="flex items-center gap-2 text-sm text-slate-400 py-10 justify-center">
+          <Loader2 size={16} className="animate-spin" /> NOVA بتشغل الأنظمة...
+        </div>
+      ) : (
+        <>
+          {tab === "dashboard" && (
+            <DashboardTab
+              projects={projects}
+              appointments={appointments}
+              daily={daily}
+              accounts={accounts}
+              courses={courses}
+              commitments={commitments}
+              goals={goals}
+              top3={topThree}
+              updateTop3={updateTopThree}
+              onGo={setTab}
+            />
+          )}
+          {tab === "goals" && <GoalsTab goals={goals} updateGoals={updateGoals} />}
+          {tab === "projects" && <ProjectsTab projects={projects} appointments={appointments} updateProjects={updateProjects} addAppointment={addAppointment} />}
+          {tab === "daily" && <DailyTab daily={daily} updateDaily={updateDaily} />}
+          {tab === "calendar" && <CalendarTab appointments={appointments} addAppointment={addAppointment} deleteAppointment={deleteAppointment} />}
+          {tab === "courses" && (
+            <CoursesTab
+              courses={courses}
+              appointments={appointments}
+              updateCourses={updateCourses}
+              addAppointment={addAppointment}
+              deleteAppointment={deleteAppointment}
+              addAccountEntry={addAccountEntry}
+              removeAccountEntry={removeAccountEntry}
+            />
+          )}
+          {tab === "accounts" && (
+            <AccountsTab
+              accounts={accounts}
+              updateAccounts={updateAccounts}
+              commitments={commitments}
+              updateCommitments={updateCommitments}
+              addAccountEntry={addAccountEntry}
+              removeAccountEntry={removeAccountEntry}
+            />
+          )}
+          {tab === "workout" && <WorkoutTab workout={workout} updateWorkout={updateWorkout} />}
+          {tab === "nova" && (
+            <NovaTab
+              accounts={accounts}
+              addAccountEntry={addAccountEntry}
+              removeAccountEntry={removeAccountEntry}
+              novaTasks={novaTasks}
+              updateNovaTasks={updateNovaTasks}
+            />
+          )}
+        </>
+      )}
+
+      <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات.
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Auth gate ---------------- */
+function AuthGate() {
+  const [session, setSession] = useState(undefined); // undefined = still checking
+  const [mode, setMode] = useState("signin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => setSession(sess));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  const submit = async () => {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      if (mode === "signin") {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        setNotice("اتسجل الحساب. لو الإيميل محتاج تأكيد هتلاقي رسالة في بريدك، أكّده وبعدين سجّل دخول.");
+      }
+    } catch (e) {
+      setError(e.message || "حصل خطأ، جرّب تاني.");
+    }
+    setBusy(false);
+  };
+
+  const clipStyle = "polygon(0 8px, 8px 0, 100% 0, 100% 100%, 0 100%)";
+
+  if (session === undefined) {
+    return (
+      <div dir="rtl" style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#050b13", color: "#94a3b8" }}>
+        <Loader2 size={20} className="animate-spin" />
+      </div>
+    );
+  }
+
+  if (session) {
+    return (
+      <>
+        <button
+          onClick={() => supabase.auth.signOut()}
+          className="fixed top-3 left-3 z-50 flex items-center gap-1.5 text-xs px-3 py-1.5 border border-slate-600 text-slate-300 hover:bg-slate-800"
+          style={{ clipPath: clipStyle, background: "#0a1420" }}
+        >
+          <LogOut size={13} /> خروج
+        </button>
+        <App />
+      </>
+    );
+  }
+
+  return (
+    <div dir="rtl" className="min-h-screen w-full font-sans flex items-center justify-center p-4" style={{ background: "radial-gradient(ellipse at top, rgba(34,211,238,0.06), transparent 60%), #050b13" }}>
+      <div className="w-full max-w-sm relative border p-6" style={{ background: "linear-gradient(180deg, rgba(10,20,32,0.9), rgba(6,13,22,0.9))", borderColor: "rgba(34,211,238,0.35)", clipPath: "polygon(0 10px, 10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%)", boxShadow: "0 0 24px rgba(34,211,238,0.12)" }}>
+        <div className="text-center mb-6">
+          <div className="text-2xl font-bold tracking-[0.25em] text-cyan-100" style={{ textShadow: "0 0 18px rgba(34,211,238,0.45)" }}>NOVA</div>
+          <div className="text-xs text-slate-500 mt-1">{mode === "signin" ? "تسجيل الدخول" : "حساب جديد"}</div>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-2 border border-cyan-500/25 focus-within:border-cyan-400/60 px-3 py-2" style={{ clipPath: clipStyle }}>
+            <Mail size={14} className="text-slate-500 shrink-0" />
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="الإيميل"
+              className="flex-1 bg-transparent outline-none text-sm text-slate-100 placeholder:text-slate-500"
+            />
+          </div>
+          <div className="flex items-center gap-2 border border-cyan-500/25 focus-within:border-cyan-400/60 px-3 py-2" style={{ clipPath: clipStyle }}>
+            <Lock size={14} className="text-slate-500 shrink-0" />
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="كلمة السر"
+              onKeyDown={(e) => e.key === "Enter" && submit()}
+              className="flex-1 bg-transparent outline-none text-sm text-slate-100 placeholder:text-slate-500"
+            />
+          </div>
+
+          {error && <div className="text-xs text-rose-300 border border-rose-500/30 bg-rose-500/10 px-3 py-2" style={{ clipPath: clipStyle }}>{error}</div>}
+          {notice && <div className="text-xs text-cyan-300 border border-cyan-500/30 bg-cyan-500/10 px-3 py-2" style={{ clipPath: clipStyle }}>{notice}</div>}
+
+          <button
+            onClick={submit}
+            disabled={busy || !email || !password}
+            className="flex items-center justify-center gap-2 text-sm px-4 py-2.5 border border-cyan-400/50 text-cyan-100 hover:bg-cyan-400/10 disabled:opacity-40"
+            style={{ clipPath: clipStyle }}
+          >
+            {busy ? <Loader2 size={15} className="animate-spin" /> : <Zap size={15} />}
+            {mode === "signin" ? "دخول" : "إنشاء الحساب"}
+          </button>
+
+          <button
+            onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setError(""); setNotice(""); }}
+            className="text-xs text-slate-400 hover:text-cyan-300 text-center mt-1"
+          >
+            {mode === "signin" ? "معندكش حساب؟ اعمل واحد" : "عندك حساب؟ سجّل دخول"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const root = createRoot(document.getElementById("root"));
+root.render(<AuthGate />);
+</script>
+</body>
+</html>
