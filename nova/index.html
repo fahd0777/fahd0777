@@ -8,7 +8,6 @@
 {
   "imports": {
     "react": "https://esm.sh/react@18.3.1",
-    "react-dom": "https://esm.sh/react-dom@18.3.1",
     "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
     "recharts": "https://esm.sh/recharts@2.12.7?external=react,react-dom",
     "lucide-react": "https://esm.sh/lucide-react@0.383.0?external=react",
@@ -26,7 +25,7 @@
 <body>
 <div id="root"></div>
 <script type="text/babel" data-type="module" data-presets="react">
-import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { createRoot } from "react-dom/client";
 import { createClient } from "@supabase/supabase-js";
 import {
@@ -1243,29 +1242,39 @@ function LectureRow({ lecture, idx, appointments, onUpdate, addAppointment, dele
 }
 
 function CourseCard({ course, appointments, onUpdate, onDelete, addAppointment, deleteAppointment, addAccountEntry, removeAccountEntry, onMoveUp, onMoveDown, canMoveUp, canMoveDown }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [collecting, setCollecting] = useState(false);
+  const [collectDesc, setCollectDesc] = useState("");
+  const [collectWallet, setCollectWallet] = useState(DEFAULT_WALLET);
 
   const updateLecture = (idx, patch) => {
     const lectures = course.lectures.map((l, i) => (i === idx ? { ...l, ...patch } : l));
     onUpdate({ ...course, lectures });
   };
 
-  const toggleCourseDone = () => {
-    if (!course.done) {
-      const entry = {
-        id: uid(),
-        description: `دورة: ${course.name}`,
-        amount: Number(course.price) || 0,
-        type: "income",
-        date: todayISO(),
-        wallet: DEFAULT_WALLET,
-      };
-      addAccountEntry("كورسات", entry);
-      onUpdate({ ...course, done: true, accountEntryId: entry.id });
-    } else {
-      if (course.accountEntryId) removeAccountEntry("كورسات", course.accountEntryId);
-      onUpdate({ ...course, done: false, accountEntryId: null });
-    }
+  const startCollecting = () => {
+    setCollectDesc(`دورة: ${course.name}`);
+    setCollectWallet(DEFAULT_WALLET);
+    setCollecting(true);
+  };
+
+  const confirmCollection = () => {
+    const entry = {
+      id: uid(),
+      description: collectDesc.trim() || `دورة: ${course.name}`,
+      amount: Number(course.price) || 0,
+      type: "income",
+      date: todayISO(),
+      wallet: collectWallet,
+    };
+    addAccountEntry("كورسات", entry);
+    onUpdate({ ...course, done: true, accountEntryId: entry.id });
+    setCollecting(false);
+  };
+
+  const undoCollection = () => {
+    if (course.accountEntryId) removeAccountEntry("كورسات", course.accountEntryId);
+    onUpdate({ ...course, done: false, accountEntryId: null });
   };
 
   const toggleType = () => {
@@ -1311,7 +1320,7 @@ function CourseCard({ course, appointments, onUpdate, onDelete, addAppointment, 
             </div>
           )}
           <button
-            onClick={toggleCourseDone}
+            onClick={() => (course.done ? undoCollection() : startCollecting())}
             className="flex items-center gap-1 text-[11px] px-2.5 py-1 border transition-colors"
             style={{
               clipPath: clip,
@@ -1327,6 +1336,41 @@ function CourseCard({ course, appointments, onUpdate, onDelete, addAppointment, 
           </span>
         </div>
       </div>
+
+      {collecting && (
+        <div className="px-4 pb-4 flex flex-col gap-2 border-t" style={{ borderColor: "rgba(148,163,184,0.15)" }}>
+          <div className="text-xs tracking-wide text-slate-400 mt-3">تم التحصيل — اكتب التفاصيل واختار الخزنة</div>
+          <textarea
+            value={collectDesc}
+            onChange={(e) => setCollectDesc(e.target.value)}
+            placeholder="تفاصيل عن التحصيل..."
+            rows={2}
+            className="w-full bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none text-sm text-slate-100 placeholder:text-slate-500 px-2.5 py-1.5 resize-y"
+            style={{ clipPath: clip }}
+          />
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[10px] text-slate-500 shrink-0">يترحّل على:</span>
+            {WALLETS.map((w) => (
+              <button
+                key={w.key}
+                onClick={() => setCollectWallet(w.key)}
+                className="text-xs px-2.5 py-1 border"
+                style={{ clipPath: clip, borderColor: collectWallet === w.key ? w.color : "rgba(148,163,184,0.25)", color: collectWallet === w.key ? w.color : "#94a3b8", background: collectWallet === w.key ? `${w.color}15` : "transparent" }}
+              >
+                {w.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={confirmCollection} className="flex items-center gap-1 text-xs px-3 py-1.5 border border-emerald-400/50 text-emerald-200 hover:bg-emerald-400/10" style={{ clipPath: clip }}>
+              <CheckCircle2 size={13} /> تم التحصيل
+            </button>
+            <button onClick={() => setCollecting(false)} className="text-xs px-3 py-1.5 border border-slate-600 text-slate-400 hover:bg-slate-800" style={{ clipPath: clip }}>
+              إلغاء
+            </button>
+          </div>
+        </div>
+      )}
 
       {open && (
         <div className="px-4 pb-4 flex flex-col gap-2">
@@ -1515,6 +1559,8 @@ function CommitmentsPanel({ commitments, updateCommitments, addAccountEntry, rem
   const [amount, setAmount] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [recurring, setRecurring] = useState(false);
+  const [payingId, setPayingId] = useState(null);
+  const [payWallet, setPayWallet] = useState(DEFAULT_WALLET);
   const today = todayISO();
 
   const addCommitment = () => {
@@ -1526,19 +1572,25 @@ function CommitmentsPanel({ commitments, updateCommitments, addAccountEntry, rem
     setRecurring(false);
   };
 
-  const togglePaid = (c) => {
-    if (!c.paid) {
-      const entry = { id: uid(), description: c.name, amount: Number(c.amount), type: "expense", date: today, wallet: DEFAULT_WALLET };
-      addAccountEntry("التزامات", entry);
-      let next = commitments.map((x) => (x.id === c.id ? { ...x, paid: true, paidEntryId: entry.id } : x));
-      if (c.recurring) {
-        next = [...next, { id: uid(), name: c.name, amount: c.amount, dueDate: addMonthToISO(c.dueDate), paid: false, paidEntryId: null, recurring: true }];
-      }
-      updateCommitments(next);
-    } else {
-      if (c.paidEntryId) removeAccountEntry("التزامات", c.paidEntryId);
-      updateCommitments(commitments.map((x) => (x.id === c.id ? { ...x, paid: false, paidEntryId: null } : x)));
+  const startPaying = (c) => {
+    setPayWallet(DEFAULT_WALLET);
+    setPayingId(c.id);
+  };
+
+  const confirmPay = (c) => {
+    const entry = { id: uid(), description: c.name, amount: Number(c.amount), type: "expense", date: today, wallet: payWallet };
+    addAccountEntry("التزامات", entry);
+    let next = commitments.map((x) => (x.id === c.id ? { ...x, paid: true, paidEntryId: entry.id } : x));
+    if (c.recurring) {
+      next = [...next, { id: uid(), name: c.name, amount: c.amount, dueDate: addMonthToISO(c.dueDate), paid: false, paidEntryId: null, recurring: true }];
     }
+    updateCommitments(next);
+    setPayingId(null);
+  };
+
+  const undoPay = (c) => {
+    if (c.paidEntryId) removeAccountEntry("التزامات", c.paidEntryId);
+    updateCommitments(commitments.map((x) => (x.id === c.id ? { ...x, paid: false, paidEntryId: null } : x)));
   };
 
   const sorted = [...commitments].sort((a, b) => (a.dueDate < b.dueDate ? -1 : 1));
@@ -1553,28 +1605,50 @@ function CommitmentsPanel({ commitments, updateCommitments, addAccountEntry, rem
           const overdue = !c.paid && c.dueDate < today;
           const soon = !c.paid && !overdue && c.dueDate <= addDaysToISO(today, 3);
           return (
-            <div
-              key={c.id}
-              className="flex items-center gap-2 text-sm border px-2.5 py-1.5"
-              style={{
-                borderColor: overdue ? "rgba(251,113,133,0.4)" : soon ? "rgba(251,191,36,0.4)" : "rgba(148,163,184,0.15)",
-                clipPath: clip,
-                opacity: c.paid ? 0.5 : 1,
-              }}
-            >
-              <button onClick={() => togglePaid(c)} className="shrink-0">
-                {c.paid ? <CheckCircle2 size={16} className="text-emerald-400" /> : <Circle size={16} className="text-slate-500 hover:text-emerald-400" />}
-              </button>
-              <span className={`flex-1 text-slate-100 truncate ${c.paid ? "line-through" : ""}`}>{c.name}</span>
-              {c.recurring && <Repeat size={12} className="text-cyan-400 shrink-0" />}
-              {overdue && <AlertTriangle size={13} className="text-rose-400 shrink-0" />}
-              <span className="text-[11px] font-mono shrink-0" style={{ color: overdue ? "#fb7185" : soon ? "#fbbf24" : "#94a3b8" }}>
-                {c.dueDate}
-              </span>
-              <span className="text-sm font-mono text-slate-200 shrink-0">{Number(c.amount).toLocaleString("ar-EG")}</span>
-              <button onClick={() => updateCommitments(commitments.filter((x) => x.id !== c.id))} className="text-slate-500 hover:text-rose-400 shrink-0">
-                <Trash2 size={13} />
-              </button>
+            <div key={c.id} className="flex flex-col gap-1.5">
+              <div
+                className="flex items-center gap-2 text-sm border px-2.5 py-1.5"
+                style={{
+                  borderColor: overdue ? "rgba(251,113,133,0.4)" : soon ? "rgba(251,191,36,0.4)" : "rgba(148,163,184,0.15)",
+                  clipPath: clip,
+                  opacity: c.paid ? 0.5 : 1,
+                }}
+              >
+                <button onClick={() => (c.paid ? undoPay(c) : startPaying(c))} className="shrink-0">
+                  {c.paid ? <CheckCircle2 size={16} className="text-emerald-400" /> : <Circle size={16} className="text-slate-500 hover:text-emerald-400" />}
+                </button>
+                <span className={`flex-1 text-slate-100 truncate ${c.paid ? "line-through" : ""}`}>{c.name}</span>
+                {c.recurring && <Repeat size={12} className="text-cyan-400 shrink-0" />}
+                {overdue && <AlertTriangle size={13} className="text-rose-400 shrink-0" />}
+                <span className="text-[11px] font-mono shrink-0" style={{ color: overdue ? "#fb7185" : soon ? "#fbbf24" : "#94a3b8" }}>
+                  {c.dueDate}
+                </span>
+                <span className="text-sm font-mono text-slate-200 shrink-0">{Number(c.amount).toLocaleString("ar-EG")}</span>
+                <button onClick={() => updateCommitments(commitments.filter((x) => x.id !== c.id))} className="text-slate-500 hover:text-rose-400 shrink-0">
+                  <Trash2 size={13} />
+                </button>
+              </div>
+              {payingId === c.id && (
+                <div className="flex flex-wrap items-center gap-1.5 border border-emerald-400/25 bg-emerald-400/5 px-2.5 py-2" style={{ clipPath: clip }}>
+                  <span className="text-[10px] text-slate-400 shrink-0">اتدفعت من:</span>
+                  {WALLETS.map((w) => (
+                    <button
+                      key={w.key}
+                      onClick={() => setPayWallet(w.key)}
+                      className="text-xs px-2.5 py-1 border"
+                      style={{ clipPath: clip, borderColor: payWallet === w.key ? w.color : "rgba(148,163,184,0.25)", color: payWallet === w.key ? w.color : "#94a3b8", background: payWallet === w.key ? `${w.color}15` : "transparent" }}
+                    >
+                      {w.label}
+                    </button>
+                  ))}
+                  <button onClick={() => confirmPay(c)} className="flex items-center gap-1 text-xs px-3 py-1 border border-emerald-400/50 text-emerald-200 hover:bg-emerald-400/10" style={{ clipPath: clip }}>
+                    <CheckCircle2 size={12} /> تأكيد الدفع
+                  </button>
+                  <button onClick={() => setPayingId(null)} className="text-xs px-2.5 py-1 border border-slate-600 text-slate-400 hover:bg-slate-800" style={{ clipPath: clip }}>
+                    إلغاء
+                  </button>
+                </div>
+              )}
             </div>
           );
         })}
@@ -1730,29 +1804,66 @@ function CategoryCard({ category, onAddEntry, onDeleteEntry, onDeleteCategory })
 }
 
 function WalletsPanel({ accounts }) {
+  const [selected, setSelected] = useState(null);
   const balances = {};
   WALLETS.forEach((w) => (balances[w.key] = 0));
+
+  const allEntries = [];
   accounts.forEach((cat) =>
     cat.entries.forEach((e) => {
       const key = balances[e.wallet] !== undefined ? e.wallet : DEFAULT_WALLET;
       balances[key] += e.type === "income" ? Number(e.amount) : -Number(e.amount);
+      allEntries.push({ ...e, wallet: key, categoryName: cat.name });
     })
   );
+
+  const selectedEntries = selected
+    ? allEntries.filter((e) => e.wallet === selected).sort((a, b) => (a.date < b.date ? 1 : -1))
+    : [];
 
   return (
     <Panel className="p-4">
       <CornerTicks />
-      <div className="text-xs tracking-wide text-slate-400 mb-3">أرصدة الخزن</div>
+      <div className="text-xs tracking-wide text-slate-400 mb-3">أرصدة الخزن — دوس على أي خزنة تشوف عملياتها</div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         {WALLETS.map((w) => (
-          <div key={w.key} className="border px-3 py-2.5" style={{ borderColor: `${w.color}40`, clipPath: clip, background: `${w.color}0a` }}>
+          <button
+            key={w.key}
+            onClick={() => setSelected(selected === w.key ? null : w.key)}
+            className="border px-3 py-2.5 text-right transition-colors"
+            style={{
+              borderColor: selected === w.key ? w.color : `${w.color}40`,
+              clipPath: clip,
+              background: selected === w.key ? `${w.color}18` : `${w.color}0a`,
+            }}
+          >
             <div className="text-[11px] text-slate-400 mb-1">{w.label}</div>
             <div className="text-lg font-mono" style={{ color: balances[w.key] >= 0 ? w.color : "#fb7185" }}>
               {balances[w.key].toLocaleString("ar-EG")}
             </div>
-          </div>
+          </button>
         ))}
       </div>
+
+      {selected && (
+        <div className="mt-3 pt-3 border-t flex flex-col gap-1.5" style={{ borderColor: "rgba(148,163,184,0.15)" }}>
+          <div className="text-xs text-slate-400 mb-1">عمليات {walletLabel(selected)}</div>
+          {selectedEntries.length === 0 ? (
+            <div className="text-xs text-slate-500">مفيش عمليات مسجلة على الخزنة دي لسه.</div>
+          ) : (
+            selectedEntries.map((e) => (
+              <div key={e.id} className="flex items-center gap-2 text-sm border px-2.5 py-1.5" style={{ borderColor: "rgba(148,163,184,0.15)", clipPath: clip }}>
+                <span className="text-[10px] text-slate-500 font-mono shrink-0">{e.date}</span>
+                <span className="text-[9px] px-1.5 py-0.5 border border-slate-600 text-slate-400 shrink-0" style={{ clipPath: clip }}>{e.categoryName}</span>
+                <span className="flex-1 text-slate-100 truncate">{e.description}</span>
+                <span className="text-sm font-mono shrink-0" style={{ color: e.type === "income" ? "#34d399" : "#fb7185" }}>
+                  {e.type === "income" ? "+" : "−"}{Number(e.amount).toLocaleString("ar-EG")}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      )}
     </Panel>
   );
 }
@@ -1817,6 +1928,100 @@ function TransferPanel({ addAccountEntry }) {
   );
 }
 
+function ExpensePanel({ accounts, addAccountEntry }) {
+  const existingCategories = accounts.map((c) => c.name);
+  const [category, setCategory] = useState(existingCategories[0] || "مصروفات عامة");
+  const [customCategory, setCustomCategory] = useState("");
+  const [subtype, setSubtype] = useState("تشغيلية");
+  const [wallet, setWallet] = useState(DEFAULT_WALLET);
+  const [desc, setDesc] = useState("");
+  const [amount, setAmount] = useState("");
+  const [date, setDate] = useState(todayISO());
+  const [done, setDone] = useState(false);
+
+  const finalCategory = category === "__custom__" ? customCategory.trim() : category;
+
+  const submit = () => {
+    if (!finalCategory || !desc.trim() || !amount) return;
+    addAccountEntry(finalCategory, { id: uid(), description: desc.trim(), amount: Number(amount), type: "expense", date, wallet, subtype });
+    setDesc("");
+    setAmount("");
+    setCustomCategory("");
+    setDone(true);
+    setTimeout(() => setDone(false), 2000);
+  };
+
+  const selectCls = "bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none text-sm text-slate-100 px-2.5 py-1.5";
+
+  return (
+    <Panel className="p-4">
+      <CornerTicks />
+      <div className="text-xs tracking-wide text-slate-400 mb-3">إضافة مصروف</div>
+      <div className="flex flex-wrap items-center gap-2 mb-2">
+        <select value={category} onChange={(e) => setCategory(e.target.value)} className={selectCls} style={{ clipPath: clip }}>
+          {existingCategories.map((c) => (
+            <option key={c} value={c} className="bg-slate-900">{c}</option>
+          ))}
+          <option value="__custom__" className="bg-slate-900">+ قسم جديد...</option>
+        </select>
+        {category === "__custom__" && (
+          <input
+            value={customCategory}
+            onChange={(e) => setCustomCategory(e.target.value)}
+            placeholder="اسم القسم الجديد"
+            className="bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none text-sm text-slate-100 placeholder:text-slate-500 px-2.5 py-1.5"
+            style={{ clipPath: clip }}
+          />
+        )}
+        <input
+          value={desc}
+          onChange={(e) => setDesc(e.target.value)}
+          placeholder="وصف المصروف"
+          className="flex-1 min-w-[140px] bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none text-sm text-slate-100 placeholder:text-slate-500 px-2.5 py-1.5"
+          style={{ clipPath: clip }}
+        />
+        <input
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          type="number"
+          placeholder="المبلغ"
+          className="w-24 bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none text-sm text-slate-100 placeholder:text-slate-500 px-2.5 py-1.5"
+          style={{ clipPath: clip }}
+        />
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={selectCls} style={{ clipPath: clip }} />
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5 mb-2">
+        <span className="text-[10px] text-slate-500 shrink-0">نوع المصروف:</span>
+        <button onClick={() => setSubtype("تشغيلية")} className="text-xs px-2.5 py-1 border" style={{ clipPath: clip, borderColor: subtype === "تشغيلية" ? "#60a5fa" : "rgba(148,163,184,0.25)", color: subtype === "تشغيلية" ? "#60a5fa" : "#94a3b8", background: subtype === "تشغيلية" ? "rgba(96,165,250,0.1)" : "transparent" }}>
+          تشغيلية
+        </button>
+        <button onClick={() => setSubtype("إعلانية")} className="text-xs px-2.5 py-1 border" style={{ clipPath: clip, borderColor: subtype === "إعلانية" ? "#fbbf24" : "rgba(148,163,184,0.25)", color: subtype === "إعلانية" ? "#fbbf24" : "#94a3b8", background: subtype === "إعلانية" ? "rgba(251,191,36,0.1)" : "transparent" }}>
+          إعلانية
+        </button>
+        <button onClick={() => setSubtype("شخصية")} className="text-xs px-2.5 py-1 border" style={{ clipPath: clip, borderColor: subtype === "شخصية" ? "#a78bfa" : "rgba(148,163,184,0.25)", color: subtype === "شخصية" ? "#a78bfa" : "#94a3b8", background: subtype === "شخصية" ? "rgba(167,139,250,0.1)" : "transparent" }}>
+          شخصية
+        </button>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-[10px] text-slate-500 shrink-0">من خزنة:</span>
+        {WALLETS.map((w) => (
+          <button
+            key={w.key}
+            onClick={() => setWallet(w.key)}
+            className="text-xs px-2.5 py-1 border"
+            style={{ clipPath: clip, borderColor: wallet === w.key ? w.color : "rgba(148,163,184,0.25)", color: wallet === w.key ? w.color : "#94a3b8", background: wallet === w.key ? `${w.color}15` : "transparent" }}
+          >
+            {w.label}
+          </button>
+        ))}
+        <button onClick={submit} className="flex items-center gap-1 text-xs px-3 py-1.5 border border-rose-400/50 text-rose-200 hover:bg-rose-400/10" style={{ clipPath: clip }}>
+          <Plus size={13} /> {done ? "اتضاف ✅" : "ضيف المصروف"}
+        </button>
+      </div>
+    </Panel>
+  );
+}
+
 function AccountsTab({ accounts, updateAccounts, commitments, updateCommitments, addAccountEntry, removeAccountEntry }) {
   const [newCategory, setNewCategory] = useState("");
 
@@ -1844,6 +2049,8 @@ function AccountsTab({ accounts, updateAccounts, commitments, updateCommitments,
       <WalletsPanel accounts={accounts} />
 
       <TransferPanel addAccountEntry={addAccountEntry} />
+
+      <ExpensePanel accounts={accounts} addAccountEntry={addAccountEntry} />
 
       <MonthlyChartPanel accounts={accounts} />
 
