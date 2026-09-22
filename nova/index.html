@@ -420,15 +420,19 @@ function monthlyTotals(accounts) {
 }
 
 function Panel({ children, className = "", glow = false, big = true, onClick }) {
+  const [hovered, setHovered] = useState(false);
+  const activeGlow = glow || (onClick && hovered);
   return (
     <div
-      className={`relative border ${className}${onClick ? " cursor-pointer hover:border-cyan-400/50 transition-colors" : ""}`}
+      className={`relative border ${className}${onClick ? " cursor-pointer transition-colors" : ""}`}
       onClick={onClick}
+      onMouseEnter={onClick ? () => setHovered(true) : undefined}
+      onMouseLeave={onClick ? () => setHovered(false) : undefined}
       style={{
         background: "linear-gradient(180deg, rgba(10,20,32,0.9), rgba(6,13,22,0.9))",
-        borderColor: glow ? "rgba(34,211,238,0.45)" : "rgba(34,211,238,0.18)",
+        borderColor: activeGlow ? "rgba(34,211,238,0.6)" : "rgba(34,211,238,0.18)",
         clipPath: big ? clipBig : clip,
-        boxShadow: glow ? "0 0 24px rgba(34,211,238,0.12)" : "inset 0 0 30px rgba(34,211,238,0.02)",
+        boxShadow: activeGlow ? "0 0 24px rgba(34,211,238,0.15)" : "inset 0 0 30px rgba(34,211,238,0.02)",
       }}
     >
       {children}
