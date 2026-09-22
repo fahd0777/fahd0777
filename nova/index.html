@@ -419,10 +419,11 @@ function monthlyTotals(accounts) {
     .map(([month, total]) => ({ month, total }));
 }
 
-function Panel({ children, className = "", glow = false, big = true }) {
+function Panel({ children, className = "", glow = false, big = true, onClick }) {
   return (
     <div
-      className={`relative border ${className}`}
+      className={`relative border ${className}${onClick ? " cursor-pointer hover:border-cyan-400/50 transition-colors" : ""}`}
+      onClick={onClick}
       style={{
         background: "linear-gradient(180deg, rgba(10,20,32,0.9), rgba(6,13,22,0.9))",
         borderColor: glow ? "rgba(34,211,238,0.45)" : "rgba(34,211,238,0.18)",
@@ -2747,7 +2748,7 @@ function DashboardTab({ projects, appointments, daily, accounts, courses, commit
     <div className="flex flex-col gap-4">
       <Top3Panel top3={top3} updateTop3={updateTop3} />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <Panel className="p-4" glow>
+      <Panel className="p-4" glow onClick={() => onGo("projects")}>
         <CornerTicks />
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs tracking-wide text-slate-400">مهام عاجلة معلقة</span>
@@ -2765,7 +2766,7 @@ function DashboardTab({ projects, appointments, daily, accounts, courses, commit
         )}
       </Panel>
 
-      <Panel className="p-4">
+      <Panel className="p-4" onClick={() => onGo("calendar")}>
         <CornerTicks />
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs tracking-wide text-slate-400">مواعيد النهاردة</span>
@@ -2782,7 +2783,7 @@ function DashboardTab({ projects, appointments, daily, accounts, courses, commit
         )}
       </Panel>
 
-      <Panel className="p-4">
+      <Panel className="p-4" onClick={() => onGo("daily")}>
         <CornerTicks />
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs tracking-wide text-slate-400">عادات لسه ماخلصتهاش النهاردة</span>
@@ -2799,7 +2800,7 @@ function DashboardTab({ projects, appointments, daily, accounts, courses, commit
         )}
       </Panel>
 
-      <Panel className="p-4">
+      <Panel className="p-4" onClick={() => onGo("accounts")}>
         <CornerTicks />
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs tracking-wide text-slate-400">صافي الحسابات</span>
@@ -2815,7 +2816,7 @@ function DashboardTab({ projects, appointments, daily, accounts, courses, commit
         )}
       </Panel>
 
-      <Panel className="p-4 md:col-span-2">
+      <Panel className="p-4 md:col-span-2" onClick={() => onGo("goals")}>
         <CornerTicks />
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs tracking-wide text-slate-400">أهداف نشطة</span>
@@ -2835,7 +2836,7 @@ function DashboardTab({ projects, appointments, daily, accounts, courses, commit
         )}
       </Panel>
 
-      <Panel className="p-4 md:col-span-2">
+      <Panel className="p-4 md:col-span-2" onClick={() => onGo("courses")}>
         <CornerTicks />
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs tracking-wide text-slate-400">كورسات قربت تخلص (75%+)</span>
