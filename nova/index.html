@@ -560,35 +560,9 @@ function AppointmentForm({ appointments, initialTitle = "", initialDate = "", in
 }
 
 /* ---------------- Task item ---------------- */
-function TaskItem({ task, project, appointments, onToggle, onDelete, onAiUpdate, onAddAppointment, selectMode, selected, onToggleSelect }) {
+function TaskItem({ task, project, appointments, onToggle, onDelete, onAddAppointment, selectMode, selected, onToggleSelect }) {
   const [scheduling, setScheduling] = useState(false);
   const p = PRIORITIES[task.priority];
-
-  const runAI = async () => {
-    onAiUpdate(task.id, { loading: true, error: null });
-    try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-6",
-          max_tokens: 1000,
-          messages: [
-            {
-              role: "user",
-              content: `أنت مساعد تنفيذي لمسوّق رقمي مصري بيشتغل في التسويق العقاري والدبلومات التدريبية والسوشيال ميديا. نفّذ المهمة دي فعليًا وقدّم مخرج جاهز للاستخدام مباشرة، مش شرح نظري.\n\nالمشروع: ${project.name}\nالمهمة: ${task.text}\n\nاكتب بالعربية المصرية، مباشر وعملي، ومنظم بنقاط أو خطوات واضحة لو يفيد المحتوى.`,
-            },
-          ],
-        }),
-      });
-      if (!res.ok) throw new Error("bad_response");
-      const data = await res.json();
-      const out = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n");
-      onAiUpdate(task.id, { loading: false, error: null, result: out || "مفيش رد.", open: true });
-    } catch (e) {
-      onAiUpdate(task.id, { loading: false, error: "حصل خطأ في التنفيذ — جرّب تاني." });
-    }
-  };
 
   return (
     <div className="border" style={{ borderColor: "rgba(148,163,184,0.15)", clipPath: clip, opacity: task.done ? 0.55 : 1 }}>
@@ -618,15 +592,6 @@ function TaskItem({ task, project, appointments, onToggle, onDelete, onAiUpdate,
           {p.label}
         </span>
         <button
-          onClick={runAI}
-          disabled={task.ai?.loading}
-          title="ينفذ الفكرة بالـ AI"
-          className="shrink-0 flex items-center gap-1 text-[11px] px-2 py-1 border border-violet-400/40 text-violet-300 hover:bg-violet-400/10 transition-colors"
-          style={{ clipPath: clip }}
-        >
-          {task.ai?.loading ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />} نفّذ
-        </button>
-        <button
           onClick={() => setScheduling((s) => !s)}
           title="جدولة ميعاد"
           className="shrink-0 flex items-center gap-1 text-[11px] px-2 py-1 border border-cyan-400/40 text-cyan-300 hover:bg-cyan-400/10 transition-colors"
@@ -654,19 +619,6 @@ function TaskItem({ task, project, appointments, onToggle, onDelete, onAiUpdate,
           />
         </div>
       )}
-
-      {(task.ai?.result || task.ai?.error) && (
-        <div className="px-3 pb-3 pt-1 border-t" style={{ borderColor: "rgba(148,163,184,0.1)" }}>
-          {task.ai.error ? (
-            <div className="text-xs text-rose-300">{task.ai.error}</div>
-          ) : (
-            <details open={task.ai.open}>
-              <summary className="text-xs text-violet-300 cursor-pointer select-none">مخرج التنفيذ (AI)</summary>
-              <div className="text-sm text-slate-200 whitespace-pre-wrap mt-2 leading-relaxed">{task.ai.result}</div>
-            </details>
-          )}
-        </div>
-      )}
     </div>
   );
 }
@@ -677,9 +629,6 @@ function ProjectsTab({ projects, appointments, updateProjects, addAppointment })
   const [openIds, setOpenIds] = useState({});
   const [draft, setDraft] = useState({});
   const [search, setSearch] = useState("");
-  const [selectMode, setSelectMode] = useState({});
-  const [selectedTasks, setSelectedTasks] = useState({});
-  const [bulkAI, setBulkAI] = useState({});
 
   const addProject = () => {
     if (!newProject.trim()) return;
@@ -696,7 +645,7 @@ function ProjectsTab({ projects, appointments, updateProjects, addAppointment })
     updateProjects(
       projects.map((p) =>
         p.id === projectId
-          ? { ...p, tasks: [...p.tasks, { id: uid(), text: d.text.trim(), priority: d.priority || "important", time: d.time || "", done: false, ai: null }] }
+          ? { ...p, tasks: [...p.tasks, { id: uid(), text: d.text.trim(), priority: d.priority || "important", time: d.time || "", done: false }] }
           : p
       )
     );
@@ -709,53 +658,6 @@ function ProjectsTab({ projects, appointments, updateProjects, addAppointment })
 
   const deleteTask = (projectId, taskId) => {
     updateProjects(projects.map((p) => (p.id === projectId ? { ...p, tasks: p.tasks.filter((t) => t.id !== taskId) } : p)));
-  };
-
-  const updateAI = (projectId, taskId, patch) => {
-    updateProjects(projects.map((p) => (p.id === projectId ? { ...p, tasks: p.tasks.map((t) => (t.id === taskId ? { ...t, ai: { ...t.ai, ...patch } } : t)) } : p)));
-  };
-
-  const toggleSelectMode = (projectId) => {
-    setSelectMode({ ...selectMode, [projectId]: !selectMode[projectId] });
-    setSelectedTasks({ ...selectedTasks, [projectId]: new Set() });
-    setBulkAI({ ...bulkAI, [projectId]: null });
-  };
-
-  const toggleTaskSelected = (projectId, taskId) => {
-    const set = new Set(selectedTasks[projectId] || []);
-    if (set.has(taskId)) set.delete(taskId);
-    else set.add(taskId);
-    setSelectedTasks({ ...selectedTasks, [projectId]: set });
-  };
-
-  const runBulkAI = async (project) => {
-    const ids = Array.from(selectedTasks[project.id] || []);
-    if (ids.length === 0) return;
-    const tasksList = project.tasks.filter((t) => ids.includes(t.id));
-    setBulkAI({ ...bulkAI, [project.id]: { loading: true, error: null, result: null } });
-    try {
-      const tasksText = tasksList.map((t, i) => `${i + 1}. ${t.text}`).join("\n");
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-6",
-          max_tokens: 1500,
-          messages: [
-            {
-              role: "user",
-              content: `أنت مساعد تنفيذي لمسوّق رقمي مصري. نفّذ كل مهمة من المهام دي فعليًا وقدّم مخرج جاهز لكل واحدة تحت عنوان برقمها، مش شرح نظري.\n\nالمشروع: ${project.name}\nالمهام:\n${tasksText}\n\nاكتب بالعربية المصرية، مباشر وعملي.`,
-            },
-          ],
-        }),
-      });
-      if (!res.ok) throw new Error("bad_response");
-      const data = await res.json();
-      const out = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n");
-      setBulkAI((prev) => ({ ...prev, [project.id]: { loading: false, error: null, result: out || "مفيش رد." } }));
-    } catch (e) {
-      setBulkAI((prev) => ({ ...prev, [project.id]: { loading: false, error: "حصل خطأ في التنفيذ الجماعي — جرّب تاني." } }));
-    }
   };
 
   return (
@@ -805,9 +707,6 @@ function ProjectsTab({ projects, appointments, updateProjects, addAppointment })
           const open = openIds[project.id] ?? true;
           const d = draft[project.id] || { text: "", priority: "important", time: "" };
           const pendingCount = project.tasks.filter((t) => !t.done).length;
-          const inSelectMode = !!selectMode[project.id];
-          const selectedCount = (selectedTasks[project.id] || new Set()).size;
-          const bulk = bulkAI[project.id];
           return (
             <Panel key={project.id} className="p-0 overflow-hidden">
               <CornerTicks />
@@ -818,43 +717,13 @@ function ProjectsTab({ projects, appointments, updateProjects, addAppointment })
                   <span className="text-sm font-medium text-slate-100">{project.name}</span>
                   <span className="text-[11px] text-slate-500">({pendingCount} معلقة)</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span
-                    onClick={(e) => { e.stopPropagation(); toggleSelectMode(project.id); }}
-                    className="flex items-center gap-1 text-[10px] px-2 py-1 border cursor-pointer"
-                    style={{ clipPath: clip, borderColor: inSelectMode ? "#a78bfa" : "rgba(148,163,184,0.25)", color: inSelectMode ? "#a78bfa" : "#94a3b8" }}
-                  >
-                    <ListChecks size={11} /> تحديد جماعي
-                  </span>
-                  <span onClick={(e) => { e.stopPropagation(); deleteProject(project.id); }} className="text-slate-500 hover:text-rose-400 p-1">
-                    <Trash2 size={14} />
-                  </span>
-                </div>
+                <span onClick={(e) => { e.stopPropagation(); deleteProject(project.id); }} className="text-slate-500 hover:text-rose-400 p-1">
+                  <Trash2 size={14} />
+                </span>
               </button>
 
               {open && (
                 <div className="px-4 pb-4 flex flex-col gap-3">
-                  {inSelectMode && (
-                    <div className="flex flex-wrap items-center gap-2 border border-violet-400/30 bg-violet-400/5 px-3 py-2" style={{ clipPath: clip }}>
-                      <span className="text-xs text-violet-300">محدد: {selectedCount}</span>
-                      <button
-                        onClick={() => runBulkAI(project)}
-                        disabled={selectedCount === 0 || bulk?.loading}
-                        className="flex items-center gap-1 text-xs px-3 py-1 border border-violet-400/50 text-violet-200 hover:bg-violet-400/10 disabled:opacity-40"
-                        style={{ clipPath: clip }}
-                      >
-                        {bulk?.loading ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />} نفّذ المحدد (AI)
-                      </button>
-                    </div>
-                  )}
-                  {bulk?.error && <div className="text-xs text-rose-300">{bulk.error}</div>}
-                  {bulk?.result && (
-                    <details open className="border border-violet-400/20 px-3 py-2" style={{ clipPath: clip }}>
-                      <summary className="text-xs text-violet-300 cursor-pointer select-none">مخرج التنفيذ الجماعي (AI)</summary>
-                      <div className="text-sm text-slate-200 whitespace-pre-wrap mt-2 leading-relaxed">{bulk.result}</div>
-                    </details>
-                  )}
-
                   <div className="flex flex-col sm:flex-row gap-2">
                     <input
                       value={d.text}
@@ -897,11 +766,7 @@ function ProjectsTab({ projects, appointments, updateProjects, addAppointment })
                           appointments={appointments}
                           onToggle={(taskId) => toggleTask(project.id, taskId)}
                           onDelete={(taskId) => deleteTask(project.id, taskId)}
-                          onAiUpdate={(taskId, patch) => updateAI(project.id, taskId, patch)}
                           onAddAppointment={addAppointment}
-                          selectMode={inSelectMode}
-                          selected={(selectedTasks[project.id] || new Set()).has(task.id)}
-                          onToggleSelect={() => toggleTaskSelected(project.id, task.id)}
                         />
                       ))}
                     {filteredTasks.length === 0 && <div className="text-xs text-slate-500 py-2">{search.trim() ? "مفيش تاسكات مطابقة." : "مفيش مهام في المشروع ده لسه."}</div>}
