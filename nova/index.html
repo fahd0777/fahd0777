@@ -402,6 +402,15 @@ function toMinutes(hhmm) {
   return h * 60 + m;
 }
 
+function formatTime12(hhmm) {
+  if (!hhmm) return "";
+  const [h, m] = hhmm.split(":").map(Number);
+  const period = h >= 12 ? "م" : "ص";
+  let h12 = h % 12;
+  if (h12 === 0) h12 = 12;
+  return `${h12}:${String(m).padStart(2, "0")} ${period}`;
+}
+
 function findConflicts(appointments, date, time, duration, excludeId) {
   const start = toMinutes(time);
   if (start == null || !date) return [];
@@ -412,6 +421,11 @@ function findConflicts(appointments, date, time, duration, excludeId) {
     const aEnd = aStart + (Number(a.duration) || 60);
     return start < aEnd && aStart < end;
   });
+}
+
+function commitmentRemaining(c) {
+  const paidTotal = (c.payments || []).reduce((s, p) => s + Number(p.amount), 0);
+  return Math.max(0, Number(c.amount) - paidTotal);
 }
 
 function computeGrandTotal(accounts) {
@@ -489,14 +503,14 @@ function TabButton({ active, onClick, icon: Icon, label }) {
 }
 
 /* ---------------- Appointment mini-form ---------------- */
-function AppointmentForm({ appointments, initialTitle = "", initialDate = "", initialTime = "", onAdd, onCancel, compact = false }) {
+function AppointmentForm({ appointments, initialTitle = "", initialDate = "", initialTime = "", initialDuration = 60, excludeId = null, onAdd, onCancel, compact = false }) {
   const [title, setTitle] = useState(initialTitle);
   const [date, setDate] = useState(initialDate);
   const [time, setTime] = useState(initialTime);
-  const [duration, setDuration] = useState(60);
+  const [duration, setDuration] = useState(initialDuration);
   const [confirming, setConfirming] = useState(false);
 
-  const conflicts = useMemo(() => findConflicts(appointments, date, time, duration, null), [appointments, date, time, duration]);
+  const conflicts = useMemo(() => findConflicts(appointments, date, time, duration, excludeId), [appointments, date, time, duration, excludeId]);
 
   const submit = () => {
     if (!title.trim() || !date || !time) return;
@@ -552,7 +566,7 @@ function AppointmentForm({ appointments, initialTitle = "", initialDate = "", in
       {conflicts.length > 0 && (
         <div className="flex items-start gap-1.5 text-xs text-amber-300 border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5" style={{ clipPath: clip }}>
           <Bell size={13} className="mt-0.5 shrink-0" />
-          <span>في تعارض مع: {conflicts.map((c) => `${c.title} (${c.time})`).join("، ")}</span>
+          <span>في تعارض مع: {conflicts.map((c) => `${c.title} (${formatTime12(c.time)} — ${c.date})`).join("، ")}</span>
         </div>
       )}
     </div>
@@ -1039,7 +1053,7 @@ function CalendarTab({ appointments, addAppointment, deleteAppointment }) {
               {dayAppointments.map((a) => (
                 <div key={a.id} className="flex items-center gap-2 text-sm border px-2.5 py-1.5" style={{ borderColor: "rgba(148,163,184,0.15)", clipPath: clip }}>
                   <Clock3 size={13} className="text-cyan-400 shrink-0" />
-                  <span className="text-slate-400 text-xs font-mono">{a.time}</span>
+                  <span className="text-slate-400 text-xs font-mono">{formatTime12(a.time)}</span>
                   <span className="flex-1 text-slate-100 truncate">{a.title}</span>
                   {a.projectName && <span className="text-[10px] text-slate-500 shrink-0">{a.projectName}</span>}
                   <button onClick={() => deleteAppointment(a.id)} className="text-slate-500 hover:text-rose-400 shrink-0">
@@ -1059,12 +1073,12 @@ function CalendarTab({ appointments, addAppointment, deleteAppointment }) {
 /* ---------------- Courses tab ---------------- */
 function LectureRow({ lecture, idx, appointments, onUpdate, addAppointment, deleteAppointment }) {
   const [scheduling, setScheduling] = useState(false);
-  const l = { title: "", description: "", notes: "", done: false, date: "", time: "", apptId: null, ...lecture };
+  const l = { title: "", description: "", notes: "", done: false, date: "", time: "", duration: 60, apptId: null, ...lecture };
 
   const handleSchedule = (appt) => {
     if (l.apptId) deleteAppointment(l.apptId);
     addAppointment(appt);
-    onUpdate({ date: appt.date, time: appt.time, apptId: appt.id });
+    onUpdate({ date: appt.date, time: appt.time, duration: appt.duration, apptId: appt.id });
     setScheduling(false);
   };
 
@@ -1088,7 +1102,7 @@ function LectureRow({ lecture, idx, appointments, onUpdate, addAppointment, dele
           className="shrink-0 flex items-center gap-1 text-[11px] px-2 py-1 border border-cyan-400/40 text-cyan-300 hover:bg-cyan-400/10"
           style={{ clipPath: clip }}
         >
-          <Calendar size={11} /> {l.date ? `${l.date} ${l.time || ""}` : "حدد الميعاد"}
+          <Calendar size={11} /> {l.date ? `${l.date} ${l.time ? formatTime12(l.time) : ""}` : "حدد الميعاد"}
         </button>
       </div>
 
@@ -1099,6 +1113,8 @@ function LectureRow({ lecture, idx, appointments, onUpdate, addAppointment, dele
             initialTitle={l.title || `محاضرة ${idx + 1}`}
             initialDate={l.date || todayISO()}
             initialTime={l.time || ""}
+            initialDuration={l.duration || 60}
+            excludeId={l.apptId}
             compact
             onCancel={() => setScheduling(false)}
             onAdd={handleSchedule}
@@ -1290,7 +1306,7 @@ function CoursesTab({ courses, appointments, updateCourses, addAppointment, dele
       return;
     }
     const count = Math.max(1, Number(newSessions) || 1);
-    const lectures = Array.from({ length: count }, () => ({ title: "", description: "", notes: "", done: false, date: "", time: "", apptId: null }));
+    const lectures = Array.from({ length: count }, () => ({ title: "", description: "", notes: "", done: false, date: "", time: "", duration: 60, apptId: null }));
     updateCourses([...courses, { id: uid(), name: newCourse.trim(), price: priceNum, type: newType, done: false, accountEntryId: null, lectures }]);
     setNewCourse("");
     setNewPrice("");
@@ -1439,47 +1455,192 @@ function MonthlyChartPanel({ accounts }) {
   );
 }
 
+function CommitmentRow({ commitment: c, addAccountEntry, removeAccountEntry, onUpdate, onDelete }) {
+  const [expanded, setExpanded] = useState(false);
+  const [payAmount, setPayAmount] = useState("");
+  const [payDate, setPayDate] = useState(todayISO());
+  const [payDetails, setPayDetails] = useState("");
+  const [payWallet, setPayWallet] = useState(DEFAULT_WALLET);
+  const today = todayISO();
+
+  const payments = c.payments || [];
+  const paidTotal = payments.reduce((s, p) => s + Number(p.amount), 0);
+  const remaining = Math.max(0, Number(c.amount) - paidTotal);
+  const fullyPaid = remaining <= 0;
+  const overdue = !fullyPaid && c.dueDate < today;
+  const soon = !fullyPaid && !overdue && c.dueDate <= addDaysToISO(today, 3);
+
+  const openPayForm = () => {
+    setPayAmount(String(remaining));
+    setPayDate(todayISO());
+    setPayDetails("");
+    setPayWallet(DEFAULT_WALLET);
+    setExpanded(true);
+  };
+
+  const confirmPayment = () => {
+    const amt = Number(payAmount);
+    if (!amt || amt <= 0) return;
+    const entry = {
+      id: uid(),
+      description: payDetails.trim() ? `${c.name} — ${payDetails.trim()}` : c.name,
+      amount: amt,
+      type: "expense",
+      date: payDate,
+      wallet: payWallet,
+    };
+    addAccountEntry("التزامات", entry);
+    const payment = { id: uid(), amount: amt, date: payDate, details: payDetails.trim(), wallet: payWallet, accountEntryId: entry.id };
+    const nextPayments = [...payments, payment];
+    const nextPaidTotal = paidTotal + amt;
+    const becameFullyPaid = nextPaidTotal >= Number(c.amount);
+    onUpdate({ ...c, payments: nextPayments }, becameFullyPaid && !fullyPaid);
+    setPayAmount("");
+    setPayDetails("");
+    setExpanded(false);
+  };
+
+  const deletePayment = (p) => {
+    if (p.accountEntryId) removeAccountEntry("التزامات", p.accountEntryId);
+    onUpdate({ ...c, payments: payments.filter((x) => x.id !== p.id) }, false);
+  };
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div
+        className="flex items-center gap-2 text-sm border px-2.5 py-1.5"
+        style={{
+          borderColor: overdue ? "rgba(251,113,133,0.4)" : soon ? "rgba(251,191,36,0.4)" : "rgba(148,163,184,0.15)",
+          clipPath: clip,
+          opacity: fullyPaid ? 0.5 : 1,
+        }}
+      >
+        <button onClick={() => (fullyPaid ? null : openPayForm())} className="shrink-0" disabled={fullyPaid}>
+          {fullyPaid ? <CheckCircle2 size={16} className="text-emerald-400" /> : <Circle size={16} className="text-slate-500 hover:text-emerald-400" />}
+        </button>
+        <button onClick={() => setExpanded((e) => !e)} className="flex-1 flex items-center gap-2 min-w-0 text-right">
+          <span className={`flex-1 text-slate-100 truncate ${fullyPaid ? "line-through" : ""}`}>{c.name}</span>
+          {c.recurring && <Repeat size={12} className="text-cyan-400 shrink-0" />}
+          {overdue && <AlertTriangle size={13} className="text-rose-400 shrink-0" />}
+        </button>
+        <span className="text-[11px] font-mono shrink-0" style={{ color: overdue ? "#fb7185" : soon ? "#fbbf24" : "#94a3b8" }}>
+          {c.dueDate}
+        </span>
+        <span className="text-sm font-mono shrink-0" style={{ color: fullyPaid ? "#34d399" : "#e2e8f0" }}>
+          {fullyPaid ? Number(c.amount).toLocaleString("ar-EG") : `${remaining.toLocaleString("ar-EG")} / ${Number(c.amount).toLocaleString("ar-EG")}`}
+        </span>
+        <button onClick={onDelete} className="text-slate-500 hover:text-rose-400 shrink-0">
+          <Trash2 size={13} />
+        </button>
+      </div>
+
+      {expanded && (
+        <div className="flex flex-col gap-2 border border-slate-700/50 px-2.5 py-2" style={{ clipPath: clip }}>
+          {c.details && <div className="text-xs text-slate-400">{c.details}</div>}
+
+          {payments.length > 0 && (
+            <div className="flex flex-col gap-1">
+              {payments.map((p) => (
+                <div key={p.id} className="flex items-center gap-2 text-xs border-b border-slate-800 pb-1">
+                  <span className="text-slate-500 font-mono shrink-0">{p.date}</span>
+                  <span className="flex-1 text-slate-300 truncate">{p.details || "دفعة"}</span>
+                  <span className="text-emerald-300 font-mono shrink-0">{Number(p.amount).toLocaleString("ar-EG")}</span>
+                  <button onClick={() => deletePayment(p)} className="text-slate-600 hover:text-rose-400 shrink-0">
+                    <Trash2 size={11} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!fullyPaid && (
+            <>
+              <div className="text-[10px] text-slate-500">متبقي: {remaining.toLocaleString("ar-EG")}</div>
+              <textarea
+                value={payDetails}
+                onChange={(e) => setPayDetails(e.target.value)}
+                placeholder="تفاصيل عن الدفعة دي (اختياري)..."
+                rows={2}
+                className="w-full bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none text-sm text-slate-100 placeholder:text-slate-500 px-2.5 py-1.5 resize-y"
+                style={{ clipPath: clip }}
+              />
+              <div className="flex flex-wrap items-center gap-1.5">
+                <input
+                  value={payAmount}
+                  onChange={(e) => setPayAmount(e.target.value)}
+                  type="number"
+                  placeholder="المبلغ المدفوع"
+                  className="w-28 bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none text-sm text-slate-100 placeholder:text-slate-500 px-2.5 py-1.5"
+                  style={{ clipPath: clip }}
+                />
+                <input
+                  type="date"
+                  value={payDate}
+                  onChange={(e) => setPayDate(e.target.value)}
+                  className="bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none text-sm text-slate-100 px-2.5 py-1.5"
+                  style={{ clipPath: clip }}
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[10px] text-slate-500 shrink-0">اتدفعت من:</span>
+                {WALLETS.map((w) => (
+                  <button
+                    key={w.key}
+                    onClick={() => setPayWallet(w.key)}
+                    className="text-xs px-2.5 py-1 border"
+                    style={{ clipPath: clip, borderColor: payWallet === w.key ? w.color : "rgba(148,163,184,0.25)", color: payWallet === w.key ? w.color : "#94a3b8", background: payWallet === w.key ? `${w.color}15` : "transparent" }}
+                  >
+                    {w.label}
+                  </button>
+                ))}
+                <button onClick={confirmPayment} className="flex items-center gap-1 text-xs px-3 py-1 border border-emerald-400/50 text-emerald-200 hover:bg-emerald-400/10" style={{ clipPath: clip }}>
+                  <CheckCircle2 size={12} /> تأكيد الدفعة
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CommitmentsPanel({ commitments, updateCommitments, addAccountEntry, removeAccountEntry }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [details, setDetails] = useState("");
   const [recurring, setRecurring] = useState(false);
-  const [payingId, setPayingId] = useState(null);
-  const [payWallet, setPayWallet] = useState(DEFAULT_WALLET);
   const today = todayISO();
 
   const addCommitment = () => {
     if (!name.trim() || !amount || !dueDate) return;
-    updateCommitments([...commitments, { id: uid(), name: name.trim(), amount: Number(amount), dueDate, paid: false, paidEntryId: null, recurring }]);
+    updateCommitments([...commitments, { id: uid(), name: name.trim(), amount: Number(amount), dueDate, details: details.trim(), payments: [], recurring }]);
     setName("");
     setAmount("");
     setDueDate("");
+    setDetails("");
     setRecurring(false);
   };
 
-  const startPaying = (c) => {
-    setPayWallet(DEFAULT_WALLET);
-    setPayingId(c.id);
-  };
-
-  const confirmPay = (c) => {
-    const entry = { id: uid(), description: c.name, amount: Number(c.amount), type: "expense", date: today, wallet: payWallet };
-    addAccountEntry("التزامات", entry);
-    let next = commitments.map((x) => (x.id === c.id ? { ...x, paid: true, paidEntryId: entry.id } : x));
-    if (c.recurring) {
-      next = [...next, { id: uid(), name: c.name, amount: c.amount, dueDate: addMonthToISO(c.dueDate), paid: false, paidEntryId: null, recurring: true }];
+  const updateCommitment = (updated, justBecameFullyPaid) => {
+    let next = commitments.map((x) => (x.id === updated.id ? updated : x));
+    if (justBecameFullyPaid && updated.recurring) {
+      next = [...next, { id: uid(), name: updated.name, amount: updated.amount, dueDate: addMonthToISO(updated.dueDate), details: updated.details, payments: [], recurring: true }];
     }
     updateCommitments(next);
-    setPayingId(null);
   };
 
-  const undoPay = (c) => {
-    if (c.paidEntryId) removeAccountEntry("التزامات", c.paidEntryId);
-    updateCommitments(commitments.map((x) => (x.id === c.id ? { ...x, paid: false, paidEntryId: null } : x)));
+  const deleteCommitment = (id) => updateCommitments(commitments.filter((x) => x.id !== id));
+
+  const isFullyPaid = (c) => {
+    const paidTotal = (c.payments || []).reduce((s, p) => s + Number(p.amount), 0);
+    return paidTotal >= Number(c.amount);
   };
 
   const sorted = [...commitments].sort((a, b) => (a.dueDate < b.dueDate ? -1 : 1));
+  const pendingCount = commitments.filter((c) => !isFullyPaid(c)).length;
 
   return (
     <Panel className="p-4">
@@ -1489,92 +1650,61 @@ function CommitmentsPanel({ commitments, updateCommitments, addAccountEntry, rem
           {open ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-400" />}
           الالتزامات — أقساط ودفعات مستحقة
         </span>
-        <span className="text-[11px] text-slate-500">{commitments.filter((c) => !c.paid).length} معلقة</span>
+        <span className="text-[11px] text-slate-500">{pendingCount} معلقة</span>
       </button>
 
       {open && (
       <>
       <div className="flex flex-col gap-2 mb-3 mt-2">
         {sorted.length === 0 && <div className="text-xs text-slate-500">مفيش التزامات مسجلة.</div>}
-        {sorted.map((c) => {
-          const overdue = !c.paid && c.dueDate < today;
-          const soon = !c.paid && !overdue && c.dueDate <= addDaysToISO(today, 3);
-          return (
-            <div key={c.id} className="flex flex-col gap-1.5">
-              <div
-                className="flex items-center gap-2 text-sm border px-2.5 py-1.5"
-                style={{
-                  borderColor: overdue ? "rgba(251,113,133,0.4)" : soon ? "rgba(251,191,36,0.4)" : "rgba(148,163,184,0.15)",
-                  clipPath: clip,
-                  opacity: c.paid ? 0.5 : 1,
-                }}
-              >
-                <button onClick={() => (c.paid ? undoPay(c) : startPaying(c))} className="shrink-0">
-                  {c.paid ? <CheckCircle2 size={16} className="text-emerald-400" /> : <Circle size={16} className="text-slate-500 hover:text-emerald-400" />}
-                </button>
-                <span className={`flex-1 text-slate-100 truncate ${c.paid ? "line-through" : ""}`}>{c.name}</span>
-                {c.recurring && <Repeat size={12} className="text-cyan-400 shrink-0" />}
-                {overdue && <AlertTriangle size={13} className="text-rose-400 shrink-0" />}
-                <span className="text-[11px] font-mono shrink-0" style={{ color: overdue ? "#fb7185" : soon ? "#fbbf24" : "#94a3b8" }}>
-                  {c.dueDate}
-                </span>
-                <span className="text-sm font-mono text-slate-200 shrink-0">{Number(c.amount).toLocaleString("ar-EG")}</span>
-                <button onClick={() => updateCommitments(commitments.filter((x) => x.id !== c.id))} className="text-slate-500 hover:text-rose-400 shrink-0">
-                  <Trash2 size={13} />
-                </button>
-              </div>
-              {payingId === c.id && (
-                <div className="flex flex-wrap items-center gap-1.5 border border-emerald-400/25 bg-emerald-400/5 px-2.5 py-2" style={{ clipPath: clip }}>
-                  <span className="text-[10px] text-slate-400 shrink-0">اتدفعت من:</span>
-                  {WALLETS.map((w) => (
-                    <button
-                      key={w.key}
-                      onClick={() => setPayWallet(w.key)}
-                      className="text-xs px-2.5 py-1 border"
-                      style={{ clipPath: clip, borderColor: payWallet === w.key ? w.color : "rgba(148,163,184,0.25)", color: payWallet === w.key ? w.color : "#94a3b8", background: payWallet === w.key ? `${w.color}15` : "transparent" }}
-                    >
-                      {w.label}
-                    </button>
-                  ))}
-                  <button onClick={() => confirmPay(c)} className="flex items-center gap-1 text-xs px-3 py-1 border border-emerald-400/50 text-emerald-200 hover:bg-emerald-400/10" style={{ clipPath: clip }}>
-                    <CheckCircle2 size={12} /> تأكيد الدفع
-                  </button>
-                  <button onClick={() => setPayingId(null)} className="text-xs px-2.5 py-1 border border-slate-600 text-slate-400 hover:bg-slate-800" style={{ clipPath: clip }}>
-                    إلغاء
-                  </button>
-                </div>
-              )}
-            </div>
-          );
-        })}
+        {sorted.map((c) => (
+          <CommitmentRow
+            key={c.id}
+            commitment={c}
+            addAccountEntry={addAccountEntry}
+            removeAccountEntry={removeAccountEntry}
+            onUpdate={updateCommitment}
+            onDelete={() => deleteCommitment(c.id)}
+          />
+        ))}
       </div>
-      <div className="flex flex-wrap gap-2">
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="اسم الالتزام (قسط، إيجار، اشتراك...)"
-          className="flex-1 min-w-[160px] bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none px-2.5 py-1.5 text-sm text-slate-100 placeholder:text-slate-500"
+      <div className="flex flex-col gap-2">
+        <textarea
+          value={details}
+          onChange={(e) => setDetails(e.target.value)}
+          placeholder="تفاصيل عن الالتزام (اختياري)..."
+          rows={2}
+          className="w-full bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none text-sm text-slate-100 placeholder:text-slate-500 px-2.5 py-1.5 resize-y"
           style={{ clipPath: clip }}
         />
-        <input
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          type="number"
-          placeholder="المبلغ"
-          className="w-28 bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none px-2.5 py-1.5 text-sm text-slate-100 placeholder:text-slate-500"
-          style={{ clipPath: clip }}
-        />
-        <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none px-2.5 py-1.5 text-sm text-slate-100" style={{ clipPath: clip }} />
-        <button
-          onClick={() => setRecurring((r) => !r)}
-          className="flex items-center gap-1 text-xs px-2.5 py-1.5 border"
-          style={{ clipPath: clip, borderColor: recurring ? "#22d3ee" : "rgba(148,163,184,0.25)", color: recurring ? "#22d3ee" : "#94a3b8", background: recurring ? "rgba(34,211,238,0.1)" : "transparent" }}
-        >
-          <Repeat size={12} /> شهري متكرر
-        </button>
-        <button onClick={addCommitment} className="text-xs px-3 py-1.5 border border-cyan-400/50 text-cyan-200 hover:bg-cyan-400/10 flex items-center gap-1" style={{ clipPath: clip }}>
-          <Plus size={13} /> ضيف
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="اسم الالتزام (قسط، إيجار، اشتراك...)"
+            className="flex-1 min-w-[160px] bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none px-2.5 py-1.5 text-sm text-slate-100 placeholder:text-slate-500"
+            style={{ clipPath: clip }}
+          />
+          <input
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            type="number"
+            placeholder="المبلغ الكلي"
+            className="w-28 bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none px-2.5 py-1.5 text-sm text-slate-100 placeholder:text-slate-500"
+            style={{ clipPath: clip }}
+          />
+          <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none px-2.5 py-1.5 text-sm text-slate-100" style={{ clipPath: clip }} />
+          <button
+            onClick={() => setRecurring((r) => !r)}
+            className="flex items-center gap-1 text-xs px-2.5 py-1.5 border"
+            style={{ clipPath: clip, borderColor: recurring ? "#22d3ee" : "rgba(148,163,184,0.25)", color: recurring ? "#22d3ee" : "#94a3b8", background: recurring ? "rgba(34,211,238,0.1)" : "transparent" }}
+          >
+            <Repeat size={12} /> شهري متكرر
+          </button>
+          <button onClick={addCommitment} className="text-xs px-3 py-1.5 border border-cyan-400/50 text-cyan-200 hover:bg-cyan-400/10 flex items-center gap-1" style={{ clipPath: clip }}>
+            <Plus size={13} /> ضيف
+          </button>
+        </div>
       </div>
       </>
       )}
@@ -2623,8 +2753,8 @@ function DashboardTab({ projects, appointments, daily, accounts, courses, commit
   const pendingHabits = daily.filter((d) => d.type === "habit" && !d.history[today]);
   const grandTotal = computeGrandTotal(accounts);
   const nearDoneCourses = courses.filter((c) => !c.done && c.lectures.length > 0 && c.lectures.filter((l) => l.done).length / c.lectures.length >= 0.75);
-  const overdueCommitments = commitments.filter((c) => !c.paid && c.dueDate < today);
-  const dueSoonCommitments = commitments.filter((c) => !c.paid && c.dueDate >= today && c.dueDate <= addDaysToISO(today, 3));
+  const overdueCommitments = commitments.filter((c) => commitmentRemaining(c) > 0 && c.dueDate < today);
+  const dueSoonCommitments = commitments.filter((c) => commitmentRemaining(c) > 0 && c.dueDate >= today && c.dueDate <= addDaysToISO(today, 3));
   const activeGoals = [...goals].filter((g) => g.progress < 100).sort((a, b) => (a.deadline < b.deadline ? -1 : 1));
 
   return (
@@ -2660,7 +2790,7 @@ function DashboardTab({ projects, appointments, daily, accounts, courses, commit
         ) : (
           <div className="flex flex-col gap-1.5">
             {todayAppts.slice(0, 5).map((a) => (
-              <div key={a.id} className="text-sm text-slate-200 truncate">🕐 {a.time} — {a.title}</div>
+              <div key={a.id} className="text-sm text-slate-200 truncate">🕐 {formatTime12(a.time)} — {a.title}</div>
             ))}
           </div>
         )}
@@ -2844,8 +2974,8 @@ function App() {
   const todayCount = appointments.filter((a) => a.date === todayISO()).length;
   const quote = QUOTES[eightHourBlockIndex(now) % QUOTES.length];
 
-  const overdueCommitmentsCount = commitments.filter((c) => !c.paid && c.dueDate < todayISO()).length;
-  const dueTodayCommitmentsCount = commitments.filter((c) => !c.paid && c.dueDate === todayISO()).length;
+  const overdueCommitmentsCount = commitments.filter((c) => commitmentRemaining(c) > 0 && c.dueDate < todayISO()).length;
+  const dueTodayCommitmentsCount = commitments.filter((c) => commitmentRemaining(c) > 0 && c.dueDate === todayISO()).length;
 
   return (
     <div
