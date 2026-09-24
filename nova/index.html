@@ -1189,14 +1189,14 @@ function CourseCard({ course, appointments, onUpdate, onDelete, addAppointment, 
   return (
     <Panel className="p-0 overflow-hidden">
       <CornerTicks />
-      <div className="w-full flex items-center justify-between px-4 py-3 gap-2 flex-wrap">
-        <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-2 flex-1 min-w-0">
-          {open ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
+      <div className="w-full flex flex-col gap-2 px-4 py-3">
+        <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-2 w-full text-right">
+          {open ? <ChevronDown size={16} className="text-slate-400 shrink-0" /> : <ChevronRight size={16} className="text-slate-400 shrink-0" />}
           <BookOpen size={15} className="text-amber-300 shrink-0" />
-          <span className={`text-sm font-medium text-slate-100 truncate ${course.done ? "line-through opacity-60" : ""}`}>{course.name}</span>
-          <span className="text-[11px] text-slate-500 shrink-0">({filled}/{course.lectures.length} جاهزة · {doneCount}/{course.lectures.length} خلصت)</span>
+          <span className={`text-sm font-medium text-slate-100 truncate min-w-0 ${course.done ? "line-through opacity-60" : ""}`}>{course.name}</span>
+          <span className="text-[11px] text-slate-500 shrink-0 mr-auto">({filled}/{course.lectures.length} جاهزة · {doneCount}/{course.lectures.length} خلصت)</span>
         </button>
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <span className="text-sm font-mono text-cyan-200 shrink-0">{Number(course.price).toLocaleString("ar-EG")}</span>
           <button
             onClick={toggleType}
@@ -2051,6 +2051,8 @@ function ExpensePanel({ accounts, addAccountEntry }) {
 
 function AccountsTab({ accounts, updateAccounts, commitments, updateCommitments, addAccountEntry, removeAccountEntry }) {
   const [newCategory, setNewCategory] = useState("");
+  const novaNames = NOVA_UNITS.map((u) => u.name);
+  const mainAccounts = accounts.filter((c) => !novaNames.includes(c.name));
 
   const addCategory = () => {
     if (!newCategory.trim()) return;
@@ -2059,7 +2061,7 @@ function AccountsTab({ accounts, updateAccounts, commitments, updateCommitments,
     setNewCategory("");
   };
 
-  const grandTotal = computeGrandTotal(accounts);
+  const grandTotal = computeGrandTotal(mainAccounts);
 
   return (
     <div className="flex flex-col gap-4">
@@ -2073,13 +2075,13 @@ function AccountsTab({ accounts, updateAccounts, commitments, updateCommitments,
         </div>
       </Panel>
 
-      <WalletsPanel accounts={accounts} />
+      <WalletsPanel accounts={mainAccounts} />
 
       <TransferPanel addAccountEntry={addAccountEntry} />
 
-      <ExpensePanel accounts={accounts} addAccountEntry={addAccountEntry} />
+      <ExpensePanel accounts={mainAccounts} addAccountEntry={addAccountEntry} />
 
-      <MonthlyChartPanel accounts={accounts} />
+      <MonthlyChartPanel accounts={mainAccounts} />
 
       <CommitmentsPanel commitments={commitments} updateCommitments={updateCommitments} addAccountEntry={addAccountEntry} removeAccountEntry={removeAccountEntry} />
 
@@ -2100,9 +2102,9 @@ function AccountsTab({ accounts, updateAccounts, commitments, updateCommitments,
         </div>
       </Panel>
 
-      {accounts.length === 0 && <div className="text-sm text-slate-500 text-center py-6">لسه مفيش أقسام حسابات — ضيف أول واحد فوق (أو خلّص كورس/سدد التزام وهيتضاف القسم أوتوماتيك).</div>}
+      {mainAccounts.length === 0 && <div className="text-sm text-slate-500 text-center py-6">لسه مفيش أقسام حسابات — ضيف أول واحد فوق (أو خلّص كورس/سدد التزام وهيتضاف القسم أوتوماتيك).</div>}
 
-      {accounts.map((category) => (
+      {mainAccounts.map((category) => (
         <CategoryCard
           key={category.id}
           category={category}
@@ -2247,14 +2249,21 @@ function GoalsTab({ goals, updateGoals }) {
 /* ---------------- Top 3 focus panel ---------------- */
 function Top3Panel({ top3, updateTop3 }) {
   const today = todayISO();
-  const current = top3.date === today ? top3 : { date: today, items: [{ text: "", done: false }, { text: "", done: false }, { text: "", done: false }] };
+  const emptyItems = () => [{ text: "", done: false }, { text: "", done: false }, { text: "", done: false }];
+  const [localItems, setLocalItems] = useState(top3.date === today ? top3.items : emptyItems());
+
+  useEffect(() => {
+    setLocalItems(top3.date === today ? top3.items : emptyItems());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [today]);
 
   const setItem = (idx, patch) => {
-    const items = current.items.map((it, i) => (i === idx ? { ...it, ...patch } : it));
+    const items = localItems.map((it, i) => (i === idx ? { ...it, ...patch } : it));
+    setLocalItems(items);
     updateTop3({ date: today, items });
   };
 
-  const doneCount = current.items.filter((it) => it.done && it.text.trim()).length;
+  const doneCount = localItems.filter((it) => it.done && it.text.trim()).length;
 
   return (
     <Panel className="p-4" glow>
@@ -2266,7 +2275,7 @@ function Top3Panel({ top3, updateTop3 }) {
         <span className="text-xs text-slate-400">{doneCount}/3</span>
       </div>
       <div className="flex flex-col gap-2.5">
-        {current.items.map((it, idx) => (
+        {localItems.map((it, idx) => (
           <div key={idx} className="flex items-center gap-2">
             <button onClick={() => setItem(idx, { done: !it.done })} className="shrink-0">
               {it.done ? <CheckCircle2 size={19} className="text-emerald-400" /> : <Circle size={19} className="text-slate-500 hover:text-emerald-400" />}
@@ -2547,6 +2556,13 @@ function NovaUnitCard({ unit, accounts, addAccountEntry, removeAccountEntry, tas
   const totalCollections = collections.reduce((s, e) => s + Number(e.amount), 0);
   const net = totalCollections - totalCosts;
 
+  const unitWalletBalances = {};
+  WALLETS.forEach((w) => (unitWalletBalances[w.key] = 0));
+  entries.forEach((e) => {
+    const key = unitWalletBalances[e.wallet] !== undefined ? e.wallet : DEFAULT_WALLET;
+    unitWalletBalances[key] += e.type === "income" ? Number(e.amount) : -Number(e.amount);
+  });
+
   const addTask = () => {
     if (!taskText.trim()) return;
     updateTasks([...tasks, { id: uid(), text: taskText.trim(), priority: taskPriority, done: false }]);
@@ -2583,6 +2599,19 @@ function NovaUnitCard({ unit, accounts, addAccountEntry, removeAccountEntry, tas
 
       {open && (
       <div className="px-4 pb-4 flex flex-col gap-4">
+      <div>
+        <div className="text-xs tracking-wide text-slate-400 mb-2">خزن {unit.name} — منفصلة عن الحسابات العامة</div>
+        <div className="grid grid-cols-3 gap-2">
+          {WALLETS.map((w) => (
+            <div key={w.key} className="border px-2 py-1.5 text-center" style={{ borderColor: `${w.color}40`, clipPath: clip, background: `${w.color}0a` }}>
+              <div className="text-[10px] text-slate-400 mb-0.5">{w.label}</div>
+              <div className="text-sm font-mono" style={{ color: unitWalletBalances[w.key] >= 0 ? w.color : "#fb7185" }}>
+                {unitWalletBalances[w.key].toLocaleString("ar-EG")}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
       <div>
         <div className="text-xs tracking-wide text-slate-400 mb-2">التاسكات</div>
         <div className="flex flex-wrap gap-2 mb-2">
@@ -2945,7 +2974,7 @@ function App() {
   const updateDaily = (next) => { setDaily(next); persist(KEYS.daily, next); };
   const updateCommitments = (next) => { setCommitments(next); persist(KEYS.commitments, next); };
   const updateGoals = (next) => { setGoals(next); persist(KEYS.goals, next, 300); };
-  const updateTopThree = (next) => { setTopThree(next); persist(KEYS.topThree, next, 300); };
+  const updateTopThree = (next) => { setTopThree(next); persist(KEYS.topThree, next); };
   const updateWorkout = (next) => { setWorkout(next); persist(KEYS.workout, next); };
   const updateNovaTasks = (next) => { setNovaTasks(next); persist(KEYS.novaTasks, next, 300); };
   const addAppointment = (appt) => { setAppointments((prev) => { const next = [...prev, appt]; persist(KEYS.appointments, next); return next; }); };
