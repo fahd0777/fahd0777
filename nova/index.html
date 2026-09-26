@@ -2780,7 +2780,6 @@ function DashboardTab({ projects, appointments, daily, accounts, courses, commit
 
   const todayAppts = appointments.filter((a) => a.date === today).sort((a, b) => toMinutes(a.time) - toMinutes(b.time));
   const pendingHabits = daily.filter((d) => d.type === "habit" && !d.history[today]);
-  const grandTotal = computeGrandTotal(accounts);
   const nearDoneCourses = courses.filter((c) => !c.done && c.lectures.length > 0 && c.lectures.filter((l) => l.done).length / c.lectures.length >= 0.75);
   const overdueCommitments = commitments.filter((c) => commitmentRemaining(c) > 0 && c.dueDate < today);
   const dueSoonCommitments = commitments.filter((c) => commitmentRemaining(c) > 0 && c.dueDate >= today && c.dueDate <= addDaysToISO(today, 3));
@@ -2845,8 +2844,7 @@ function DashboardTab({ projects, appointments, daily, accounts, courses, commit
       <Panel className="p-4" onClick={() => onGo("accounts")}>
         <CornerTicks />
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs tracking-wide text-slate-400">صافي الحسابات</span>
-          <span className="text-lg font-mono" style={{ color: grandTotal >= 0 ? "#34d399" : "#fb7185" }}>{grandTotal.toLocaleString("ar-EG")}</span>
+          <span className="text-xs tracking-wide text-slate-400">تنبيهات الالتزامات</span>
         </div>
         {(overdueCommitments.length > 0 || dueSoonCommitments.length > 0) ? (
           <div className="flex flex-col gap-1">
