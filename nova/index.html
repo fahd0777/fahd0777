@@ -50,6 +50,39 @@ import {
   Mail, Lock, LogOut,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+
+/* ---------------- Supabase-backed storage (replaces the Claude-artifact window.storage) ---------------- */
+const supabase = createClient(
+  "https://kwcvhkpcprvnhmbqbqof.supabase.co",
+  "sb_publishable_gNQosyu4VlClelMORr7JLA_Zi0opb-J"
+);
+
+window.storage = {
+  async get(key, shared) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("مفيش تسجيل دخول");
+    const { data, error } = await supabase
+      .from("nova_state")
+      .select("value")
+      .eq("user_id", user.id)
+      .eq("key", key)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    return { key, value: JSON.stringify(data.value), shared: !!shared };
+  },
+  async set(key, value, shared) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("مفيش تسجيل دخول");
+    const parsed = JSON.parse(value);
+    const { error } = await supabase
+      .from("nova_state")
+      .upsert({ user_id: user.id, key, value: parsed }, { onConflict: "user_id,key" });
+    if (error) throw error;
+    return { key, value, shared: !!shared };
+  },
+};
+
 const PRIORITIES = {
   urgent: { label: "عاجل", color: "#fb7185", order: 0 },
   important: { label: "مهم", color: "#22d3ee", order: 1 },
