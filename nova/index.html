@@ -715,7 +715,7 @@ function ProjectsTab({ projects, appointments, updateProjects, addAppointment })
     updateProjects(
       projects.map((p) =>
         p.id === projectId
-          ? { ...p, tasks: [...p.tasks, { id: uid(), text: d.text.trim(), priority: d.priority || "important", time: d.time || "", done: false }] }
+          ? { ...p, tasks: [...(p.tasks || []), { id: uid(), text: d.text.trim(), priority: d.priority || "important", time: d.time || "", done: false }] }
           : p
       )
     );
@@ -723,15 +723,15 @@ function ProjectsTab({ projects, appointments, updateProjects, addAppointment })
   };
 
   const toggleTask = (projectId, taskId) => {
-    updateProjects(projects.map((p) => (p.id === projectId ? { ...p, tasks: p.tasks.map((t) => (t.id === taskId ? { ...t, done: !t.done } : t)) } : p)));
+    updateProjects(projects.map((p) => (p.id === projectId ? { ...p, tasks: (p.tasks || []).map((t) => (t.id === taskId ? { ...t, done: !t.done } : t)) } : p)));
   };
 
   const deleteTask = (projectId, taskId) => {
-    updateProjects(projects.map((p) => (p.id === projectId ? { ...p, tasks: p.tasks.filter((t) => t.id !== taskId) } : p)));
+    updateProjects(projects.map((p) => (p.id === projectId ? { ...p, tasks: (p.tasks || []).filter((t) => t.id !== taskId) } : p)));
   };
 
   const editTask = (projectId, taskId, patch) => {
-    updateProjects(projects.map((p) => (p.id === projectId ? { ...p, tasks: p.tasks.map((t) => (t.id === taskId ? { ...t, ...patch } : t)) } : p)));
+    updateProjects(projects.map((p) => (p.id === projectId ? { ...p, tasks: (p.tasks || []).map((t) => (t.id === taskId ? { ...t, ...patch } : t)) } : p)));
   };
 
   return (
@@ -773,14 +773,14 @@ function ProjectsTab({ projects, appointments, updateProjects, addAppointment })
         .map((project) => {
           const q = search.trim();
           const matchesProject = !q || project.name.includes(q);
-          const filteredTasks = q ? project.tasks.filter((t) => t.text.includes(q)) : project.tasks;
+          const filteredTasks = q ? (project.tasks || []).filter((t) => t.text.includes(q)) : (project.tasks || []);
           return { project, matchesProject, filteredTasks };
         })
         .filter(({ matchesProject, filteredTasks }) => !search.trim() || matchesProject || filteredTasks.length > 0)
         .map(({ project, filteredTasks }) => {
           const open = openIds[project.id] ?? false;
           const d = draft[project.id] || { text: "", priority: "important", time: "" };
-          const pendingCount = project.tasks.filter((t) => !t.done).length;
+          const pendingCount = (project.tasks || []).filter((t) => !t.done).length;
           return (
             <Panel key={project.id} className="p-0 overflow-hidden">
               <CornerTicks />
@@ -2837,7 +2837,7 @@ function DashboardTab({ projects, appointments, daily, accounts, courses, commit
   const today = todayISO();
 
   const urgentTasks = [];
-  projects.forEach((p) => p.tasks.forEach((t) => { if (t.priority === "urgent" && !t.done) urgentTasks.push({ ...t, projectName: p.name }); }));
+  projects.forEach((p) => (p.tasks || []).forEach((t) => { if (t.priority === "urgent" && !t.done) urgentTasks.push({ ...t, projectName: p.name }); }));
 
   const todayAppts = appointments.filter((a) => a.date === today).sort((a, b) => toMinutes(a.time) - toMinutes(b.time));
   const pendingHabits = daily.filter((d) => d.type === "habit" && !d.history[today]);
