@@ -3028,14 +3028,14 @@ function App() {
   }, []);
 
   const updateProjects = (next) => { setProjects(next); persist(KEYS.projects, next); };
-  const updateCourses = (next) => { setCourses(next); persist(KEYS.courses, next, 400); };
+  const updateCourses = (next) => { setCourses(next); persist(KEYS.courses, next); };
   const updateAccounts = (next) => { setAccounts(next); persist(KEYS.accounts, next); };
   const updateDaily = (next) => { setDaily(next); persist(KEYS.daily, next); };
   const updateCommitments = (next) => { setCommitments(next); persist(KEYS.commitments, next); };
-  const updateGoals = (next) => { setGoals(next); persist(KEYS.goals, next, 300); };
+  const updateGoals = (next) => { setGoals(next); persist(KEYS.goals, next); };
   const updateTopThree = (next) => { setTopThree(next); persist(KEYS.topThree, next); };
   const updateWorkout = (next) => { setWorkout(next); persist(KEYS.workout, next); };
-  const updateNovaTasks = (next) => { setNovaTasks(next); persist(KEYS.novaTasks, next, 300); };
+  const updateNovaTasks = (next) => { setNovaTasks(next); persist(KEYS.novaTasks, next); };
   const addAppointment = (appt) => { setAppointments((prev) => { const next = [...prev, appt]; persist(KEYS.appointments, next); return next; }); };
   const deleteAppointment = (id) => { setAppointments((prev) => { const next = prev.filter((a) => a.id !== id); persist(KEYS.appointments, next); return next; }); };
 
