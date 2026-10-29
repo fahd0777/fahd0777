@@ -83,6 +83,9 @@ window.storage = {
   },
 };
 
+window.novaSupabase = supabase;
+window.NOVA_VAPID_PUBLIC_KEY = "BEKzaZB4nTrogR7_pQB-4H3sSAI8aUVKN9WBxEKG1V7DW6ulHT5HhNvYNLD64BjuqTRqLko6VkghtLncvodOnTo";
+
 const PRIORITIES = {
   urgent: { label: "عاجل", color: "#fb7185", order: 0 },
   important: { label: "مهم", color: "#22d3ee", order: 1 },
@@ -2307,6 +2310,166 @@ function GoalsTab({ goals, updateGoals }) {
   );
 }
 
+/* ---------------- Push notifications panel ---------------- */
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(base64);
+  const out = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+
+function NotificationsPanel() {
+  const sb = typeof window !== "undefined" ? window.novaSupabase : null;
+  const vapid = typeof window !== "undefined" ? window.NOVA_VAPID_PUBLIC_KEY : null;
+  const supported =
+    !!sb && !!vapid && typeof navigator !== "undefined" && "serviceWorker" in navigator &&
+    typeof window !== "undefined" && "PushManager" in window && "Notification" in window;
+  const [permission, setPermission] = useState(supported ? Notification.permission : "unsupported");
+  const [subscribed, setSubscribed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    if (!supported) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const reg = await navigator.serviceWorker.getRegistration();
+        const sub = reg ? await reg.pushManager.getSubscription() : null;
+        if (!cancelled) setSubscribed(!!sub);
+      } catch (e) {
+        /* ignore */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [supported]);
+
+  const enable = async () => {
+    setBusy(true);
+    setErr("");
+    setMsg("");
+    try {
+      const result = await Notification.requestPermission();
+      setPermission(result);
+      if (result !== "granted") {
+        setErr("الإذن اترفض — فعّل الإشعارات للموقع ده من إعدادات المتصفح.");
+        return;
+      }
+      const reg = await navigator.serviceWorker.ready;
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(vapid) });
+      }
+      const { data: u } = await sb.auth.getUser();
+      const user = u && u.user;
+      if (!user) throw new Error("مفيش تسجيل دخول");
+      const json = sub.toJSON();
+      const { error } = await sb
+        .from("push_subscriptions")
+        .upsert({ user_id: user.id, endpoint: json.endpoint, subscription: json, user_agent: navigator.userAgent }, { onConflict: "endpoint" });
+      if (error) throw error;
+      setSubscribed(true);
+      setMsg("اتفعّلت ✅ — هيجيلك إشعار كل يوم الساعة 9 الصبح. دوس \"جرّب دلوقتي\" تتأكد إنه واصل.");
+    } catch (e) {
+      setErr("حصل خطأ: " + (e && e.message ? e.message : "جرّب تاني"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const test = async () => {
+    setBusy(true);
+    setErr("");
+    setMsg("");
+    try {
+      const { data, error } = await sb.functions.invoke("send-daily-push", { body: { test: true } });
+      if (error) throw error;
+      if (data && data.sent > 0) setMsg("اتبعتلك إشعار تجريبي ✅ — المفروض يظهر على الموبايل خلال ثواني.");
+      else if (data && data.reason === "no_subscriptions") setErr("مفيش جهاز مسجّل للإشعارات — دوس \"فعّل الإشعارات\" الأول.");
+      else setErr("السيرفر ردّ بس الإشعار ماوصلش: " + JSON.stringify((data && data.failed) || data));
+    } catch (e) {
+      setErr("حصل خطأ في التجربة: " + (e && e.message ? e.message : ""));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const disable = async () => {
+    setBusy(true);
+    setErr("");
+    setMsg("");
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      const sub = reg ? await reg.pushManager.getSubscription() : null;
+      if (sub) {
+        const endpoint = sub.endpoint;
+        await sub.unsubscribe();
+        await sb.from("push_subscriptions").delete().eq("endpoint", endpoint);
+      }
+      setSubscribed(false);
+      setMsg("اتقفلت الإشعارات على الجهاز ده.");
+    } catch (e) {
+      setErr("حصل خطأ: " + (e && e.message ? e.message : ""));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!sb) return null;
+  if (!supported) {
+    return (
+      <Panel className="p-4">
+        <CornerTicks />
+        <div className="flex items-center gap-2 text-xs text-slate-400">
+          <Bell size={14} className="text-slate-500" /> المتصفح ده مش بيدعم الإشعارات.
+        </div>
+      </Panel>
+    );
+  }
+
+  const enabled = subscribed && permission === "granted";
+  return (
+    <Panel className="p-4">
+      <CornerTicks />
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2 min-w-0">
+          <Bell size={16} className={enabled ? "text-emerald-400" : "text-amber-300"} />
+          <div>
+            <div className="text-sm text-slate-100">{enabled ? "إشعار الساعة 9 الصبح شغال على الجهاز ده" : "فعّل إشعار الساعة 9 الصبح"}</div>
+            {!enabled && <div className="text-[11px] text-slate-400 mt-0.5">كل يوم هيجيلك تنبيه بملخص يومك (مواعيد، مهام عاجلة، عادات) ويفتحلك NOVA.</div>}
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {enabled ? (
+            <>
+              <button onClick={test} disabled={busy} className="flex items-center gap-1 text-xs px-3 py-1.5 border border-cyan-400/50 text-cyan-200 hover:bg-cyan-400/10 disabled:opacity-50" style={{ clipPath: clip }}>
+                {busy ? <Loader2 size={12} className="animate-spin" /> : <Bell size={12} />} جرّب دلوقتي
+              </button>
+              <button onClick={disable} disabled={busy} className="text-xs px-3 py-1.5 border border-slate-600 text-slate-400 hover:bg-slate-800 disabled:opacity-50" style={{ clipPath: clip }}>
+                إيقاف
+              </button>
+            </>
+          ) : (
+            <button onClick={enable} disabled={busy} className="flex items-center gap-1 text-xs px-3 py-1.5 border border-amber-400/50 text-amber-200 hover:bg-amber-400/10 disabled:opacity-50" style={{ clipPath: clip }}>
+              {busy ? <Loader2 size={12} className="animate-spin" /> : <Bell size={12} />} فعّل الإشعارات
+            </button>
+          )}
+        </div>
+      </div>
+      {permission === "denied" && (
+        <div className="text-xs text-rose-300 mt-2 flex items-center gap-1">
+          <AlertTriangle size={12} /> الإشعارات مقفولة للموقع ده — افتح إعدادات المتصفح ← الإشعارات وفعّلها.
+        </div>
+      )}
+      {msg && <div className="text-xs text-emerald-300 mt-2">{msg}</div>}
+      {err && <div className="text-xs text-rose-300 mt-2">{err}</div>}
+    </Panel>
+  );
+}
+
 /* ---------------- Top 3 focus panel ---------------- */
 function Top3Panel({ top3, updateTop3 }) {
   const today = todayISO();
@@ -2849,6 +3012,7 @@ function DashboardTab({ projects, appointments, daily, accounts, courses, commit
   return (
     <div className="flex flex-col gap-4">
       <Top3Panel top3={top3} updateTop3={updateTop3} />
+      <NotificationsPanel />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <Panel className="p-4" glow onClick={() => onGo("projects")}>
         <CornerTicks />
