@@ -2168,83 +2168,50 @@ function WalletPicker({ value, onChange }) {
   );
 }
 
-/* ---------------- Cash Flow: add balance to a wallet + movement summary ---------------- */
-function CashFlowPanel({ accounts, addAccountEntry, removeAccountEntry }) {
-  const [wallet, setWallet] = useState(DEFAULT_WALLET);
-  const [amount, setAmount] = useState("");
-  const [note, setNote] = useState("");
-  const [date, setDate] = useState(todayISO());
-  const [showAll, setShowAll] = useState(false);
+/* ---------------- Cash Flow: sections (e.g. company collections) with entries that hit a wallet ---------------- */
+function CashFlowPanel({ accounts, updateAccounts }) {
+  const [newName, setNewName] = useState("");
+  const cats = accounts.filter((c) => c.cashflow);
 
-  const addBalance = () => {
-    const amt = Number(amount);
-    if (!amt || amt <= 0) return;
-    addAccountEntry("رصيد", { id: uid(), description: note.trim() || "إضافة رصيد", amount: amt, type: "income", date, wallet });
-    setAmount("");
-    setNote("");
+  const addSection = () => {
+    const n = newName.trim();
+    if (!n) return;
+    const existing = accounts.find((c) => c.name === n);
+    if (existing) updateAccounts(accounts.map((c) => (c.id === existing.id ? { ...c, cashflow: true } : c)));
+    else updateAccounts([...accounts, { id: uid(), name: n, entries: [], cashflow: true }]);
+    setNewName("");
   };
 
-  const month = todayISO().slice(0, 7);
-  const moves = [];
-  accounts.forEach((cat) => {
-    if (cat.name === "تحويلات") return; // internal transfers aren't cash in/out
-    cat.entries.forEach((e) => moves.push({ ...e, categoryName: cat.name }));
-  });
-  moves.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-  const thisMonth = moves.filter((e) => (e.date || "").slice(0, 7) === month);
-  const inTotal = thisMonth.filter((e) => e.type === "income").reduce((s, e) => s + Number(e.amount), 0);
-  const outTotal = thisMonth.filter((e) => e.type !== "income").reduce((s, e) => s + Number(e.amount), 0);
-  const net = inTotal - outTotal;
-  const list = showAll ? moves : moves.slice(0, 8);
-
   return (
-    <Panel className="p-4">
-      <CornerTicks />
-      <div className="text-xs tracking-wide text-slate-400 mb-3">Cash Flow — إضافة رصيد وحركة الشهر</div>
-
-      <div className="grid grid-cols-3 gap-2 mb-3">
-        {[["داخل الشهر ده", inTotal, "#34d399"], ["خارج الشهر ده", outTotal, "#fb7185"], ["الصافي", net, net >= 0 ? "#22d3ee" : "#fb7185"]].map(([label, val, color]) => (
-          <div key={label} className="border px-2 py-2 text-right" style={{ borderColor: `${color}40`, clipPath: clip, background: `${color}0a` }}>
-            <div className="text-[10px] text-slate-400 mb-0.5">{label}</div>
-            <div className="text-sm font-mono" style={{ color }}>{val.toLocaleString("ar-EG")}</div>
-          </div>
-        ))}
-      </div>
-
-      <div className="flex flex-col gap-2 mb-3">
-        <WalletPicker value={wallet} onChange={setWallet} />
-        <div className="flex flex-wrap gap-2">
-          <input value={amount} onChange={(e) => setAmount(e.target.value)} type="number" placeholder="المبلغ" className={`w-28 ${INPUT_CLS}`} style={{ clipPath: clip }} />
-          <input value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addBalance()} placeholder="ملاحظة (اختياري)" className={`flex-1 min-w-[140px] ${INPUT_CLS}`} style={{ clipPath: clip }} />
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={INPUT_CLS} style={{ clipPath: clip }} />
-          <button onClick={addBalance} className="text-xs px-3 py-1.5 border border-emerald-400/50 text-emerald-300 hover:bg-emerald-400/10 flex items-center gap-1" style={{ clipPath: clip }}>
-            <Plus size={13} /> أضف رصيد
+    <div className="flex flex-col gap-3">
+      <Panel className="p-4">
+        <CornerTicks />
+        <div className="text-xs tracking-wide text-slate-400 mb-1">Cash Flow — أقسام التحصيل والإضافات</div>
+        <div className="text-[11px] text-slate-500 mb-3">اعمل قسم (مثلًا: متحصلات شركة كذا)، وجواه ضيف كل تحصيل بمبلغه وخزنته — بيتحسب في رصيد الخزنة على طول.</div>
+        <div className="flex gap-2">
+          <input
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addSection()}
+            placeholder="اسم القسم... مثال: متحصلات شركة كذا"
+            className={`flex-1 min-w-0 ${INPUT_CLS}`}
+            style={{ clipPath: clip }}
+          />
+          <button onClick={addSection} className="flex items-center gap-1.5 px-4 py-2 text-sm text-cyan-100 border border-cyan-400/50 hover:bg-cyan-400/10 shrink-0" style={{ clipPath: clip }}>
+            <Plus size={15} /> قسم
           </button>
         </div>
-      </div>
-
-      <div className="flex flex-col gap-1.5">
-        {list.length === 0 && <div className="text-xs text-slate-500">مفيش حركة لسه.</div>}
-        {list.map((e) => (
-          <div key={e.id} className="flex items-center gap-2 text-sm border px-2.5 py-1.5" style={{ borderColor: "rgba(148,163,184,0.15)", clipPath: clip }}>
-            <span className="text-[10px] text-slate-500 font-mono shrink-0">{e.date}</span>
-            <span className="text-[9px] px-1.5 py-0.5 border shrink-0" style={{ clipPath: clip, borderColor: `${walletColor(e.wallet)}60`, color: walletColor(e.wallet) }}>{walletLabel(e.wallet)}</span>
-            <span className="flex-1 text-slate-100 truncate">{e.description}</span>
-            <span className="text-sm font-mono shrink-0" style={{ color: e.type === "income" ? "#34d399" : "#fb7185" }}>
-              {e.type === "income" ? "+" : "−"}{Number(e.amount).toLocaleString("ar-EG")}
-            </span>
-            {e.categoryName === "رصيد" && (
-              <button onClick={() => removeAccountEntry("رصيد", e.id)} className="text-slate-500 hover:text-rose-400 shrink-0"><Trash2 size={13} /></button>
-            )}
-          </div>
-        ))}
-        {moves.length > 8 && (
-          <button onClick={() => setShowAll((v) => !v)} className="text-[11px] text-slate-400 hover:text-cyan-300 self-center mt-1">
-            {showAll ? "اعرض أقل" : `اعرض كل الحركة (${moves.length})`}
-          </button>
-        )}
-      </div>
-    </Panel>
+      </Panel>
+      {cats.map((category) => (
+        <CategoryCard
+          key={category.id}
+          category={category}
+          onAddEntry={(entry) => updateAccounts(accounts.map((c) => (c.id === category.id ? { ...c, entries: [...c.entries, entry] } : c)))}
+          onDeleteEntry={(entryId) => updateAccounts(accounts.map((c) => (c.id === category.id ? { ...c, entries: c.entries.filter((e) => e.id !== entryId) } : c)))}
+          onDeleteCategory={() => updateAccounts(accounts.filter((c) => c.id !== category.id))}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -2429,7 +2396,7 @@ function AccountsTab({ accounts, updateAccounts, commitments, updateCommitments,
 
       <TransferPanel addAccountEntry={addAccountEntry} />
 
-      <CashFlowPanel accounts={mainAccounts} addAccountEntry={addAccountEntry} removeAccountEntry={removeAccountEntry} />
+      <CashFlowPanel accounts={accounts} updateAccounts={updateAccounts} />
 
       <ExpensePanel accounts={mainAccounts} addAccountEntry={addAccountEntry} />
 
@@ -2458,7 +2425,7 @@ function AccountsTab({ accounts, updateAccounts, commitments, updateCommitments,
 
       {mainAccounts.length === 0 && <div className="text-sm text-slate-500 text-center py-6">لسه مفيش أقسام حسابات — ضيف أول واحد فوق (أو خلّص كورس/سدد التزام وهيتضاف القسم أوتوماتيك).</div>}
 
-      {mainAccounts.map((category) => (
+      {mainAccounts.filter((c) => !c.cashflow).map((category) => (
         <CategoryCard
           key={category.id}
           category={category}
