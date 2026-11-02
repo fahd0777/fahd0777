@@ -2382,6 +2382,8 @@ function AccountsTab({ accounts, updateAccounts, commitments, updateCommitments,
 
   return (
     <div className="flex flex-col gap-4">
+      <MonthlyChartPanel accounts={mainAccounts} />
+
       <Panel className="p-4" glow>
         <CornerTicks />
         <div className="flex items-center justify-between">
@@ -2401,8 +2403,6 @@ function AccountsTab({ accounts, updateAccounts, commitments, updateCommitments,
       <ReceivablesPanel receivables={receivables || []} updateReceivables={updateReceivables} addAccountEntry={addAccountEntry} removeAccountEntry={removeAccountEntry} />
 
       <ExpensePanel accounts={mainAccounts.filter((c) => !c.cashflow)} addAccountEntry={addAccountEntry} />
-
-      <MonthlyChartPanel accounts={mainAccounts} />
 
       <CommitmentsPanel commitments={commitments} updateCommitments={updateCommitments} addAccountEntry={addAccountEntry} removeAccountEntry={removeAccountEntry} />
 
