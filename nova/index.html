@@ -2375,16 +2375,8 @@ function ReceivablesPanel({ receivables, updateReceivables, addAccountEntry, rem
 
 
 function AccountsTab({ accounts, updateAccounts, commitments, updateCommitments, receivables, updateReceivables, addAccountEntry, removeAccountEntry }) {
-  const [newCategory, setNewCategory] = useState("");
   const novaNames = NOVA_UNITS.map((u) => u.name);
   const mainAccounts = accounts.filter((c) => !novaNames.includes(c.name));
-
-  const addCategory = () => {
-    if (!newCategory.trim()) return;
-    if (accounts.find((c) => c.name === newCategory.trim())) { setNewCategory(""); return; }
-    updateAccounts([...accounts, { id: uid(), name: newCategory.trim(), entries: [] }]);
-    setNewCategory("");
-  };
 
   const grandTotal = computeGrandTotal(mainAccounts);
 
@@ -2414,24 +2406,7 @@ function AccountsTab({ accounts, updateAccounts, commitments, updateCommitments,
 
       <CommitmentsPanel commitments={commitments} updateCommitments={updateCommitments} addAccountEntry={addAccountEntry} removeAccountEntry={removeAccountEntry} />
 
-      <Panel className="p-3">
-        <CornerTicks />
-        <div className="flex gap-2">
-          <input
-            value={newCategory}
-            onChange={(e) => setNewCategory(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addCategory()}
-            placeholder="قسم جديد... مثال: شغل فريلانس"
-            className="flex-1 bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none px-3 py-2 text-sm placeholder:text-slate-500 text-slate-100"
-            style={{ clipPath: clip }}
-          />
-          <button onClick={addCategory} className="flex items-center gap-1.5 px-4 py-2 text-sm text-cyan-100 border border-cyan-400/50 hover:bg-cyan-400/10" style={{ clipPath: clip }}>
-            <Plus size={15} /> قسم
-          </button>
-        </div>
-      </Panel>
-
-      {mainAccounts.length === 0 && <div className="text-sm text-slate-500 text-center py-6">لسه مفيش أقسام حسابات — ضيف أول واحد فوق (أو خلّص كورس/سدد التزام وهيتضاف القسم أوتوماتيك).</div>}
+      {mainAccounts.length === 0 && <div className="text-sm text-slate-500 text-center py-6">لسه مفيش أقسام حسابات — ضيف قسم من Cash Flow، أو من إضافة مصروف، أو خلّص كورس وهيتضاف القسم أوتوماتيك.</div>}
 
       {mainAccounts.filter((c) => !c.cashflow).map((category) => (
         <CategoryCard
