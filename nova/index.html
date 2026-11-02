@@ -1215,9 +1215,35 @@ function CourseCard({ course, appointments, onUpdate, onDelete, addAppointment, 
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
 
+  const [priceDraft, setPriceDraft] = useState("");
+  const [sessionsDraft, setSessionsDraft] = useState("");
+  const [editErr, setEditErr] = useState("");
+
+  const startEdit = () => {
+    setNameDraft(course.name);
+    setPriceDraft(String(course.price));
+    setSessionsDraft(String(course.lectures.length));
+    setEditErr("");
+    setEditingName(true);
+  };
+
   const saveName = () => {
-    const n = nameDraft.trim();
-    if (n && n !== course.name) onUpdate({ ...course, name: n });
+    const n = nameDraft.trim() || course.name;
+    const priceNum = course.done ? Number(course.price) : Number(priceDraft);
+    if (!priceNum || priceNum <= 0) { setEditErr("لازم تحط سعر صحيح."); return; }
+    const count = Math.max(1, Math.floor(Number(sessionsDraft) || 0));
+    let lectures = course.lectures;
+    if (count > lectures.length) {
+      const extra = Array.from({ length: count - lectures.length }, () => ({ title: "", description: "", notes: "", done: false, date: "", time: "", duration: 60, apptId: null }));
+      lectures = [...lectures, ...extra];
+    } else if (count < lectures.length) {
+      const removed = lectures.slice(count);
+      const hasData = removed.some((l) => l.title?.trim() || l.description?.trim() || l.notes?.trim() || l.done || l.date || l.apptId);
+      if (hasData) { setEditErr("السيشنز الأخيرة فيها بيانات أو ميعاد — امسحها الأول أو قلّل بعدد أقل."); return; }
+      lectures = lectures.slice(0, count);
+    }
+    onUpdate({ ...course, name: n, price: priceNum, lectures });
+    setEditErr("");
     setEditingName(false);
   };
 
@@ -1285,15 +1311,33 @@ function CourseCard({ course, appointments, onUpdate, onDelete, addAppointment, 
                 <span className={`text-sm font-medium text-slate-100 truncate min-w-0 ${course.done ? "line-through opacity-60" : ""}`}>{course.name}</span>
               </button>
               <button
-                onClick={() => { setNameDraft(course.name); setEditingName(true); }}
+                onClick={startEdit}
                 className="shrink-0 w-9 h-9 flex items-center justify-center border border-cyan-400/40 text-cyan-300 hover:bg-cyan-400/10"
-                title="تعديل اسم الكورس"
+                title="تعديل الكورس (الاسم / السعر / السيشنز)"
               >
                 <Pencil size={16} />
               </button>
             </>
           )}
         </div>
+        {editingName && (
+          <div className="flex flex-col gap-1.5 pr-6">
+            <div className="flex flex-wrap items-center gap-2">
+              {!course.done && (
+                <label className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                  السعر
+                  <input value={priceDraft} onChange={(e) => setPriceDraft(e.target.value)} type="number" className="w-28 bg-slate-900/60 border border-cyan-400/40 px-2 py-1 text-sm text-slate-100 outline-none focus:border-cyan-300" />
+                </label>
+              )}
+              <label className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                السيشنز
+                <input value={sessionsDraft} onChange={(e) => setSessionsDraft(e.target.value)} type="number" min="1" className="w-16 bg-slate-900/60 border border-cyan-400/40 px-2 py-1 text-sm text-slate-100 text-center outline-none focus:border-cyan-300" />
+              </label>
+            </div>
+            {course.done && <div className="text-[10px] text-slate-500">السعر مقفول لأن الكورس اتحصّل — لو عايز تغيّره ارجّعه الأول.</div>}
+            {editErr && <div className="text-xs text-rose-300">{editErr}</div>}
+          </div>
+        )}
         {!editingName && (
           <button onClick={() => setOpen((o) => !o)} className="text-[11px] text-slate-500 text-right pr-6">({filled}/{course.lectures.length} جاهزة · {doneCount}/{course.lectures.length} خلصت)</button>
         )}
