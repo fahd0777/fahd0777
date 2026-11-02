@@ -102,6 +102,7 @@ const KEYS = {
   accounts: "jarvis:accounts:v1",
   daily: "jarvis:daily:v1",
   commitments: "jarvis:commitments:v2",
+  receivables: "jarvis:receivables:v1",
   goals: "jarvis:goals:v1",
   topThree: "jarvis:topthree:v1",
   workout: "jarvis:workout:v1",
@@ -2148,7 +2149,257 @@ function ExpensePanel({ accounts, addAccountEntry }) {
   );
 }
 
-function AccountsTab({ accounts, updateAccounts, commitments, updateCommitments, addAccountEntry, removeAccountEntry }) {
+const INPUT_CLS = "bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none px-2.5 py-1.5 text-sm text-slate-100 placeholder:text-slate-500";
+
+function WalletPicker({ value, onChange }) {
+  return (
+    <div className="flex gap-1.5 flex-wrap">
+      {WALLETS.map((w) => (
+        <button
+          key={w.key}
+          onClick={() => onChange(w.key)}
+          className="text-[11px] px-2 py-1 border transition-colors"
+          style={{ clipPath: clip, borderColor: value === w.key ? w.color : "rgba(148,163,184,0.25)", color: value === w.key ? w.color : "#94a3b8", background: value === w.key ? `${w.color}18` : "transparent" }}
+        >
+          {w.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ---------------- Cash Flow: add balance to a wallet + movement summary ---------------- */
+function CashFlowPanel({ accounts, addAccountEntry, removeAccountEntry }) {
+  const [wallet, setWallet] = useState(DEFAULT_WALLET);
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+  const [date, setDate] = useState(todayISO());
+  const [showAll, setShowAll] = useState(false);
+
+  const addBalance = () => {
+    const amt = Number(amount);
+    if (!amt || amt <= 0) return;
+    addAccountEntry("رصيد", { id: uid(), description: note.trim() || "إضافة رصيد", amount: amt, type: "income", date, wallet });
+    setAmount("");
+    setNote("");
+  };
+
+  const month = todayISO().slice(0, 7);
+  const moves = [];
+  accounts.forEach((cat) => {
+    if (cat.name === "تحويلات") return; // internal transfers aren't cash in/out
+    cat.entries.forEach((e) => moves.push({ ...e, categoryName: cat.name }));
+  });
+  moves.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  const thisMonth = moves.filter((e) => (e.date || "").slice(0, 7) === month);
+  const inTotal = thisMonth.filter((e) => e.type === "income").reduce((s, e) => s + Number(e.amount), 0);
+  const outTotal = thisMonth.filter((e) => e.type !== "income").reduce((s, e) => s + Number(e.amount), 0);
+  const net = inTotal - outTotal;
+  const list = showAll ? moves : moves.slice(0, 8);
+
+  return (
+    <Panel className="p-4">
+      <CornerTicks />
+      <div className="text-xs tracking-wide text-slate-400 mb-3">Cash Flow — إضافة رصيد وحركة الشهر</div>
+
+      <div className="grid grid-cols-3 gap-2 mb-3">
+        {[["داخل الشهر ده", inTotal, "#34d399"], ["خارج الشهر ده", outTotal, "#fb7185"], ["الصافي", net, net >= 0 ? "#22d3ee" : "#fb7185"]].map(([label, val, color]) => (
+          <div key={label} className="border px-2 py-2 text-right" style={{ borderColor: `${color}40`, clipPath: clip, background: `${color}0a` }}>
+            <div className="text-[10px] text-slate-400 mb-0.5">{label}</div>
+            <div className="text-sm font-mono" style={{ color }}>{val.toLocaleString("ar-EG")}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-col gap-2 mb-3">
+        <WalletPicker value={wallet} onChange={setWallet} />
+        <div className="flex flex-wrap gap-2">
+          <input value={amount} onChange={(e) => setAmount(e.target.value)} type="number" placeholder="المبلغ" className={`w-28 ${INPUT_CLS}`} style={{ clipPath: clip }} />
+          <input value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addBalance()} placeholder="ملاحظة (اختياري)" className={`flex-1 min-w-[140px] ${INPUT_CLS}`} style={{ clipPath: clip }} />
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={INPUT_CLS} style={{ clipPath: clip }} />
+          <button onClick={addBalance} className="text-xs px-3 py-1.5 border border-emerald-400/50 text-emerald-300 hover:bg-emerald-400/10 flex items-center gap-1" style={{ clipPath: clip }}>
+            <Plus size={13} /> أضف رصيد
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        {list.length === 0 && <div className="text-xs text-slate-500">مفيش حركة لسه.</div>}
+        {list.map((e) => (
+          <div key={e.id} className="flex items-center gap-2 text-sm border px-2.5 py-1.5" style={{ borderColor: "rgba(148,163,184,0.15)", clipPath: clip }}>
+            <span className="text-[10px] text-slate-500 font-mono shrink-0">{e.date}</span>
+            <span className="text-[9px] px-1.5 py-0.5 border shrink-0" style={{ clipPath: clip, borderColor: `${walletColor(e.wallet)}60`, color: walletColor(e.wallet) }}>{walletLabel(e.wallet)}</span>
+            <span className="flex-1 text-slate-100 truncate">{e.description}</span>
+            <span className="text-sm font-mono shrink-0" style={{ color: e.type === "income" ? "#34d399" : "#fb7185" }}>
+              {e.type === "income" ? "+" : "−"}{Number(e.amount).toLocaleString("ar-EG")}
+            </span>
+            {e.categoryName === "رصيد" && (
+              <button onClick={() => removeAccountEntry("رصيد", e.id)} className="text-slate-500 hover:text-rose-400 shrink-0"><Trash2 size={13} /></button>
+            )}
+          </div>
+        ))}
+        {moves.length > 8 && (
+          <button onClick={() => setShowAll((v) => !v)} className="text-[11px] text-slate-400 hover:text-cyan-300 self-center mt-1">
+            {showAll ? "اعرض أقل" : `اعرض كل الحركة (${moves.length})`}
+          </button>
+        )}
+      </div>
+    </Panel>
+  );
+}
+
+/* ---------------- Receivables: money owed to me (freelance, clients...) ---------------- */
+function ReceivableRow({ item, addAccountEntry, removeAccountEntry, onUpdate, onDelete }) {
+  const [expanded, setExpanded] = useState(false);
+  const [recAmount, setRecAmount] = useState("");
+  const [recDate, setRecDate] = useState(todayISO());
+  const [recNote, setRecNote] = useState("");
+  const [recWallet, setRecWallet] = useState(DEFAULT_WALLET);
+  const today = todayISO();
+
+  const receipts = item.receipts || [];
+  const received = receipts.reduce((s, r) => s + Number(r.amount), 0);
+  const remaining = Math.max(0, Number(item.amount) - received);
+  const fully = remaining <= 0;
+  const overdue = !fully && item.dueDate && item.dueDate < today;
+
+  const openForm = () => {
+    setRecAmount(String(remaining));
+    setRecDate(todayISO());
+    setRecNote("");
+    setRecWallet(DEFAULT_WALLET);
+    setExpanded(true);
+  };
+
+  const confirmReceive = () => {
+    const amt = Number(recAmount);
+    if (!amt || amt <= 0) return;
+    const entry = { id: uid(), description: recNote.trim() ? `${item.name} — ${recNote.trim()}` : item.name, amount: amt, type: "income", date: recDate, wallet: recWallet };
+    addAccountEntry("مستحقات", entry);
+    onUpdate({ ...item, receipts: [...receipts, { id: uid(), amount: amt, date: recDate, note: recNote.trim(), wallet: recWallet, accountEntryId: entry.id }] });
+    setExpanded(false);
+  };
+
+  const deleteReceipt = (r) => {
+    if (r.accountEntryId) removeAccountEntry("مستحقات", r.accountEntryId);
+    onUpdate({ ...item, receipts: receipts.filter((x) => x.id !== r.id) });
+  };
+
+  const removeItem = () => {
+    receipts.forEach((r) => r.accountEntryId && removeAccountEntry("مستحقات", r.accountEntryId));
+    onDelete();
+  };
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center gap-2 text-sm border px-2.5 py-1.5" style={{ borderColor: overdue ? "rgba(251,191,36,0.4)" : "rgba(148,163,184,0.15)", clipPath: clip, opacity: fully ? 0.5 : 1 }}>
+        <button onClick={() => (fully ? null : openForm())} disabled={fully} className="shrink-0" title="استلمت فلوس">
+          {fully ? <CheckCircle2 size={16} className="text-emerald-400" /> : <Circle size={16} className="text-slate-500 hover:text-emerald-400" />}
+        </button>
+        <button onClick={() => setExpanded((e) => !e)} className="flex-1 flex items-center gap-2 min-w-0 text-right">
+          <span className={`flex-1 text-slate-100 truncate ${fully ? "line-through" : ""}`}>{item.name}</span>
+          {overdue && <AlertTriangle size={13} className="text-amber-400 shrink-0" />}
+        </button>
+        {item.dueDate && <span className="text-[11px] font-mono text-slate-400 shrink-0">{item.dueDate}</span>}
+        <span className="text-[11px] font-mono shrink-0 text-emerald-300">{fully ? Number(item.amount).toLocaleString("ar-EG") : `${remaining.toLocaleString("ar-EG")} / ${Number(item.amount).toLocaleString("ar-EG")}`}</span>
+        <button onClick={removeItem} className="text-slate-500 hover:text-rose-400 shrink-0"><Trash2 size={13} /></button>
+      </div>
+
+      {expanded && (
+        <div className="flex flex-col gap-2 pr-6">
+          {item.details && <div className="text-xs text-slate-400">{item.details}</div>}
+          {receipts.map((r) => (
+            <div key={r.id} className="flex items-center gap-2 text-xs text-slate-300">
+              <span className="font-mono text-slate-500">{r.date}</span>
+              <span className="text-emerald-300 font-mono">+{Number(r.amount).toLocaleString("ar-EG")}</span>
+              <span className="text-slate-500">{walletLabel(r.wallet)}</span>
+              {r.note && <span className="truncate">{r.note}</span>}
+              <button onClick={() => deleteReceipt(r)} className="text-slate-500 hover:text-rose-400 mr-auto"><Trash2 size={12} /></button>
+            </div>
+          ))}
+          {!fully && (
+            <div className="flex flex-col gap-2 border border-emerald-400/20 p-2" style={{ clipPath: clip }}>
+              <div className="text-[11px] text-slate-400">تسجيل استلام (بيتضاف كدخل على الخزنة)</div>
+              <WalletPicker value={recWallet} onChange={setRecWallet} />
+              <div className="flex flex-wrap gap-2">
+                <input value={recAmount} onChange={(e) => setRecAmount(e.target.value)} type="number" placeholder="المبلغ" className={`w-28 ${INPUT_CLS}`} style={{ clipPath: clip }} />
+                <input type="date" value={recDate} onChange={(e) => setRecDate(e.target.value)} className={INPUT_CLS} style={{ clipPath: clip }} />
+                <input value={recNote} onChange={(e) => setRecNote(e.target.value)} placeholder="ملاحظة (اختياري)" className={`flex-1 min-w-[120px] ${INPUT_CLS}`} style={{ clipPath: clip }} />
+                <button onClick={confirmReceive} className="text-xs px-3 py-1.5 border border-emerald-400/50 text-emerald-300 hover:bg-emerald-400/10" style={{ clipPath: clip }}>استلمت</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReceivablesPanel({ receivables, updateReceivables, addAccountEntry, removeAccountEntry }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [amount, setAmount] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [details, setDetails] = useState("");
+
+  const isFull = (r) => (r.receipts || []).reduce((s, x) => s + Number(x.amount), 0) >= Number(r.amount);
+  const pending = receivables.filter((r) => !isFull(r));
+  const pendingTotal = pending.reduce((s, r) => s + Math.max(0, Number(r.amount) - (r.receipts || []).reduce((a, x) => a + Number(x.amount), 0)), 0);
+  const sorted = [...receivables].sort((a, b) => (isFull(a) - isFull(b)) || ((a.dueDate || "9999") < (b.dueDate || "9999") ? -1 : 1));
+
+  const add = () => {
+    if (!name.trim() || !amount) return;
+    updateReceivables([...receivables, { id: uid(), name: name.trim(), amount: Number(amount), dueDate, details: details.trim(), receipts: [] }]);
+    setName("");
+    setAmount("");
+    setDueDate("");
+    setDetails("");
+  };
+
+  return (
+    <Panel className="p-4">
+      <CornerTicks />
+      <button onClick={() => setOpen((o) => !o)} className="w-full flex items-center justify-between gap-2 mb-1">
+        <span className="flex items-center gap-2 text-xs tracking-wide text-slate-400">
+          {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          مستحقات ليّا — فلوس جاية (فريلانس، عملاء...)
+        </span>
+        <span className="text-[11px] text-emerald-300 font-mono">{pending.length} معلقة · {pendingTotal.toLocaleString("ar-EG")}</span>
+      </button>
+      {open && (
+        <>
+          <div className="flex flex-col gap-2 mb-3 mt-2">
+            {sorted.length === 0 && <div className="text-xs text-slate-500">مفيش مستحقات مسجلة.</div>}
+            {sorted.map((r) => (
+              <ReceivableRow
+                key={r.id}
+                item={r}
+                addAccountEntry={addAccountEntry}
+                removeAccountEntry={removeAccountEntry}
+                onUpdate={(u) => updateReceivables(receivables.map((x) => (x.id === u.id ? u : x)))}
+                onDelete={() => updateReceivables(receivables.filter((x) => x.id !== r.id))}
+              />
+            ))}
+          </div>
+          <div className="flex flex-col gap-2">
+            <textarea value={details} onChange={(e) => setDetails(e.target.value)} placeholder="تفاصيل (اختياري)..." rows={2} className={`w-full resize-y ${INPUT_CLS}`} style={{ clipPath: clip }} />
+            <div className="flex flex-wrap gap-2">
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="مين/إيه (شغل فريلانس لعميل...)" className={`flex-1 min-w-[160px] ${INPUT_CLS}`} style={{ clipPath: clip }} />
+              <input value={amount} onChange={(e) => setAmount(e.target.value)} type="number" placeholder="المبلغ" className={`w-28 ${INPUT_CLS}`} style={{ clipPath: clip }} />
+              <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={INPUT_CLS} style={{ clipPath: clip }} />
+              <button onClick={add} className="text-xs px-3 py-1.5 border border-cyan-400/50 text-cyan-200 hover:bg-cyan-400/10 flex items-center gap-1" style={{ clipPath: clip }}>
+                <Plus size={13} /> ضيف
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </Panel>
+  );
+}
+
+
+function AccountsTab({ accounts, updateAccounts, commitments, updateCommitments, receivables, updateReceivables, addAccountEntry, removeAccountEntry }) {
   const [newCategory, setNewCategory] = useState("");
   const novaNames = NOVA_UNITS.map((u) => u.name);
   const mainAccounts = accounts.filter((c) => !novaNames.includes(c.name));
@@ -2178,11 +2429,15 @@ function AccountsTab({ accounts, updateAccounts, commitments, updateCommitments,
 
       <TransferPanel addAccountEntry={addAccountEntry} />
 
+      <CashFlowPanel accounts={mainAccounts} addAccountEntry={addAccountEntry} removeAccountEntry={removeAccountEntry} />
+
       <ExpensePanel accounts={mainAccounts} addAccountEntry={addAccountEntry} />
 
       <MonthlyChartPanel accounts={mainAccounts} />
 
       <CommitmentsPanel commitments={commitments} updateCommitments={updateCommitments} addAccountEntry={addAccountEntry} removeAccountEntry={removeAccountEntry} />
+
+      <ReceivablesPanel receivables={receivables || []} updateReceivables={updateReceivables} addAccountEntry={addAccountEntry} removeAccountEntry={removeAccountEntry} />
 
       <Panel className="p-3">
         <CornerTicks />
@@ -3007,6 +3262,7 @@ function App() {
   const [accounts, setAccounts] = useState([]);
   const [daily, setDaily] = useState([]);
   const [commitments, setCommitments] = useState([]);
+  const [receivables, setReceivables] = useState([]);
   const [goals, setGoals] = useState([]);
   const [topThree, setTopThree] = useState({ date: "", items: [] });
   const [workout, setWorkout] = useState({ selections: {}, doneDate: "", planDate: "" });
@@ -3042,6 +3298,7 @@ function App() {
         loadOne(KEYS.accounts, setAccounts),
         loadOne(KEYS.daily, setDaily),
         loadOne(KEYS.commitments, setCommitments),
+        loadOne(KEYS.receivables, setReceivables),
         loadOne(KEYS.goals, setGoals),
         loadOne(KEYS.topThree, setTopThree),
         loadOne(KEYS.workout, setWorkout),
@@ -3070,6 +3327,7 @@ function App() {
   const updateAccounts = (next) => { setAccounts(next); persist(KEYS.accounts, next); };
   const updateDaily = (next) => { setDaily(next); persist(KEYS.daily, next); };
   const updateCommitments = (next) => { setCommitments(next); persist(KEYS.commitments, next); };
+  const updateReceivables = (next) => { setReceivables(next); persist(KEYS.receivables, next); };
   const updateGoals = (next) => { setGoals(next); persist(KEYS.goals, next); };
   const updateTopThree = (next) => { setTopThree(next); persist(KEYS.topThree, next); };
   const updateWorkout = (next) => { setWorkout(next); persist(KEYS.workout, next); };
@@ -3241,6 +3499,8 @@ function App() {
               updateAccounts={updateAccounts}
               commitments={commitments}
               updateCommitments={updateCommitments}
+              receivables={receivables}
+              updateReceivables={updateReceivables}
               addAccountEntry={addAccountEntry}
               removeAccountEntry={removeAccountEntry}
             />
