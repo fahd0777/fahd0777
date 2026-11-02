@@ -2063,8 +2063,8 @@ function TransferPanel({ addAccountEntry }) {
 }
 
 function ExpensePanel({ accounts, addAccountEntry }) {
-  const existingCategories = accounts.map((c) => c.name);
-  const [category, setCategory] = useState(existingCategories[0] || "مصروفات عامة");
+  const existingCategories = accounts.length ? accounts.map((c) => c.name) : ["مصروفات عامة"];
+  const [category, setCategory] = useState(existingCategories[0]);
   const [customCategory, setCustomCategory] = useState("");
   const [subtype, setSubtype] = useState("تشغيلية");
   const [wallet, setWallet] = useState(DEFAULT_WALLET);
@@ -2408,7 +2408,7 @@ function AccountsTab({ accounts, updateAccounts, commitments, updateCommitments,
 
       <ReceivablesPanel receivables={receivables || []} updateReceivables={updateReceivables} addAccountEntry={addAccountEntry} removeAccountEntry={removeAccountEntry} />
 
-      <ExpensePanel accounts={mainAccounts} addAccountEntry={addAccountEntry} />
+      <ExpensePanel accounts={mainAccounts.filter((c) => !c.cashflow)} addAccountEntry={addAccountEntry} />
 
       <MonthlyChartPanel accounts={mainAccounts} />
 
