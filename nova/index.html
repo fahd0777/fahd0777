@@ -2360,11 +2360,22 @@ function NotificationsPanel() {
         setErr("الإذن اترفض — فعّل الإشعارات للموقع ده من إعدادات المتصفح.");
         return;
       }
-      const reg = await navigator.serviceWorker.ready;
+      const withTimeout = (p, ms, label) =>
+        Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(label)), ms))]);
+      setMsg("1/3 تجهيز الخدمة...");
+      let reg = await navigator.serviceWorker.getRegistration();
+      if (!reg) reg = await withTimeout(navigator.serviceWorker.register("sw.js"), 10000, "تعذّر تسجيل خدمة الإشعارات (sw.js)");
+      await withTimeout(navigator.serviceWorker.ready, 10000, "خدمة الإشعارات مش جاهزة — اقفل التطبيق وافتحه تاني");
+      setMsg("2/3 التسجيل عند جوجل...");
       let sub = await reg.pushManager.getSubscription();
       if (!sub) {
-        sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(vapid) });
+        sub = await withTimeout(
+          reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(vapid) }),
+          25000,
+          "الموبايل مش قادر يوصّل لخدمة إشعارات جوجل (FCM) — اتأكد من النت، وإن Google Play services شغالة ومش مقيّدة بالبطارية"
+        );
       }
+      setMsg("3/3 حفظ الجهاز...");
       const { data: u } = await sb.auth.getUser();
       const user = u && u.user;
       if (!user) throw new Error("مفيش تسجيل دخول");
