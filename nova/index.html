@@ -1815,7 +1815,7 @@ function CommitmentsPanel({ commitments, updateCommitments, addAccountEntry, rem
   );
 }
 
-function CategoryCard({ category, onAddEntry, onDeleteEntry, onDeleteCategory }) {
+function CategoryCard({ category, onAddEntry, onDeleteEntry, onDeleteCategory, fixedType }) {
   const [open, setOpen] = useState(false);
   const [desc, setDesc] = useState("");
   const [amount, setAmount] = useState("");
@@ -1827,7 +1827,7 @@ function CategoryCard({ category, onAddEntry, onDeleteEntry, onDeleteCategory })
 
   const submit = () => {
     if (!desc.trim() || !amount) return;
-    onAddEntry({ id: uid(), description: desc.trim(), amount: Number(amount), type, date, wallet });
+    onAddEntry({ id: uid(), description: desc.trim(), amount: Number(amount), type: fixedType || type, date, wallet });
     setDesc("");
     setAmount("");
   };
@@ -1898,12 +1898,16 @@ function CategoryCard({ category, onAddEntry, onDeleteEntry, onDeleteCategory })
               style={{ clipPath: clip }}
             />
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none px-2.5 py-1.5 text-sm text-slate-100" style={{ clipPath: clip }} />
+            {!fixedType && (
+              <>
             <button onClick={() => setType("income")} className="text-xs px-2.5 py-1 border" style={{ clipPath: clip, borderColor: type === "income" ? "#34d399" : "rgba(148,163,184,0.25)", color: type === "income" ? "#34d399" : "#94a3b8", background: type === "income" ? "rgba(52,211,153,0.1)" : "transparent" }}>
               دخل
             </button>
             <button onClick={() => setType("expense")} className="text-xs px-2.5 py-1 border" style={{ clipPath: clip, borderColor: type === "expense" ? "#fb7185" : "rgba(148,163,184,0.25)", color: type === "expense" ? "#fb7185" : "#94a3b8", background: type === "expense" ? "rgba(251,113,133,0.1)" : "transparent" }}>
               مصروف
             </button>
+              </>
+            )}
             <button onClick={submit} className="text-xs px-3 py-1.5 border border-cyan-400/50 text-cyan-200 hover:bg-cyan-400/10 flex items-center gap-1" style={{ clipPath: clip }}>
               <Plus size={13} /> ضيف
             </button>
@@ -2209,6 +2213,7 @@ function CashFlowPanel({ accounts, updateAccounts }) {
         <CategoryCard
           key={category.id}
           category={category}
+          fixedType="income"
           onAddEntry={(entry) => updateAccounts(accounts.map((c) => (c.id === category.id ? { ...c, entries: [...c.entries, entry] } : c)))}
           onDeleteEntry={(entryId) => updateAccounts(accounts.map((c) => (c.id === category.id ? { ...c, entries: c.entries.filter((e) => e.id !== entryId) } : c)))}
           onDeleteCategory={() => updateAccounts(accounts.filter((c) => c.id !== category.id))}
@@ -2432,6 +2437,7 @@ function AccountsTab({ accounts, updateAccounts, commitments, updateCommitments,
         <CategoryCard
           key={category.id}
           category={category}
+          fixedType={category.name === "التزامات" ? "expense" : undefined}
           onAddEntry={(entry) => updateAccounts(accounts.map((c) => (c.id === category.id ? { ...c, entries: [...c.entries, entry] } : c)))}
           onDeleteEntry={(entryId) => updateAccounts(accounts.map((c) => (c.id === category.id ? { ...c, entries: c.entries.filter((e) => e.id !== entryId) } : c)))}
           onDeleteCategory={() => updateAccounts(accounts.filter((c) => c.id !== category.id))}
