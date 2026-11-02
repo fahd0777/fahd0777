@@ -1206,7 +1206,7 @@ function LectureRow({ lecture, idx, appointments, onUpdate, addAppointment, dele
   );
 }
 
-function CourseCard({ course, appointments, onUpdate, onDelete, addAppointment, deleteAppointment, addAccountEntry, removeAccountEntry, onMoveUp, onMoveDown, canMoveUp, canMoveDown }) {
+function CourseCard({ course, appointments, onUpdate, onDelete, addAppointment, deleteAppointment, addAccountEntry, removeAccountEntry, onMoveUp, onMoveDown, canMoveUp, canMoveDown, position }) {
   const [open, setOpen] = useState(false);
   const [collecting, setCollecting] = useState(false);
   const [collectDesc, setCollectDesc] = useState("");
@@ -1274,16 +1274,15 @@ function CourseCard({ course, appointments, onUpdate, onDelete, addAppointment, 
           >
             {isPrivate ? <User size={12} /> : <Users size={12} />} {isPrivate ? "برايفيت" : "جروب"}
           </button>
-          {!course.done && (
-            <div className="flex flex-col">
-              <button onClick={onMoveUp} disabled={!canMoveUp} className="text-slate-500 hover:text-cyan-300 disabled:opacity-20 leading-none">
-                <ChevronUp size={13} />
-              </button>
-              <button onClick={onMoveDown} disabled={!canMoveDown} className="text-slate-500 hover:text-cyan-300 disabled:opacity-20 leading-none">
-                <ChevronDown size={13} />
-              </button>
-            </div>
-          )}
+          <div className="flex items-center border border-slate-600/50" title="ترتيب الكورس">
+            <button onClick={onMoveUp} disabled={!canMoveUp} className="w-9 h-8 flex items-center justify-center text-slate-300 hover:text-cyan-300 hover:bg-cyan-400/10 disabled:opacity-20">
+              <ChevronUp size={18} />
+            </button>
+            <span className="px-1.5 text-[11px] font-mono text-cyan-300 select-none">#{position}</span>
+            <button onClick={onMoveDown} disabled={!canMoveDown} className="w-9 h-8 flex items-center justify-center text-slate-300 hover:text-cyan-300 hover:bg-cyan-400/10 disabled:opacity-20">
+              <ChevronDown size={18} />
+            </button>
+          </div>
           <button
             onClick={() => (course.done ? undoCollection() : startCollecting())}
             className="flex items-center gap-1 text-[11px] px-2.5 py-1 border transition-colors"
@@ -1379,11 +1378,13 @@ function CoursesTab({ courses, appointments, updateCourses, addAppointment, dele
   };
 
   const moveCourse = (id, direction) => {
-    const activeIds = courses.filter((c) => !c.done).map((c) => c.id);
-    const pos = activeIds.indexOf(id);
+    const me = courses.find((c) => c.id === id);
+    if (!me) return;
+    const groupIds = courses.filter((c) => !!c.done === !!me.done).map((c) => c.id);
+    const pos = groupIds.indexOf(id);
     const swapPos = direction === "up" ? pos - 1 : pos + 1;
-    if (swapPos < 0 || swapPos >= activeIds.length) return;
-    const otherId = activeIds[swapPos];
+    if (swapPos < 0 || swapPos >= groupIds.length) return;
+    const otherId = groupIds[swapPos];
     const idxA = courses.findIndex((c) => c.id === id);
     const idxB = courses.findIndex((c) => c.id === otherId);
     const next = [...courses];
@@ -1394,9 +1395,9 @@ function CoursesTab({ courses, appointments, updateCourses, addAppointment, dele
   const activeCourses = courses.filter((c) => !c.done);
   const doneCourses = courses.filter((c) => c.done);
 
-  const renderCourse = (course, withMove) => {
-    const activeIds = activeCourses.map((c) => c.id);
-    const pos = activeIds.indexOf(course.id);
+  const renderCourse = (course) => {
+    const group = course.done ? doneCourses : activeCourses;
+    const pos = group.findIndex((c) => c.id === course.id);
     return (
       <CourseCard
         key={course.id}
@@ -1408,10 +1409,11 @@ function CoursesTab({ courses, appointments, updateCourses, addAppointment, dele
         removeAccountEntry={removeAccountEntry}
         onUpdate={(updated) => updateCourses(courses.map((c) => (c.id === course.id ? updated : c)))}
         onDelete={(id) => updateCourses(courses.filter((c) => c.id !== id))}
-        onMoveUp={withMove ? () => moveCourse(course.id, "up") : undefined}
-        onMoveDown={withMove ? () => moveCourse(course.id, "down") : undefined}
-        canMoveUp={withMove ? pos > 0 : false}
-        canMoveDown={withMove ? pos < activeIds.length - 1 : false}
+        onMoveUp={() => moveCourse(course.id, "up")}
+        onMoveDown={() => moveCourse(course.id, "down")}
+        canMoveUp={pos > 0}
+        canMoveDown={pos < group.length - 1}
+        position={pos + 1}
       />
     );
   };
@@ -1471,7 +1473,7 @@ function CoursesTab({ courses, appointments, updateCourses, addAppointment, dele
 
       {courses.length === 0 && <div className="text-sm text-slate-500 text-center py-6">لسه مفيش كورسات — ضيف أول واحد فوق.</div>}
 
-      {activeCourses.map((course) => renderCourse(course, true))}
+      {activeCourses.map((course) => renderCourse(course))}
 
       {doneCourses.length > 0 && (
         <>
@@ -1482,7 +1484,7 @@ function CoursesTab({ courses, appointments, updateCourses, addAppointment, dele
             </span>
             <div className="h-px flex-1 bg-slate-700/50" />
           </div>
-          {doneCourses.map((course) => renderCourse(course, false))}
+          {doneCourses.map((course) => renderCourse(course))}
         </>
       )}
     </div>
