@@ -3137,6 +3137,26 @@ function DashboardTab({ projects, updateProjects, novaTasks, updateNovaTasks, ap
   dashTasks.sort((a, b) => (getPriority(a.priority).order - getPriority(b.priority).order));
   const pendingTaskCount = dashTasks.filter((t) => !t.done).length;
   const [showAllTasks, setShowAllTasks] = useState(false);
+  const [quickText, setQuickText] = useState("");
+  const [quickPriority, setQuickPriority] = useState("urgent");
+  const [quickTarget, setQuickTarget] = useState("");
+  const targetOptions = [
+    ...projects.map((p) => ({ value: `p:${p.id}`, label: p.name })),
+    ...NOVA_UNITS.map((u) => ({ value: `n:${u.key}`, label: u.name })),
+  ];
+  const effectiveTarget = targetOptions.some((o) => o.value === quickTarget) ? quickTarget : (targetOptions[0] ? targetOptions[0].value : "");
+
+  const addQuickTask = () => {
+    const text = quickText.trim();
+    if (!text || !effectiveTarget) return;
+    const [kind, id] = [effectiveTarget.slice(0, 1), effectiveTarget.slice(2)];
+    if (kind === "p") {
+      updateProjects(projects.map((p) => (p.id === id ? { ...p, tasks: [...(p.tasks || []), { id: uid(), text, priority: quickPriority, time: "", done: false }] } : p)));
+    } else {
+      updateNovaTasks({ ...novaTasks, [id]: [...((novaTasks && novaTasks[id]) || []), { id: uid(), text, priority: quickPriority, done: false }] });
+    }
+    setQuickText("");
+  };
   const visibleTasks = showAllTasks ? dashTasks : dashTasks.slice(0, 8);
 
   const toggleDashTask = (t) => {
@@ -3167,6 +3187,42 @@ function DashboardTab({ projects, updateProjects, novaTasks, updateNovaTasks, ap
           <div className="flex items-center gap-3">
             <span className="text-lg font-mono text-rose-300">{pendingTaskCount}</span>
             <button onClick={() => onGo("projects")} className="text-[11px] text-cyan-300 hover:underline">كل المشاريع ←</button>
+          </div>
+        </div>
+        <div className="flex flex-col gap-2 mb-3">
+          <div className="flex gap-2">
+            <input
+              value={quickText}
+              onChange={(e) => setQuickText(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addQuickTask()}
+              placeholder="مهمة سريعة... اكتبها واضغط Enter"
+              className="flex-1 min-w-0 bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none px-2.5 py-1.5 text-sm text-slate-100 placeholder:text-slate-500"
+              style={{ clipPath: clip }}
+            />
+            <button onClick={addQuickTask} className="flex items-center gap-1 text-xs px-3 py-1.5 border border-cyan-400/50 text-cyan-200 hover:bg-cyan-400/10 shrink-0" style={{ clipPath: clip }}>
+              <Plus size={13} /> ضيف
+            </button>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {["urgent", "important"].map((k) => {
+              const pr = getPriority(k);
+              return (
+                <button key={k} onClick={() => setQuickPriority(k)} className="text-[11px] px-2.5 py-1 border" style={{ clipPath: clip, borderColor: quickPriority === k ? pr.color : "rgba(148,163,184,0.25)", color: quickPriority === k ? pr.color : "#94a3b8", background: quickPriority === k ? `${pr.color}18` : "transparent" }}>
+                  {pr.label}
+                </button>
+              );
+            })}
+            <span className="text-[10px] text-slate-500 shrink-0 mr-1">في مشروع:</span>
+            <select value={effectiveTarget} onChange={(e) => setQuickTarget(e.target.value)} className="flex-1 min-w-[140px] bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none text-sm text-slate-100 px-2 py-1" style={{ clipPath: clip }}>
+              {projects.length > 0 && (
+                <optgroup label="المشاريع" className="bg-slate-900">
+                  {projects.map((p) => <option key={p.id} value={`p:${p.id}`} className="bg-slate-900">{p.name}</option>)}
+                </optgroup>
+              )}
+              <optgroup label="NOVA" className="bg-slate-900">
+                {NOVA_UNITS.map((u) => <option key={u.key} value={`n:${u.key}`} className="bg-slate-900">{u.name}</option>)}
+              </optgroup>
+            </select>
           </div>
         </div>
         {dashTasks.length === 0 ? (
