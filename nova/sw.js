@@ -1,8 +1,11 @@
-// NOVA service worker: pass-through fetch (installability) + Web Push notifications.
+// NOVA service worker v2: pass-through fetch (installability) + Web Push notifications.
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
 self.addEventListener("fetch", (event) => {
-  event.respondWith(fetch(event.request).catch(() => Response.error()));
+  const req = event.request;
+  // Always revalidate the app shell so new versions show up right after a deploy.
+  const opts = req.mode === "navigate" || req.destination === "document" ? { cache: "no-cache" } : undefined;
+  event.respondWith(fetch(req, opts).catch(() => Response.error()));
 });
 self.addEventListener("push", (event) => {
   let data = {};
