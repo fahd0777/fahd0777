@@ -1244,6 +1244,8 @@ function LectureRow({ lecture, idx, appointments, onUpdate, addAppointment, dele
   );
 }
 
+const courseStage = (c) => (c.done ? "done" : c.finished ? "pending" : "active");
+
 function CourseCard({ course, appointments, onUpdate, onDelete, addAppointment, deleteAppointment, addAccountEntry, removeAccountEntry, onMoveUp, onMoveDown, canMoveUp, canMoveDown, position }) {
   const [open, setOpen] = useState(false);
   const [collecting, setCollecting] = useState(false);
@@ -1305,13 +1307,13 @@ function CourseCard({ course, appointments, onUpdate, onDelete, addAppointment, 
       wallet: collectWallet,
     };
     addAccountEntry("كورسات", entry);
-    onUpdate({ ...course, done: true, accountEntryId: entry.id });
+    onUpdate({ ...course, done: true, finished: false, accountEntryId: entry.id });
     setCollecting(false);
   };
 
   const undoCollection = () => {
     if (course.accountEntryId) removeAccountEntry("كورسات", course.accountEntryId);
-    onUpdate({ ...course, done: false, accountEntryId: null });
+    onUpdate({ ...course, done: false, finished: true, accountEntryId: null });
   };
 
   const toggleType = () => {
@@ -1401,18 +1403,42 @@ function CourseCard({ course, appointments, onUpdate, onDelete, addAppointment, 
               <ChevronDown size={18} />
             </button>
           </div>
-          <button
-            onClick={() => (course.done ? undoCollection() : startCollecting())}
-            className="flex items-center gap-1 text-[11px] px-2.5 py-1 border transition-colors"
-            style={{
-              clipPath: clip,
-              borderColor: course.done ? "#34d399" : "rgba(148,163,184,0.3)",
-              color: course.done ? "#34d399" : "#94a3b8",
-              background: course.done ? "rgba(52,211,153,0.1)" : "transparent",
-            }}
-          >
-            {course.done ? <CheckCircle2 size={13} /> : <Circle size={13} />} {course.done ? "خلص" : "علّم كخلصان"}
-          </button>
+          {course.done ? (
+            <button
+              onClick={undoCollection}
+              className="flex items-center gap-1 text-[11px] px-2.5 py-1 border transition-colors"
+              style={{ clipPath: clip, borderColor: "#34d399", color: "#34d399", background: "rgba(52,211,153,0.1)" }}
+              title="رجّعه لتحت التحصيل"
+            >
+              <CheckCircle2 size={13} /> اتحصّل
+            </button>
+          ) : course.finished ? (
+            <>
+              <button
+                onClick={startCollecting}
+                className="flex items-center gap-1 text-[11px] px-2.5 py-1 border transition-colors"
+                style={{ clipPath: clip, borderColor: "#fbbf24", color: "#fbbf24", background: "rgba(251,191,36,0.1)" }}
+              >
+                <Circle size={13} /> تم التحصيل
+              </button>
+              <button
+                onClick={() => onUpdate({ ...course, finished: false })}
+                className="text-[11px] px-2 py-1 border border-slate-600 text-slate-400 hover:bg-slate-800"
+                style={{ clipPath: clip }}
+                title="رجّعه لنشط"
+              >
+                رجّع نشط
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => onUpdate({ ...course, finished: true })}
+              className="flex items-center gap-1 text-[11px] px-2.5 py-1 border transition-colors"
+              style={{ clipPath: clip, borderColor: "rgba(148,163,184,0.3)", color: "#94a3b8" }}
+            >
+              <Circle size={13} /> خلصت الكورس
+            </button>
+          )}
           <span onClick={() => onDelete(course.id)} className="text-slate-500 hover:text-rose-400 p-1 cursor-pointer">
             <Trash2 size={14} />
           </span>
@@ -1498,7 +1524,7 @@ function CoursesTab({ courses, appointments, updateCourses, addAppointment, dele
   const moveCourse = (id, direction) => {
     const me = courses.find((c) => c.id === id);
     if (!me) return;
-    const groupIds = courses.filter((c) => !!c.done === !!me.done).map((c) => c.id);
+    const groupIds = courses.filter((c) => courseStage(c) === courseStage(me)).map((c) => c.id);
     const pos = groupIds.indexOf(id);
     const swapPos = direction === "up" ? pos - 1 : pos + 1;
     if (swapPos < 0 || swapPos >= groupIds.length) return;
@@ -1510,11 +1536,14 @@ function CoursesTab({ courses, appointments, updateCourses, addAppointment, dele
     updateCourses(next);
   };
 
-  const activeCourses = courses.filter((c) => !c.done);
-  const doneCourses = courses.filter((c) => c.done);
+  const activeCourses = courses.filter((c) => courseStage(c) === "active");
+  const pendingCourses = courses.filter((c) => courseStage(c) === "pending");
+  const doneCourses = courses.filter((c) => courseStage(c) === "done");
+  const pendingTotal = pendingCourses.reduce((sum, c) => sum + (Number(c.price) || 0), 0);
 
   const renderCourse = (course) => {
-    const group = course.done ? doneCourses : activeCourses;
+    const stage = courseStage(course);
+    const group = stage === "done" ? doneCourses : stage === "pending" ? pendingCourses : activeCourses;
     const pos = group.findIndex((c) => c.id === course.id);
     return (
       <CourseCard
@@ -1592,6 +1621,19 @@ function CoursesTab({ courses, appointments, updateCourses, addAppointment, dele
       {courses.length === 0 && <div className="text-sm text-slate-500 text-center py-6">لسه مفيش كورسات — ضيف أول واحد فوق.</div>}
 
       {activeCourses.map((course) => renderCourse(course))}
+
+      {pendingCourses.length > 0 && (
+        <>
+          <div className="flex items-center gap-2 mt-2 mb-1">
+            <div className="h-px flex-1 bg-slate-700/50" />
+            <span className="text-xs text-amber-400 flex items-center gap-1">
+              <Clock3 size={13} /> تحت التحصيل ({pendingCourses.length}) · {pendingTotal.toLocaleString("ar-EG")}
+            </span>
+            <div className="h-px flex-1 bg-slate-700/50" />
+          </div>
+          {pendingCourses.map((course) => renderCourse(course))}
+        </>
+      )}
 
       {doneCourses.length > 0 && (
         <>
@@ -3213,7 +3255,7 @@ function DashboardTab({ projects, updateProjects, novaTasks, updateNovaTasks, ap
 
   const todayAppts = appointments.filter((a) => a.date === today).sort((a, b) => toMinutes(a.time) - toMinutes(b.time));
   const pendingHabits = daily.filter((d) => d.type === "habit" && !d.history[today]);
-  const nearDoneCourses = courses.filter((c) => !c.done && c.lectures.length > 0 && c.lectures.filter((l) => l.done).length / c.lectures.length >= 0.75);
+  const nearDoneCourses = courses.filter((c) => !c.done && !c.finished && c.lectures.length > 0 && c.lectures.filter((l) => l.done).length / c.lectures.length >= 0.75);
   const overdueCommitments = commitments.filter((c) => commitmentRemaining(c) > 0 && c.dueDate < today);
   const dueSoonCommitments = commitments.filter((c) => commitmentRemaining(c) > 0 && c.dueDate >= today && c.dueDate <= addDaysToISO(today, 3));
   const activeGoals = [...goals].filter((g) => g.progress < 100).sort((a, b) => (a.deadline < b.deadline ? -1 : 1));
@@ -3780,7 +3822,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-04-ب
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-05
       </div>
     </div>
   );
