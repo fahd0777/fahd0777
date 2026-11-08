@@ -239,13 +239,9 @@
   }
   .logo-track{
     display:flex; align-items:center; gap:22px; width:max-content;
-    animation:logoMarquee 42s linear infinite;
+    will-change:transform;
   }
-  .logo-marquee:hover .logo-track{animation-play-state:paused;}
-  @keyframes logoMarquee{
-    from{transform:translateX(0);}
-    to{transform:translateX(-50%);}
-  }
+  .logo-group{display:flex; align-items:center; gap:22px; flex:0 0 auto;}
   .logo-chip{
     background:#F4F1EA; border-radius:6px; padding:18px 26px;
     display:flex; align-items:center; justify-content:center;
@@ -471,38 +467,41 @@
     <div class="trusted-label" data-en="Brands &amp; Companies I've Worked With">علامات وشركات اشتغلت معاها</div>
   </div>
   <div class="logo-marquee">
-    <div class="logo-track">
-      <div class="logo-chip"><img src="logos/arkan.png" alt="Arkan Law Firm"></div>
-      <div class="logo-chip"><img src="logos/namaa.png" alt="Namaa Real Estate"></div>
-      <div class="logo-chip"><img src="logos/elezz.jpg" alt="El Ezz Group Developments"></div>
-      <div class="logo-chip"><img src="logos/north-intl.jpg" alt="North International Business"></div>
-      <div class="logo-chip"><img src="logos/ndigital.jpg" alt="N Digital Academy"></div>
-      <div class="logo-chip"><img src="logos/alsheikh.jpg" alt="Ahmed Alsheikh"></div>
-      <div class="logo-chip"><img src="logos/novaprime.jpg" alt="NovaPrime Properties"></div>
-      <div class="logo-chip"><img src="logos/cib.jpg" alt="CIB - Commercial International Bank"></div>
-      <div class="logo-chip"><img src="logos/emaar.jpg" alt="Emaar Misr"></div>
-      <div class="logo-chip"><img src="logos/yaserhamza.jpg" alt="Yaser Hamza"></div>
-      <div class="logo-chip"><img src="logos/nabd-marketing.jpg" alt="Nabd for Marketing"></div>
-      <div class="logo-chip"><img src="logos/ndigital-north.jpg" alt="N Digital - North International"></div>
-      <div class="logo-chip"><img src="logos/nib.jpg" alt="North International Business"></div>
-      <div class="logo-chip"><img src="logos/thaty.jpg" alt="Thaty"></div>
-      <div class="logo-chip"><img src="logos/edras.jpg" alt="Edras"></div>
-      <!-- duplicate set for seamless infinite loop -->
-      <div class="logo-chip" aria-hidden="true"><img src="logos/arkan.png" alt=""></div>
-      <div class="logo-chip" aria-hidden="true"><img src="logos/namaa.png" alt=""></div>
-      <div class="logo-chip" aria-hidden="true"><img src="logos/elezz.jpg" alt=""></div>
-      <div class="logo-chip" aria-hidden="true"><img src="logos/north-intl.jpg" alt=""></div>
-      <div class="logo-chip" aria-hidden="true"><img src="logos/ndigital.jpg" alt=""></div>
-      <div class="logo-chip" aria-hidden="true"><img src="logos/alsheikh.jpg" alt=""></div>
-      <div class="logo-chip" aria-hidden="true"><img src="logos/novaprime.jpg" alt=""></div>
-      <div class="logo-chip" aria-hidden="true"><img src="logos/cib.jpg" alt=""></div>
-      <div class="logo-chip" aria-hidden="true"><img src="logos/emaar.jpg" alt=""></div>
-      <div class="logo-chip" aria-hidden="true"><img src="logos/yaserhamza.jpg" alt=""></div>
-      <div class="logo-chip" aria-hidden="true"><img src="logos/nabd-marketing.jpg" alt=""></div>
-      <div class="logo-chip" aria-hidden="true"><img src="logos/ndigital-north.jpg" alt=""></div>
-      <div class="logo-chip" aria-hidden="true"><img src="logos/nib.jpg" alt=""></div>
-      <div class="logo-chip" aria-hidden="true"><img src="logos/thaty.jpg" alt=""></div>
-      <div class="logo-chip" aria-hidden="true"><img src="logos/edras.jpg" alt=""></div>
+    <div class="logo-track" id="logoTrack">
+      <div class="logo-group">
+        <div class="logo-chip"><img src="logos/arkan.png" alt="Arkan Law Firm"></div>
+        <div class="logo-chip"><img src="logos/namaa.png" alt="Namaa Real Estate"></div>
+        <div class="logo-chip"><img src="logos/elezz.jpg" alt="El Ezz Group Developments"></div>
+        <div class="logo-chip"><img src="logos/north-intl.jpg" alt="North International Business"></div>
+        <div class="logo-chip"><img src="logos/ndigital.jpg" alt="N Digital Academy"></div>
+        <div class="logo-chip"><img src="logos/alsheikh.jpg" alt="Ahmed Alsheikh"></div>
+        <div class="logo-chip"><img src="logos/novaprime.jpg" alt="NovaPrime Properties"></div>
+        <div class="logo-chip"><img src="logos/cib.jpg" alt="CIB - Commercial International Bank"></div>
+        <div class="logo-chip"><img src="logos/emaar.jpg" alt="Emaar Misr"></div>
+        <div class="logo-chip"><img src="logos/yaserhamza.jpg" alt="Yaser Hamza"></div>
+        <div class="logo-chip"><img src="logos/nabd-marketing.jpg" alt="Nabd for Marketing"></div>
+        <div class="logo-chip"><img src="logos/ndigital-north.jpg" alt="N Digital - North International"></div>
+        <div class="logo-chip"><img src="logos/nib.jpg" alt="North International Business"></div>
+        <div class="logo-chip"><img src="logos/thaty.jpg" alt="Thaty"></div>
+        <div class="logo-chip"><img src="logos/edras.jpg" alt="Edras"></div>
+      </div>
+      <div class="logo-group" aria-hidden="true">
+        <div class="logo-chip"><img src="logos/arkan.png" alt=""></div>
+        <div class="logo-chip"><img src="logos/namaa.png" alt=""></div>
+        <div class="logo-chip"><img src="logos/elezz.jpg" alt=""></div>
+        <div class="logo-chip"><img src="logos/north-intl.jpg" alt=""></div>
+        <div class="logo-chip"><img src="logos/ndigital.jpg" alt=""></div>
+        <div class="logo-chip"><img src="logos/alsheikh.jpg" alt=""></div>
+        <div class="logo-chip"><img src="logos/novaprime.jpg" alt=""></div>
+        <div class="logo-chip"><img src="logos/cib.jpg" alt=""></div>
+        <div class="logo-chip"><img src="logos/emaar.jpg" alt=""></div>
+        <div class="logo-chip"><img src="logos/yaserhamza.jpg" alt=""></div>
+        <div class="logo-chip"><img src="logos/nabd-marketing.jpg" alt=""></div>
+        <div class="logo-chip"><img src="logos/ndigital-north.jpg" alt=""></div>
+        <div class="logo-chip"><img src="logos/nib.jpg" alt=""></div>
+        <div class="logo-chip"><img src="logos/thaty.jpg" alt=""></div>
+        <div class="logo-chip"><img src="logos/edras.jpg" alt=""></div>
+      </div>
     </div>
   </div>
 </section>
@@ -769,6 +768,44 @@
     });
   }, {threshold:.15});
   items.forEach(i=>io.observe(i));
+
+  // Trusted-by logo marquee — JS-driven for a perfectly seamless, gapless loop
+  (function(){
+    const track = document.getElementById('logoTrack');
+    if(!track) return;
+    const groups = track.querySelectorAll('.logo-group');
+    if(groups.length < 2) return;
+    const marquee = track.parentElement;
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if(reduceMotion) return;
+
+    let x = 0;
+    let paused = false;
+    let gap = 0; // distance between the start of group 1 and the start of group 2
+    const speed = 40; // px per second
+
+    function measure(){
+      gap = Math.abs(groups[1].offsetLeft - groups[0].offsetLeft);
+    }
+    measure();
+    window.addEventListener('resize', measure);
+
+    marquee.addEventListener('mouseenter', ()=>{ paused = true; });
+    marquee.addEventListener('mouseleave', ()=>{ paused = false; });
+
+    let last = performance.now();
+    function frame(now){
+      const dt = (now - last) / 1000;
+      last = now;
+      if(!paused && gap > 0){
+        x -= speed * dt;
+        if(-x >= gap){ x += gap; }
+        track.style.transform = `translateX(${x}px)`;
+      }
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  })();
 
   // Language toggle (AR <-> EN)
   const i18nEls = document.querySelectorAll('[data-en]');
