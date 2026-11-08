@@ -295,6 +295,37 @@
   }
   .service-card p{color:var(--muted); font-size:15px; line-height:1.75;}
 
+  /* CASE STUDIES */
+  .case-studies{background:var(--ink);}
+  .case-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:24px;}
+  .case-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:2px;
+    padding:34px 30px; display:flex; flex-direction:column; gap:18px;
+    transition:border-color .3s ease, transform .3s ease;
+  }
+  .case-card:hover{border-color:var(--brass-dim); transform:translateY(-3px);}
+  .case-tag{
+    font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--brass); direction:ltr; text-align:left; display:inline-block;
+    border:1px solid var(--brass-dim); border-radius:20px; padding:5px 14px; width:fit-content;
+  }
+  .case-card h3{font-family:var(--serif); font-weight:600; font-size:20px; color:var(--text);}
+  .case-block{display:flex; flex-direction:column; gap:4px;}
+  .case-label{
+    font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--muted); direction:ltr; text-align:left;
+  }
+  .case-block p{color:#C9CDD1; font-size:14.5px; line-height:1.75;}
+  .case-result{
+    margin-top:auto; padding-top:16px; border-top:1px solid var(--line);
+    display:flex; align-items:center; gap:10px;
+  }
+  .case-result svg{flex-shrink:0; color:var(--brass);}
+  .case-result span{color:var(--brass-soft); font-size:14.5px; font-weight:600; line-height:1.6;}
+  @media (max-width:940px){
+    .case-grid{grid-template-columns:1fr;}
+  }
+
   /* TESTIMONIALS */
   .testimonials{background:var(--ink);}
   .t-grid{
@@ -531,6 +562,66 @@
         <span class="service-num">06 / TRAINING</span>
         <h3>Training &amp; Education</h3>
         <p data-en="Hands-on training programs, diplomas, and workshops in digital marketing, real estate marketing, sales, branding, and AI.">برامج تدريبية ودبلومات وورش عمل عملية في التسويق الرقمي، التسويق العقاري، المبيعات، البراندينج، والذكاء الاصطناعي.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="case-studies" class="case-studies">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow">HOW I WORK</span>
+      <h2 data-en="Inside the Work">نماذج من طريقة اشتغالي</h2>
+      <p data-en="A look at how real engagements get approached — the challenge, the method, and the direction of the outcome.">نظرة على طريقة التعامل مع مشاريع حقيقية — التحدي، المنهج، واتجاه النتيجة.</p>
+    </div>
+    <div class="case-grid reveal">
+      <div class="case-card">
+        <span class="case-tag">REAL ESTATE</span>
+        <h3 data-en="New Developer Entering a Crowded Market">مطوّر عقاري جديد في سوق مزدحم</h3>
+        <div class="case-block">
+          <span class="case-label">CHALLENGE</span>
+          <p data-en="A new real estate brand with strong inventory but no market presence, competing against established names with far bigger budgets.">براند عقاري جديد عنده مخزون قوي لكن من غير أي حضور في السوق، وسط منافسين راسخين بميزانيات أضعاف.</p>
+        </div>
+        <div class="case-block">
+          <span class="case-label">APPROACH</span>
+          <p data-en="Built a full real estate marketing system: brand positioning, targeted content, performance ads, and a structured lead journey from first click to site visit.">بناء نظام تسويق عقاري متكامل: تحديد الـ Positioning، محتوى مستهدف، إعلانات أداء، ورحلة عميل منظمة من أول ضغطة لحد المعاينة.</p>
+        </div>
+        <div class="case-result">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+          <span data-en="Noticeably sharper lead quality and a clearer path from inquiry to booked viewing.">تحسّن ملحوظ في جودة الليدز ووضوح رحلة العميل من الاستفسار لحجز المعاينة.</span>
+        </div>
+      </div>
+      <div class="case-card">
+        <span class="case-tag">BRANDING / LEGAL</span>
+        <h3 data-en="A Law Firm Needing a Trustworthy Digital Presence">مكتب محاماة محتاج حضور رقمي يعكس الثقة</h3>
+        <div class="case-block">
+          <span class="case-label">CHALLENGE</span>
+          <p data-en="A professional legal practice with strong credibility offline, but no digital identity that reflected that same level of trust.">جهة قانونية عندها مصداقية قوية على أرض الواقع، لكن من غير هوية رقمية بتعكس نفس مستوى الثقة.</p>
+        </div>
+        <div class="case-block">
+          <span class="case-label">APPROACH</span>
+          <p data-en="Defined a clear visual identity and tone of voice, then built a content strategy that simplifies legal topics for a non-specialist audience.">تحديد هوية بصرية ونبرة تواصل واضحة، وبناء استراتيجية محتوى تبسّط المواضيع القانونية لجمهور غير متخصص.</p>
+        </div>
+        <div class="case-result">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+          <span data-en="More qualified inquiries from people actively looking for consultation, not just browsing.">زيادة في عدد الاستفسارات المؤهلة من ناس بتدور فعليًا على استشارة، مش مجرد تصفح.</span>
+        </div>
+      </div>
+      <div class="case-card">
+        <span class="case-tag">TRAINING / EDUCATION</span>
+        <h3 data-en="Launching a New Diploma Program">إطلاق دبلومة تدريبية جديدة</h3>
+        <div class="case-block">
+          <span class="case-label">CHALLENGE</span>
+          <p data-en="A new training diploma with solid content but no track record yet, needing to earn trust fast in a market full of noisy, low-quality courses.">دبلومة تدريبية جديدة بمحتوى قوي لكن من غير سابقة أعمال، محتاجة تكسب ثقة سريعة وسط سوق مليان كورسات ضجيج.</p>
+        </div>
+        <div class="case-block">
+          <span class="case-label">APPROACH</span>
+          <p data-en="Combined educational content, social proof from early cohorts, and a clear funnel from first interest to enrollment and payment.">دمج محتوى تعليمي توعوي، إثبات اجتماعي من أول دفعات المتدربين، وقمع تسويقي واضح من أول اهتمام لحد التسجيل والدفع.</p>
+        </div>
+        <div class="case-result">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+          <span data-en="Higher completion rate from initial sign-up through to confirmed, paid enrollment.">نسبة أعلى في الاكتمال من التسجيل الأولي لحد التأكيد والدفع الفعلي.</span>
+        </div>
       </div>
     </div>
   </div>
