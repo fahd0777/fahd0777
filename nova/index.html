@@ -103,6 +103,7 @@ const KEYS = {
   daily: "jarvis:daily:v1",
   commitments: "jarvis:commitments:v2",
   receivables: "jarvis:receivables:v1",
+  clients: "jarvis:clients:v1",
   goals: "jarvis:goals:v1",
   topThree: "jarvis:topthree:v1",
   workout: "jarvis:workout:v1",
@@ -2298,7 +2299,7 @@ function WalletPicker({ value, onChange }) {
   );
 }
 
-const INCOME_CATEGORY_NAMES = ["كورسات", "مستحقات"];
+const INCOME_CATEGORY_NAMES = ["كورسات", "مستحقات", "عملاء"];
 const isIncomeCategory = (c) => !!c.cashflow || INCOME_CATEGORY_NAMES.includes(c.name);
 
 /* ---------------- Cash Flow: sections (e.g. company collections) with entries that hit a wallet ---------------- */
@@ -3185,6 +3186,289 @@ function NovaUnitCard({ unit, accounts, addAccountEntry, removeAccountEntry, tas
   );
 }
 
+/* ---------------- Clients (freelance) ---------------- */
+const daysInMonthOf = (ym) => { const [y, m] = ym.split("-").map(Number); return new Date(y, m, 0).getDate(); };
+
+function clientStatus(c) {
+  const today = todayISO();
+  const cur = today.slice(0, 7);
+  const payments = c.payments || [];
+  const amount = Number(c.amount) || 0;
+  if (c.payType === "monthly") {
+    const received = payments.filter((p) => p.month === cur).reduce((sum, p) => sum + Number(p.amount), 0);
+    const remaining = Math.max(0, amount - received);
+    const day = Math.min(Math.max(Number(c.dueDay) || 1, 1), daysInMonthOf(cur));
+    const dueISO = `${cur}-${String(day).padStart(2, "0")}`;
+    let state = "pending";
+    if (remaining <= 0) state = "paid";
+    else if (today > dueISO) state = "overdue";
+    else if (dueISO <= addDaysToISO(today, 3)) state = "soon";
+    return { received, remaining, dueISO, state };
+  }
+  const received = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+  const remaining = Math.max(0, amount - received);
+  return { received, remaining, dueISO: "", state: remaining <= 0 ? "paid" : "pending" };
+}
+
+const CLIENT_STATE = {
+  paid: { label: "اتدفع", color: "#34d399" },
+  overdue: { label: "متأخر", color: "#fb7185" },
+  soon: { label: "قرب", color: "#fbbf24" },
+  pending: { label: "مستني", color: "#94a3b8" },
+};
+
+function BlurField({ value, onSave, multiline, placeholder, type, className }) {
+  const [v, setV] = useState(value ?? "");
+  useEffect(() => { setV(value ?? ""); }, [value]);
+  const commit = () => { if (String(v) !== String(value ?? "")) onSave(type === "number" ? Number(v) || 0 : v); };
+  const cls = `w-full bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none px-2.5 py-1.5 text-sm text-slate-100 placeholder:text-slate-500 ${className || ""}`;
+  return multiline ? (
+    <textarea value={v} onChange={(e) => setV(e.target.value)} onBlur={commit} rows={2} placeholder={placeholder} className={`${cls} resize-y`} style={{ clipPath: clip }} />
+  ) : (
+    <input value={v} onChange={(e) => setV(e.target.value)} onBlur={commit} type={type || "text"} placeholder={placeholder} className={cls} style={{ clipPath: clip }} />
+  );
+}
+
+function ClientCard({ client, onUpdate, onDelete, addAccountEntry, removeAccountEntry }) {
+  const [open, setOpen] = useState(false);
+  const [payAmount, setPayAmount] = useState("");
+  const [payDate, setPayDate] = useState(todayISO());
+  const [payMonth, setPayMonth] = useState(todayISO().slice(0, 7));
+  const [payWallet, setPayWallet] = useState(DEFAULT_WALLET);
+  const [payNote, setPayNote] = useState("");
+  const [payOpen, setPayOpen] = useState(false);
+  const [taskText, setTaskText] = useState("");
+
+  const st = clientStatus(client);
+  const stInfo = CLIENT_STATE[st.state];
+  const monthly = client.payType === "monthly";
+  const payments = client.payments || [];
+  const tasks = client.tasks || [];
+  const paused = client.status === "paused";
+
+  const startPay = () => {
+    setPayAmount(String(st.remaining || client.amount || ""));
+    setPayDate(todayISO());
+    setPayMonth(todayISO().slice(0, 7));
+    setPayWallet(DEFAULT_WALLET);
+    setPayNote("");
+    setPayOpen(true);
+    setOpen(true);
+  };
+
+  const confirmPay = () => {
+    const amt = Number(payAmount);
+    if (!amt || amt <= 0) return;
+    const entry = {
+      id: uid(),
+      description: `${client.name}${payNote.trim() ? " — " + payNote.trim() : ""}${monthly ? ` (${payMonth})` : ""}`,
+      amount: amt,
+      type: "income",
+      date: payDate,
+      wallet: payWallet,
+    };
+    addAccountEntry("عملاء", entry);
+    onUpdate({ ...client, payments: [...payments, { id: uid(), amount: amt, date: payDate, month: monthly ? payMonth : "", wallet: payWallet, note: payNote.trim(), accountEntryId: entry.id }] });
+    setPayOpen(false);
+  };
+
+  const deletePayment = (pay) => {
+    if (pay.accountEntryId) removeAccountEntry("عملاء", pay.accountEntryId);
+    onUpdate({ ...client, payments: payments.filter((x) => x.id !== pay.id) });
+  };
+
+  const removeClient = () => {
+    payments.forEach((pay) => pay.accountEntryId && removeAccountEntry("عملاء", pay.accountEntryId));
+    onDelete();
+  };
+
+  const addTask = () => {
+    if (!taskText.trim()) return;
+    onUpdate({ ...client, tasks: [...tasks, { id: uid(), text: taskText.trim(), priority: "important", done: false }] });
+    setTaskText("");
+  };
+
+  return (
+    <Panel className="p-4" style={{ opacity: paused ? 0.6 : 1 }}>
+      <CornerTicks />
+      <div className="flex items-center gap-2">
+        <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-2 min-w-0 flex-1 text-right">
+          {open ? <ChevronDown size={16} className="text-slate-400 shrink-0" /> : <ChevronRight size={16} className="text-slate-400 shrink-0" />}
+          <span className="text-sm font-medium text-slate-100 truncate">{client.name}</span>
+          {client.service && <span className="text-[10px] text-slate-500 truncate shrink-0 max-w-[90px]">{client.service}</span>}
+        </button>
+        <span className="text-[10px] px-1.5 py-0.5 border shrink-0" style={{ clipPath: clip, borderColor: `${stInfo.color}60`, color: stInfo.color }}>
+          {paused ? "موقوف" : stInfo.label}
+        </span>
+        <span className="text-xs font-mono text-emerald-300 shrink-0">{(Number(client.amount) || 0).toLocaleString("ar-EG")}{monthly ? "/شهر" : ""}</span>
+        {st.state !== "paid" && !paused && (
+          <button onClick={startPay} className="text-[11px] px-2.5 py-1 border border-emerald-400/50 text-emerald-300 hover:bg-emerald-400/10 shrink-0" style={{ clipPath: clip }}>
+            استلمت
+          </button>
+        )}
+      </div>
+
+      <div className="text-[11px] text-slate-500 mt-1 pr-6">
+        {monthly ? `${client.endDate ? "لحد " + client.endDate : "مدة مفتوحة"} · ميعاد الاستلام يوم ${client.dueDay || 1} · الشهر ده: اتستلم ${st.received.toLocaleString("ar-EG")} · متبقي ${st.remaining.toLocaleString("ar-EG")}` : `مشروع · اتستلم ${st.received.toLocaleString("ar-EG")} · متبقي ${st.remaining.toLocaleString("ar-EG")}`}
+      </div>
+
+      {payOpen && (
+        <div className="flex flex-col gap-2 mt-3 border border-emerald-400/20 p-2" style={{ clipPath: clip }}>
+          <div className="text-[11px] text-slate-400">تسجيل استلام — بيتضاف كدخل على الخزنة اللي تختارها</div>
+          <WalletPicker value={payWallet} onChange={setPayWallet} />
+          <div className="flex flex-wrap gap-2">
+            <input value={payAmount} onChange={(e) => setPayAmount(e.target.value)} type="number" placeholder="المبلغ" className={`w-28 ${INPUT_CLS}`} style={{ clipPath: clip }} />
+            <input type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} className={INPUT_CLS} style={{ clipPath: clip }} />
+            {monthly && <input type="month" value={payMonth} onChange={(e) => setPayMonth(e.target.value)} className={INPUT_CLS} style={{ clipPath: clip }} title="عن أنهي شهر" />}
+            <input value={payNote} onChange={(e) => setPayNote(e.target.value)} placeholder="ملاحظة (اختياري)" className={`flex-1 min-w-[120px] ${INPUT_CLS}`} style={{ clipPath: clip }} />
+          </div>
+          <div className="flex gap-2">
+            <button onClick={confirmPay} className="text-xs px-3 py-1.5 border border-emerald-400/50 text-emerald-200 hover:bg-emerald-400/10" style={{ clipPath: clip }}>تم الاستلام</button>
+            <button onClick={() => setPayOpen(false)} className="text-xs px-3 py-1.5 border border-slate-600 text-slate-400 hover:bg-slate-800" style={{ clipPath: clip }}>إلغاء</button>
+          </div>
+        </div>
+      )}
+
+      {open && (
+        <div className="flex flex-col gap-3 mt-3 pt-3 border-t" style={{ borderColor: "rgba(148,163,184,0.15)" }}>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="flex flex-col gap-1 text-[10px] text-slate-500">الاسم<BlurField value={client.name} onSave={(v) => v.trim() && onUpdate({ ...client, name: v.trim() })} /></label>
+            <label className="flex flex-col gap-1 text-[10px] text-slate-500">الخدمة<BlurField value={client.service} onSave={(v) => onUpdate({ ...client, service: v })} placeholder="سوشيال / إعلانات..." /></label>
+            <label className="flex flex-col gap-1 text-[10px] text-slate-500">{monthly ? "الراتب الشهري" : "قيمة المشروع"}<BlurField type="number" value={client.amount} onSave={(v) => onUpdate({ ...client, amount: v })} /></label>
+            {monthly && <label className="flex flex-col gap-1 text-[10px] text-slate-500">يوم الاستلام في الشهر<BlurField type="number" value={client.dueDay} onSave={(v) => onUpdate({ ...client, dueDay: Math.min(31, Math.max(1, v || 1)) })} /></label>}
+            <label className="flex flex-col gap-1 text-[10px] text-slate-500">بداية الشغل<BlurField type="date" value={client.startDate} onSave={(v) => onUpdate({ ...client, startDate: v })} /></label>
+            <label className="flex flex-col gap-1 text-[10px] text-slate-500">نهاية متوقعة (اختياري)<BlurField type="date" value={client.endDate} onSave={(v) => onUpdate({ ...client, endDate: v })} /></label>
+            <label className="flex flex-col gap-1 text-[10px] text-slate-500 col-span-2">جهة الاتصال<BlurField value={client.contact} onSave={(v) => onUpdate({ ...client, contact: v })} placeholder="رقم / واتساب / ايميل" /></label>
+          </div>
+          <label className="flex flex-col gap-1 text-[10px] text-slate-500">الاتفاق<BlurField multiline value={client.agreement} onSave={(v) => onUpdate({ ...client, agreement: v })} placeholder="تفاصيل الاتفاق والراتب..." /></label>
+          <label className="flex flex-col gap-1 text-[10px] text-slate-500">ملاحظات<BlurField multiline value={client.notes} onSave={(v) => onUpdate({ ...client, notes: v })} placeholder="وقفت فين، طلبات خاصة..." /></label>
+
+          <div>
+            <div className="text-xs tracking-wide text-slate-400 mb-2">سجل الاستلام</div>
+            <div className="flex flex-col gap-1.5">
+              {payments.length === 0 && <div className="text-xs text-slate-500">مفيش استلام مسجل لسه.</div>}
+              {[...payments].sort((a, b) => (a.date < b.date ? 1 : -1)).map((pay) => (
+                <div key={pay.id} className="flex items-center gap-2 text-sm border px-2.5 py-1.5" style={{ borderColor: "rgba(148,163,184,0.15)", clipPath: clip }}>
+                  <span className="text-[10px] text-slate-500 font-mono shrink-0">{pay.date}</span>
+                  {pay.month && <span className="text-[10px] text-slate-500 shrink-0">عن {pay.month}</span>}
+                  <span className="text-[9px] px-1.5 py-0.5 border shrink-0" style={{ clipPath: clip, borderColor: `${walletColor(pay.wallet)}60`, color: walletColor(pay.wallet) }}>{walletLabel(pay.wallet)}</span>
+                  <span className="flex-1 min-w-0 truncate text-slate-300 text-xs">{pay.note}</span>
+                  <span className="font-mono text-emerald-300 shrink-0">+{Number(pay.amount).toLocaleString("ar-EG")}</span>
+                  <button onClick={() => deletePayment(pay)} className="text-slate-500 hover:text-rose-400 shrink-0"><Trash2 size={13} /></button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="text-xs tracking-wide text-slate-400 mb-2">الشغل المطلوب</div>
+            <div className="flex flex-col gap-1.5 mb-2">
+              {tasks.map((t) => (
+                <NovaTaskItem
+                  key={t.id}
+                  task={t}
+                  onToggle={() => onUpdate({ ...client, tasks: tasks.map((x) => (x.id === t.id ? { ...x, done: !x.done } : x)) })}
+                  onDelete={() => onUpdate({ ...client, tasks: tasks.filter((x) => x.id !== t.id) })}
+                  onNote={(n) => onUpdate({ ...client, tasks: tasks.map((x) => (x.id === t.id ? { ...x, note: n } : x)) })}
+                />
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input value={taskText} onChange={(e) => setTaskText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addTask()} placeholder="مهمة للعميل ده..." className={`flex-1 min-w-0 ${INPUT_CLS}`} style={{ clipPath: clip }} />
+              <button onClick={addTask} className="flex items-center gap-1 text-xs px-3 py-1.5 border border-cyan-400/50 text-cyan-200 hover:bg-cyan-400/10 shrink-0" style={{ clipPath: clip }}><Plus size={13} /> ضيف</button>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <button onClick={() => onUpdate({ ...client, status: paused ? "active" : "paused" })} className="text-xs px-3 py-1 border border-slate-600 text-slate-300 hover:bg-slate-800" style={{ clipPath: clip }}>
+              {paused ? "رجّع العميل شغال" : "وقّف العميل"}
+            </button>
+            <button onClick={removeClient} className="flex items-center gap-1 text-xs text-slate-500 hover:text-rose-400"><Trash2 size={13} /> امسح العميل</button>
+          </div>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+function ClientsTab({ clients, updateClients, addAccountEntry, removeAccountEntry }) {
+  const [name, setName] = useState("");
+  const [service, setService] = useState("");
+  const [payType, setPayType] = useState("monthly");
+  const [amount, setAmount] = useState("");
+  const [dueDay, setDueDay] = useState("1");
+
+  const add = () => {
+    if (!name.trim() || !amount) return;
+    updateClients([...clients, {
+      id: uid(), name: name.trim(), service: service.trim(), payType, amount: Number(amount),
+      dueDay: payType === "monthly" ? Math.min(31, Math.max(1, Number(dueDay) || 1)) : 0,
+      status: "active", contact: "", agreement: "", notes: "", payments: [], tasks: [],
+    }]);
+    setName(""); setService(""); setAmount(""); setDueDay("1");
+  };
+
+  const activeClients = clients.filter((c) => c.status !== "paused");
+  const pausedClients = clients.filter((c) => c.status === "paused");
+  const monthlyTotal = activeClients.filter((c) => c.payType === "monthly").reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+  const remainingTotal = activeClients.reduce((sum, c) => sum + clientStatus(c).remaining, 0);
+
+  const renderClient = (c) => (
+    <ClientCard
+      key={c.id}
+      client={c}
+      addAccountEntry={addAccountEntry}
+      removeAccountEntry={removeAccountEntry}
+      onUpdate={(u) => updateClients(clients.map((x) => (x.id === u.id ? u : x)))}
+      onDelete={() => updateClients(clients.filter((x) => x.id !== c.id))}
+    />
+  );
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Panel className="p-4">
+        <CornerTicks />
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          <div className="border px-3 py-2" style={{ borderColor: "rgba(52,211,153,0.3)", clipPath: clip }}>
+            <div className="text-[10px] text-slate-400">رواتب شهرية متوقعة</div>
+            <div className="text-lg font-mono text-emerald-300">{monthlyTotal.toLocaleString("ar-EG")}</div>
+          </div>
+          <div className="border px-3 py-2" style={{ borderColor: "rgba(251,191,36,0.3)", clipPath: clip }}>
+            <div className="text-[10px] text-slate-400">لسه متبقي استلامه</div>
+            <div className="text-lg font-mono text-amber-300">{remainingTotal.toLocaleString("ar-EG")}</div>
+          </div>
+        </div>
+        <div className="text-xs tracking-wide text-slate-400 mb-2">عميل جديد</div>
+        <div className="flex flex-wrap gap-2">
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="اسم العميل" className={`flex-1 min-w-[140px] ${INPUT_CLS}`} style={{ clipPath: clip }} />
+          <input value={service} onChange={(e) => setService(e.target.value)} placeholder="الخدمة" className={`w-32 ${INPUT_CLS}`} style={{ clipPath: clip }} />
+          <div className="flex gap-1.5">
+            {[["monthly", "شهري"], ["project", "مشروع"]].map(([k, l]) => (
+              <button key={k} onClick={() => setPayType(k)} className="text-xs px-3 py-1.5 border" style={{ clipPath: clip, borderColor: payType === k ? "#22d3ee" : "rgba(148,163,184,0.25)", color: payType === k ? "#22d3ee" : "#94a3b8", background: payType === k ? "rgba(34,211,238,0.1)" : "transparent" }}>{l}</button>
+            ))}
+          </div>
+          <input value={amount} onChange={(e) => setAmount(e.target.value)} type="number" placeholder={payType === "monthly" ? "الراتب الشهري" : "قيمة المشروع"} className={`w-32 ${INPUT_CLS}`} style={{ clipPath: clip }} />
+          {payType === "monthly" && <input value={dueDay} onChange={(e) => setDueDay(e.target.value)} type="number" min="1" max="31" placeholder="يوم الاستلام" className={`w-24 ${INPUT_CLS}`} style={{ clipPath: clip }} title="يوم الاستلام في الشهر" />}
+          <button onClick={add} className="flex items-center gap-1 text-xs px-4 py-1.5 border border-cyan-400/50 text-cyan-200 hover:bg-cyan-400/10" style={{ clipPath: clip }}><Plus size={13} /> ضيف</button>
+        </div>
+      </Panel>
+
+      {clients.length === 0 && <div className="text-xs text-slate-500 text-center py-6">لسه مفيش عملاء — ضيف أول عميل من فوق.</div>}
+      {activeClients.map(renderClient)}
+      {pausedClients.length > 0 && (
+        <>
+          <div className="flex items-center gap-2 mt-2">
+            <div className="h-px flex-1 bg-slate-700/50" />
+            <span className="text-xs text-slate-500">عملاء موقوفين ({pausedClients.length})</span>
+            <div className="h-px flex-1 bg-slate-700/50" />
+          </div>
+          {pausedClients.map(renderClient)}
+        </>
+      )}
+    </div>
+  );
+}
+
 function NovaTab({ accounts, addAccountEntry, removeAccountEntry, novaTasks, updateNovaTasks }) {
   return (
     <div className="flex flex-col gap-4">
@@ -3204,7 +3488,7 @@ function NovaTab({ accounts, addAccountEntry, removeAccountEntry, novaTasks, upd
 }
 
 /* ---------------- Dashboard tab ---------------- */
-function DashboardTab({ projects, updateProjects, novaTasks, updateNovaTasks, appointments, daily, accounts, courses, commitments, goals, top3, updateTop3, onGo }) {
+function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNovaTasks, appointments, daily, accounts, courses, commitments, goals, top3, updateTop3, onGo }) {
   const today = todayISO();
   const [justDone, setJustDone] = useState({});
 
@@ -3256,6 +3540,10 @@ function DashboardTab({ projects, updateProjects, novaTasks, updateNovaTasks, ap
   const todayAppts = appointments.filter((a) => a.date === today).sort((a, b) => toMinutes(a.time) - toMinutes(b.time));
   const pendingHabits = daily.filter((d) => d.type === "habit" && !d.history[today]);
   const nearDoneCourses = courses.filter((c) => !c.done && !c.finished && c.lectures.length > 0 && c.lectures.filter((l) => l.done).length / c.lectures.length >= 0.75);
+  const clientAlerts = (clients || [])
+    .filter((c) => c.status !== "paused" && c.payType === "monthly")
+    .map((c) => ({ c, st: clientStatus(c) }))
+    .filter(({ st }) => st.state === "overdue" || st.state === "soon");
   const overdueCommitments = commitments.filter((c) => commitmentRemaining(c) > 0 && c.dueDate < today);
   const dueSoonCommitments = commitments.filter((c) => commitmentRemaining(c) > 0 && c.dueDate >= today && c.dueDate <= addDaysToISO(today, 3));
   const activeGoals = [...goals].filter((g) => g.progress < 100).sort((a, b) => (a.deadline < b.deadline ? -1 : 1));
@@ -3367,6 +3655,27 @@ function DashboardTab({ projects, updateProjects, novaTasks, updateNovaTasks, ap
           <div className="flex flex-col gap-1.5">
             {pendingHabits.map((h) => (
               <div key={h.id} className="text-sm text-slate-200 truncate">• {h.name}</div>
+            ))}
+          </div>
+        )}
+      </Panel>
+
+      <Panel className="p-4" onClick={() => onGo("clients")}>
+        <CornerTicks />
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs tracking-wide text-slate-400">مستحقات العملاء</span>
+          <span className="text-lg font-mono text-emerald-300">{clientAlerts.length}</span>
+        </div>
+        {clientAlerts.length === 0 ? (
+          <div className="text-xs text-slate-500">مفيش عملاء ميعاد استلامهم قرب أو فات.</div>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {clientAlerts.slice(0, 5).map(({ c, st }) => (
+              <div key={c.id} className="text-sm text-slate-200 flex items-center gap-2">
+                <span className="truncate flex-1">• {c.name}</span>
+                <span className={`text-[11px] shrink-0 ${st.state === "overdue" ? "text-rose-300" : "text-amber-300"}`}>{st.state === "overdue" ? "فات" : "قرب"} {st.dueISO}</span>
+                <span className="text-[11px] font-mono text-emerald-300 shrink-0">{st.remaining.toLocaleString("ar-EG")}</span>
+              </div>
             ))}
           </div>
         )}
@@ -3564,6 +3873,7 @@ function App() {
   const [daily, setDaily] = useState([]);
   const [commitments, setCommitments] = useState([]);
   const [receivables, setReceivables] = useState([]);
+  const [clients, setClients] = useState([]);
   const [goals, setGoals] = useState([]);
   const [topThree, setTopThree] = useState({ date: "", items: [] });
   const [workout, setWorkout] = useState({ selections: {}, doneDate: "", planDate: "" });
@@ -3601,6 +3911,7 @@ function App() {
         loadOne(KEYS.daily, setDaily),
         loadOne(KEYS.commitments, setCommitments),
         loadOne(KEYS.receivables, setReceivables),
+        loadOne(KEYS.clients, setClients),
         loadOne(KEYS.goals, setGoals),
         loadOne(KEYS.topThree, setTopThree),
         loadOne(KEYS.workout, setWorkout),
@@ -3630,6 +3941,7 @@ function App() {
   const updateAccounts = (next) => { setAccounts(next); persist(KEYS.accounts, next); };
   const updateDaily = (next) => { setDaily(next); persist(KEYS.daily, next); };
   const updateCommitments = (next) => { setCommitments(next); persist(KEYS.commitments, next); };
+  const updateClients = (next) => { setClients(next); persist(KEYS.clients, next); };
   const updateReceivables = (next) => { setReceivables(next); persist(KEYS.receivables, next); };
   const updateGoals = (next) => { setGoals(next); persist(KEYS.goals, next); };
   const updateTopThree = (next) => { setTopThree(next); persist(KEYS.topThree, next); };
@@ -3755,6 +4067,7 @@ function App() {
         <TabButton active={tab === "goals"} onClick={() => setTab("goals")} icon={Target} label="الأهداف" />
         <TabButton active={tab === "accounts"} onClick={() => setTab("accounts")} icon={Wallet} label="الحسابات" />
         <TabButton active={tab === "workout"} onClick={() => setTab("workout")} icon={Dumbbell} label="Workout" />
+        <TabButton active={tab === "clients"} onClick={() => setTab("clients")} icon={Users} label="العملاء" />
         <TabButton active={tab === "nova"} onClick={() => setTab("nova")} icon={Briefcase} label="NOVA" />
       </div>
 
@@ -3766,6 +4079,7 @@ function App() {
         <>
           {tab === "dashboard" && (
             <DashboardTab
+              clients={clients}
               projects={projects}
               updateProjects={updateProjects}
               novaTasks={novaTasks}
@@ -3809,6 +4123,7 @@ function App() {
             />
           )}
           {tab === "workout" && <WorkoutTab workout={workout} updateWorkout={updateWorkout} />}
+          {tab === "clients" && <ClientsTab clients={clients} updateClients={updateClients} addAccountEntry={addAccountEntry} removeAccountEntry={removeAccountEntry} />}
           {tab === "nova" && (
             <NovaTab
               accounts={accounts}
@@ -3822,7 +4137,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-05
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-10
       </div>
     </div>
   );
