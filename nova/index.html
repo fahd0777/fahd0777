@@ -3196,21 +3196,24 @@ function clientStatus(c) {
   const amount = Number(c.amount) || 0;
   if (c.payType === "monthly") {
     if (c.firstDue && cur < c.firstDue.slice(0, 7)) {
-      return { received: 0, remaining: 0, dueISO: c.firstDue, state: "upcoming" };
+      return { received: 0, discount: 0, remaining: 0, dueISO: c.firstDue, state: "upcoming" };
     }
-    const received = payments.filter((p) => p.month === cur).reduce((sum, p) => sum + Number(p.amount), 0);
-    const remaining = Math.max(0, amount - received);
+    const inMonth = payments.filter((p) => p.month === cur);
+    const received = inMonth.reduce((sum, p) => sum + Number(p.amount), 0);
+    const discount = inMonth.reduce((sum, p) => sum + (Number(p.discount) || 0), 0);
+    const remaining = Math.max(0, amount - received - discount);
     const day = Math.min(Math.max(Number(c.firstDue ? c.firstDue.slice(8, 10) : c.dueDay) || 1, 1), daysInMonthOf(cur));
     const dueISO = `${cur}-${String(day).padStart(2, "0")}`;
     let state = "pending";
     if (remaining <= 0) state = "paid";
     else if (today > dueISO) state = "overdue";
     else if (dueISO <= addDaysToISO(today, 3)) state = "soon";
-    return { received, remaining, dueISO, state };
+    return { received, discount, remaining, dueISO, state };
   }
   const received = payments.reduce((sum, p) => sum + Number(p.amount), 0);
-  const remaining = Math.max(0, amount - received);
-  return { received, remaining, dueISO: "", state: remaining <= 0 ? "paid" : "pending" };
+  const discount = payments.reduce((sum, p) => sum + (Number(p.discount) || 0), 0);
+  const remaining = Math.max(0, amount - received - discount);
+  return { received, discount, remaining, dueISO: "", state: remaining <= 0 ? "paid" : "pending" };
 }
 
 const CLIENT_STATE = {
@@ -3240,6 +3243,7 @@ function ClientCard({ client, onUpdate, onDelete, addAccountEntry, removeAccount
   const [payMonth, setPayMonth] = useState(todayISO().slice(0, 7));
   const [payWallet, setPayWallet] = useState(DEFAULT_WALLET);
   const [payNote, setPayNote] = useState("");
+  const [payDiscount, setPayDiscount] = useState("");
   const [payOpen, setPayOpen] = useState(false);
   const [taskText, setTaskText] = useState("");
 
@@ -3256,6 +3260,7 @@ function ClientCard({ client, onUpdate, onDelete, addAccountEntry, removeAccount
     setPayMonth(todayISO().slice(0, 7));
     setPayWallet(DEFAULT_WALLET);
     setPayNote("");
+    setPayDiscount("");
     setPayOpen(true);
     setOpen(true);
   };
@@ -3272,7 +3277,8 @@ function ClientCard({ client, onUpdate, onDelete, addAccountEntry, removeAccount
       wallet: payWallet,
     };
     addAccountEntry("عملاء", entry);
-    onUpdate({ ...client, payments: [...payments, { id: uid(), amount: amt, date: payDate, month: monthly ? payMonth : "", wallet: payWallet, note: payNote.trim(), accountEntryId: entry.id }] });
+    const disc = Math.max(0, Number(payDiscount) || 0);
+    onUpdate({ ...client, payments: [...payments, { id: uid(), amount: amt, discount: disc, date: payDate, month: monthly ? payMonth : "", wallet: payWallet, note: payNote.trim(), accountEntryId: entry.id }] });
     setPayOpen(false);
   };
 
@@ -3313,7 +3319,7 @@ function ClientCard({ client, onUpdate, onDelete, addAccountEntry, removeAccount
       </div>
 
       <div className="text-[11px] text-slate-500 mt-1 pr-6">
-        {monthly ? `${client.endDate ? "لحد " + client.endDate : "مدة مفتوحة"} · ${st.state === "upcoming" ? "أول استلام " + client.firstDue : "ميعاد الاستلام يوم " + (client.firstDue ? Number(client.firstDue.slice(8, 10)) : (client.dueDay || 1)) + " كل شهر"} · الشهر ده: اتستلم ${st.received.toLocaleString("ar-EG")} · متبقي ${st.remaining.toLocaleString("ar-EG")}` : `مشروع · اتستلم ${st.received.toLocaleString("ar-EG")} · متبقي ${st.remaining.toLocaleString("ar-EG")}`}
+        {monthly ? `${client.endDate ? "لحد " + client.endDate : "مدة مفتوحة"} · ${st.state === "upcoming" ? "أول استلام " + client.firstDue : "ميعاد الاستلام يوم " + (client.firstDue ? Number(client.firstDue.slice(8, 10)) : (client.dueDay || 1)) + " كل شهر"} · الشهر ده: اتستلم ${st.received.toLocaleString("ar-EG")}${st.discount ? " · خصم " + st.discount.toLocaleString("ar-EG") : ""} · متبقي ${st.remaining.toLocaleString("ar-EG")}` : `مشروع · اتستلم ${st.received.toLocaleString("ar-EG")} · متبقي ${st.remaining.toLocaleString("ar-EG")}`}
       </div>
 
       {payOpen && (
@@ -3324,8 +3330,9 @@ function ClientCard({ client, onUpdate, onDelete, addAccountEntry, removeAccount
             <input value={payAmount} onChange={(e) => setPayAmount(e.target.value)} type="number" placeholder="المبلغ" className={`w-28 ${INPUT_CLS}`} style={{ clipPath: clip }} />
             <input type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} className={INPUT_CLS} style={{ clipPath: clip }} />
             {monthly && <input type="month" value={payMonth} onChange={(e) => setPayMonth(e.target.value)} className={INPUT_CLS} style={{ clipPath: clip }} title="عن أنهي شهر" />}
-            <input value={payNote} onChange={(e) => setPayNote(e.target.value)} placeholder="ملاحظة (اختياري)" className={`flex-1 min-w-[120px] ${INPUT_CLS}`} style={{ clipPath: clip }} />
+            <input value={payDiscount} onChange={(e) => setPayDiscount(e.target.value)} type="number" placeholder="خصم (اختياري)" title="مبلغ اتخصم من الراتب — بيتحسب من المتبقي بس مش بيتضاف للخزنة" className={`w-32 ${INPUT_CLS}`} style={{ clipPath: clip }} />
           </div>
+          <textarea value={payNote} onChange={(e) => setPayNote(e.target.value)} rows={3} placeholder="ملاحظات الاستلام: خصم، تأخير، اتفاق جديد، أي حاجة تفتكرها..." className={`w-full resize-y ${INPUT_CLS}`} style={{ clipPath: clip }} />
           <div className="flex gap-2">
             <button onClick={confirmPay} className="text-xs px-3 py-1.5 border border-emerald-400/50 text-emerald-200 hover:bg-emerald-400/10" style={{ clipPath: clip }}>تم الاستلام</button>
             <button onClick={() => setPayOpen(false)} className="text-xs px-3 py-1.5 border border-slate-600 text-slate-400 hover:bg-slate-800" style={{ clipPath: clip }}>إلغاء</button>
@@ -3354,7 +3361,7 @@ function ClientCard({ client, onUpdate, onDelete, addAccountEntry, removeAccount
                   <span className="text-[10px] text-slate-500 font-mono shrink-0">{pay.date}</span>
                   {pay.month && <span className="text-[10px] text-slate-500 shrink-0">عن {pay.month}</span>}
                   <span className="text-[9px] px-1.5 py-0.5 border shrink-0" style={{ clipPath: clip, borderColor: `${walletColor(pay.wallet)}60`, color: walletColor(pay.wallet) }}>{walletLabel(pay.wallet)}</span>
-                  <span className="flex-1 min-w-0 truncate text-slate-300 text-xs">{pay.note}</span>
+                  <span className="flex-1 min-w-0 text-slate-300 text-xs whitespace-pre-wrap break-words">{pay.note}{pay.discount ? <span className="text-amber-300"> · خصم {Number(pay.discount).toLocaleString("ar-EG")}</span> : null}</span>
                   <span className="font-mono text-emerald-300 shrink-0">+{Number(pay.amount).toLocaleString("ar-EG")}</span>
                   <button onClick={() => deletePayment(pay)} className="text-slate-500 hover:text-rose-400 shrink-0"><Trash2 size={13} /></button>
                 </div>
@@ -3394,8 +3401,12 @@ function ClientsTab({ clients, updateClients, addAccountEntry, removeAccountEntr
 
   const activeClients = clients.filter((c) => c.status !== "paused");
   const pausedClients = clients.filter((c) => c.status === "paused");
-  const monthlyTotal = activeClients.filter((c) => c.payType === "monthly").reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
-  const remainingTotal = activeClients.reduce((sum, c) => sum + clientStatus(c).remaining, 0);
+  const monthlyRows = activeClients.filter((c) => c.payType === "monthly").map((c) => ({ c, st: clientStatus(c) })).filter(({ st }) => st.state !== "upcoming");
+  const monthlyTotal = monthlyRows.reduce((sum, { c }) => sum + (Number(c.amount) || 0), 0);
+  const monthlyCollected = monthlyRows.reduce((sum, { st }) => sum + st.received, 0);
+  const monthlyDiscount = monthlyRows.reduce((sum, { st }) => sum + (st.discount || 0), 0);
+  const monthlyRemaining = monthlyRows.reduce((sum, { st }) => sum + st.remaining, 0);
+  const projectRemaining = activeClients.filter((c) => c.payType !== "monthly").reduce((sum, c) => sum + clientStatus(c).remaining, 0);
 
   const renderClient = (c) => (
     <ClientCard
@@ -3412,16 +3423,27 @@ function ClientsTab({ clients, updateClients, addAccountEntry, removeAccountEntr
     <div className="flex flex-col gap-4">
       <Panel className="p-4">
         <CornerTicks />
-        <div className="grid grid-cols-2 gap-2 mb-3">
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          <div className="border px-3 py-2" style={{ borderColor: "rgba(34,211,238,0.3)", clipPath: clip }}>
+            <div className="text-[10px] text-slate-400">إجمالي الرواتب الشهرية</div>
+            <div className="text-lg font-mono text-cyan-300">{monthlyTotal.toLocaleString("ar-EG")}</div>
+          </div>
           <div className="border px-3 py-2" style={{ borderColor: "rgba(52,211,153,0.3)", clipPath: clip }}>
-            <div className="text-[10px] text-slate-400">رواتب شهرية متوقعة</div>
-            <div className="text-lg font-mono text-emerald-300">{monthlyTotal.toLocaleString("ar-EG")}</div>
+            <div className="text-[10px] text-slate-400">المحصّل الشهر ده</div>
+            <div className="text-lg font-mono text-emerald-300">{monthlyCollected.toLocaleString("ar-EG")}</div>
           </div>
           <div className="border px-3 py-2" style={{ borderColor: "rgba(251,191,36,0.3)", clipPath: clip }}>
-            <div className="text-[10px] text-slate-400">لسه متبقي استلامه</div>
-            <div className="text-lg font-mono text-amber-300">{remainingTotal.toLocaleString("ar-EG")}</div>
+            <div className="text-[10px] text-slate-400">متبقي من تحصيل الشهر</div>
+            <div className="text-lg font-mono text-amber-300">{monthlyRemaining.toLocaleString("ar-EG")}</div>
           </div>
         </div>
+        {(monthlyDiscount > 0 || projectRemaining > 0) && (
+          <div className="text-[11px] text-slate-500 mb-3">
+            {monthlyDiscount > 0 && <span>خصومات الشهر: {monthlyDiscount.toLocaleString("ar-EG")}</span>}
+            {monthlyDiscount > 0 && projectRemaining > 0 && " · "}
+            {projectRemaining > 0 && <span>متبقي من مشاريع: {projectRemaining.toLocaleString("ar-EG")}</span>}
+          </div>
+        )}
         <div className="text-xs tracking-wide text-slate-400 mb-2">عميل جديد</div>
         <div className="flex flex-wrap gap-3 items-end">
           <label className="flex flex-col gap-1 text-[10px] text-slate-500 flex-1 min-w-[160px]">اسم العميل
