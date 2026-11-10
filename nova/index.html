@@ -3401,8 +3401,9 @@ function ClientsTab({ clients, updateClients, addAccountEntry, removeAccountEntr
 
   const activeClients = clients.filter((c) => c.status !== "paused");
   const pausedClients = clients.filter((c) => c.status === "paused");
-  const monthlyRows = activeClients.filter((c) => c.payType === "monthly").map((c) => ({ c, st: clientStatus(c) })).filter(({ st }) => st.state !== "upcoming");
+  const monthlyRows = activeClients.filter((c) => c.payType === "monthly").map((c) => ({ c, st: clientStatus(c) }));
   const monthlyTotal = monthlyRows.reduce((sum, { c }) => sum + (Number(c.amount) || 0), 0);
+  const upcomingTotal = monthlyRows.filter(({ st }) => st.state === "upcoming").reduce((sum, { c }) => sum + (Number(c.amount) || 0), 0);
   const monthlyCollected = monthlyRows.reduce((sum, { st }) => sum + st.received, 0);
   const monthlyDiscount = monthlyRows.reduce((sum, { st }) => sum + (st.discount || 0), 0);
   const monthlyRemaining = monthlyRows.reduce((sum, { st }) => sum + st.remaining, 0);
@@ -3437,11 +3438,13 @@ function ClientsTab({ clients, updateClients, addAccountEntry, removeAccountEntr
             <div className="text-lg font-mono text-amber-300">{monthlyRemaining.toLocaleString("ar-EG")}</div>
           </div>
         </div>
-        {(monthlyDiscount > 0 || projectRemaining > 0) && (
+        {(monthlyDiscount > 0 || projectRemaining > 0 || upcomingTotal > 0) && (
           <div className="text-[11px] text-slate-500 mb-3">
             {monthlyDiscount > 0 && <span>خصومات الشهر: {monthlyDiscount.toLocaleString("ar-EG")}</span>}
-            {monthlyDiscount > 0 && projectRemaining > 0 && " · "}
+            {monthlyDiscount > 0 && (projectRemaining > 0 || upcomingTotal > 0) && " · "}
             {projectRemaining > 0 && <span>متبقي من مشاريع: {projectRemaining.toLocaleString("ar-EG")}</span>}
+            {projectRemaining > 0 && upcomingTotal > 0 && " · "}
+            {upcomingTotal > 0 && <span>لسه ما بدأوا (داخلين في الإجمالي): {upcomingTotal.toLocaleString("ar-EG")}</span>}
           </div>
         )}
         <div className="text-xs tracking-wide text-slate-400 mb-2">عميل جديد</div>
