@@ -3195,9 +3195,12 @@ function clientStatus(c) {
   const payments = c.payments || [];
   const amount = Number(c.amount) || 0;
   if (c.payType === "monthly") {
+    if (c.firstDue && cur < c.firstDue.slice(0, 7)) {
+      return { received: 0, remaining: 0, dueISO: c.firstDue, state: "upcoming" };
+    }
     const received = payments.filter((p) => p.month === cur).reduce((sum, p) => sum + Number(p.amount), 0);
     const remaining = Math.max(0, amount - received);
-    const day = Math.min(Math.max(Number(c.dueDay) || 1, 1), daysInMonthOf(cur));
+    const day = Math.min(Math.max(Number(c.firstDue ? c.firstDue.slice(8, 10) : c.dueDay) || 1, 1), daysInMonthOf(cur));
     const dueISO = `${cur}-${String(day).padStart(2, "0")}`;
     let state = "pending";
     if (remaining <= 0) state = "paid";
@@ -3215,6 +3218,7 @@ const CLIENT_STATE = {
   overdue: { label: "متأخر", color: "#fb7185" },
   soon: { label: "قرب", color: "#fbbf24" },
   pending: { label: "مستني", color: "#94a3b8" },
+  upcoming: { label: "لسه ما بدأش", color: "#60a5fa" },
 };
 
 function BlurField({ value, onSave, multiline, placeholder, type, className }) {
@@ -3309,7 +3313,7 @@ function ClientCard({ client, onUpdate, onDelete, addAccountEntry, removeAccount
       </div>
 
       <div className="text-[11px] text-slate-500 mt-1 pr-6">
-        {monthly ? `${client.endDate ? "لحد " + client.endDate : "مدة مفتوحة"} · ميعاد الاستلام يوم ${client.dueDay || 1} · الشهر ده: اتستلم ${st.received.toLocaleString("ar-EG")} · متبقي ${st.remaining.toLocaleString("ar-EG")}` : `مشروع · اتستلم ${st.received.toLocaleString("ar-EG")} · متبقي ${st.remaining.toLocaleString("ar-EG")}`}
+        {monthly ? `${client.endDate ? "لحد " + client.endDate : "مدة مفتوحة"} · ${st.state === "upcoming" ? "أول استلام " + client.firstDue : "ميعاد الاستلام يوم " + (client.firstDue ? Number(client.firstDue.slice(8, 10)) : (client.dueDay || 1)) + " كل شهر"} · الشهر ده: اتستلم ${st.received.toLocaleString("ar-EG")} · متبقي ${st.remaining.toLocaleString("ar-EG")}` : `مشروع · اتستلم ${st.received.toLocaleString("ar-EG")} · متبقي ${st.remaining.toLocaleString("ar-EG")}`}
       </div>
 
       {payOpen && (
@@ -3335,7 +3339,7 @@ function ClientCard({ client, onUpdate, onDelete, addAccountEntry, removeAccount
             <label className="flex flex-col gap-1 text-[10px] text-slate-500">الاسم<BlurField value={client.name} onSave={(v) => v.trim() && onUpdate({ ...client, name: v.trim() })} /></label>
             <label className="flex flex-col gap-1 text-[10px] text-slate-500">الخدمة<BlurField value={client.service} onSave={(v) => onUpdate({ ...client, service: v })} placeholder="سوشيال / إعلانات..." /></label>
             <label className="flex flex-col gap-1 text-[10px] text-slate-500">{monthly ? "الراتب الشهري" : "قيمة المشروع"}<BlurField type="number" value={client.amount} onSave={(v) => onUpdate({ ...client, amount: v })} /></label>
-            {monthly && <label className="flex flex-col gap-1 text-[10px] text-slate-500">يوم الاستلام في الشهر<BlurField type="number" value={client.dueDay} onSave={(v) => onUpdate({ ...client, dueDay: Math.min(31, Math.max(1, v || 1)) })} /></label>}
+            {monthly && <label className="flex flex-col gap-1 text-[10px] text-slate-500">ميعاد الاستلام (أول تاريخ — بيتكرر كل شهر)<BlurField type="date" value={client.firstDue} onSave={(v) => onUpdate({ ...client, firstDue: v, dueDay: v ? Number(v.slice(8, 10)) : client.dueDay })} /></label>}
             <label className="flex flex-col gap-1 text-[10px] text-slate-500">بداية الشغل<BlurField type="date" value={client.startDate} onSave={(v) => onUpdate({ ...client, startDate: v })} /></label>
             <label className="flex flex-col gap-1 text-[10px] text-slate-500">نهاية متوقعة (اختياري)<BlurField type="date" value={client.endDate} onSave={(v) => onUpdate({ ...client, endDate: v })} /></label>
             <label className="flex flex-col gap-1 text-[10px] text-slate-500 col-span-2">جهة الاتصال<BlurField value={client.contact} onSave={(v) => onUpdate({ ...client, contact: v })} placeholder="رقم / واتساب / ايميل" /></label>
@@ -3396,16 +3400,17 @@ function ClientsTab({ clients, updateClients, addAccountEntry, removeAccountEntr
   const [service, setService] = useState("");
   const [payType, setPayType] = useState("monthly");
   const [amount, setAmount] = useState("");
-  const [dueDay, setDueDay] = useState("1");
+  const [firstDue, setFirstDue] = useState(todayISO());
 
   const add = () => {
     if (!name.trim() || !amount) return;
     updateClients([...clients, {
       id: uid(), name: name.trim(), service: service.trim(), payType, amount: Number(amount),
-      dueDay: payType === "monthly" ? Math.min(31, Math.max(1, Number(dueDay) || 1)) : 0,
+      firstDue: payType === "monthly" ? firstDue : "",
+      dueDay: payType === "monthly" && firstDue ? Number(firstDue.slice(8, 10)) : 0,
       status: "active", contact: "", agreement: "", notes: "", payments: [], tasks: [],
     }]);
-    setName(""); setService(""); setAmount(""); setDueDay("1");
+    setName(""); setService(""); setAmount(""); setFirstDue(todayISO());
   };
 
   const activeClients = clients.filter((c) => c.status !== "paused");
@@ -3439,17 +3444,29 @@ function ClientsTab({ clients, updateClients, addAccountEntry, removeAccountEntr
           </div>
         </div>
         <div className="text-xs tracking-wide text-slate-400 mb-2">عميل جديد</div>
-        <div className="flex flex-wrap gap-2">
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="اسم العميل" className={`flex-1 min-w-[140px] ${INPUT_CLS}`} style={{ clipPath: clip }} />
-          <input value={service} onChange={(e) => setService(e.target.value)} placeholder="الخدمة" className={`w-32 ${INPUT_CLS}`} style={{ clipPath: clip }} />
-          <div className="flex gap-1.5">
-            {[["monthly", "شهري"], ["project", "مشروع"]].map(([k, l]) => (
-              <button key={k} onClick={() => setPayType(k)} className="text-xs px-3 py-1.5 border" style={{ clipPath: clip, borderColor: payType === k ? "#22d3ee" : "rgba(148,163,184,0.25)", color: payType === k ? "#22d3ee" : "#94a3b8", background: payType === k ? "rgba(34,211,238,0.1)" : "transparent" }}>{l}</button>
-            ))}
+        <div className="flex flex-wrap gap-3 items-end">
+          <label className="flex flex-col gap-1 text-[10px] text-slate-500 flex-1 min-w-[160px]">اسم العميل
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="اسم العميل" className={INPUT_CLS} style={{ clipPath: clip }} />
+          </label>
+          <label className="flex flex-col gap-1 text-[10px] text-slate-500 flex-[2] min-w-[220px]">الخدمة
+            <input value={service} onChange={(e) => setService(e.target.value)} placeholder="الخدمة (مثال: Personal Branding — سوشيال ميديا)" className={INPUT_CLS} style={{ clipPath: clip }} />
+          </label>
+          <div className="flex flex-col gap-1 text-[10px] text-slate-500">نوع الراتب
+            <div className="flex gap-1.5">
+              {[["monthly", "شهري"], ["project", "مشروع"]].map(([k, l]) => (
+                <button key={k} onClick={() => setPayType(k)} className="text-xs px-3 py-1.5 border" style={{ clipPath: clip, borderColor: payType === k ? "#22d3ee" : "rgba(148,163,184,0.25)", color: payType === k ? "#22d3ee" : "#94a3b8", background: payType === k ? "rgba(34,211,238,0.1)" : "transparent" }}>{l}</button>
+              ))}
+            </div>
           </div>
-          <input value={amount} onChange={(e) => setAmount(e.target.value)} type="number" placeholder={payType === "monthly" ? "الراتب الشهري" : "قيمة المشروع"} className={`w-32 ${INPUT_CLS}`} style={{ clipPath: clip }} />
-          {payType === "monthly" && <input value={dueDay} onChange={(e) => setDueDay(e.target.value)} type="number" min="1" max="31" placeholder="يوم الاستلام" className={`w-24 ${INPUT_CLS}`} style={{ clipPath: clip }} title="يوم الاستلام في الشهر" />}
-          <button onClick={add} className="flex items-center gap-1 text-xs px-4 py-1.5 border border-cyan-400/50 text-cyan-200 hover:bg-cyan-400/10" style={{ clipPath: clip }}><Plus size={13} /> ضيف</button>
+          <label className="flex flex-col gap-1 text-[10px] text-slate-500 w-36">{payType === "monthly" ? "الراتب الشهري" : "قيمة المشروع"}
+            <input value={amount} onChange={(e) => setAmount(e.target.value)} type="number" placeholder="المبلغ" className={INPUT_CLS} style={{ clipPath: clip }} />
+          </label>
+          {payType === "monthly" && (
+            <label className="flex flex-col gap-1 text-[10px] text-slate-500">أول ميعاد استلام (بيتكرر كل شهر)
+              <input value={firstDue} onChange={(e) => setFirstDue(e.target.value)} type="date" className={INPUT_CLS} style={{ clipPath: clip }} />
+            </label>
+          )}
+          <button onClick={add} className="flex items-center gap-1 text-xs px-4 py-2 border border-cyan-400/50 text-cyan-200 hover:bg-cyan-400/10" style={{ clipPath: clip }}><Plus size={13} /> ضيف</button>
         </div>
       </Panel>
 
