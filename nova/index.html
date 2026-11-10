@@ -3195,7 +3195,7 @@ function clientStatus(c) {
   const payments = c.payments || [];
   const amount = Number(c.amount) || 0;
   if (c.payType === "monthly") {
-    if (c.firstDue && cur < c.firstDue.slice(0, 7)) {
+    if (c.firstDue && cur < c.firstDue.slice(0, 7) && !payments.some((p) => p.month === cur)) {
       return { received: 0, discount: 0, remaining: 0, dueISO: c.firstDue, state: "upcoming" };
     }
     const inMonth = payments.filter((p) => p.month === cur);
@@ -3266,8 +3266,10 @@ function ClientCard({ client, onUpdate, onDelete, addAccountEntry, removeAccount
   };
 
   const confirmPay = () => {
-    const amt = Number(payAmount);
-    if (!amt || amt <= 0) return;
+    const gross = Number(payAmount);
+    const disc = Math.max(0, Number(payDiscount) || 0);
+    const amt = gross - disc;
+    if (!gross || gross <= 0 || amt <= 0) return;
     const entry = {
       id: uid(),
       description: `${client.name}${payNote.trim() ? " — " + payNote.trim() : ""}${monthly ? ` (${payMonth})` : ""}`,
@@ -3277,7 +3279,6 @@ function ClientCard({ client, onUpdate, onDelete, addAccountEntry, removeAccount
       wallet: payWallet,
     };
     addAccountEntry("عملاء", entry);
-    const disc = Math.max(0, Number(payDiscount) || 0);
     onUpdate({ ...client, payments: [...payments, { id: uid(), amount: amt, discount: disc, date: payDate, month: monthly ? payMonth : "", wallet: payWallet, note: payNote.trim(), accountEntryId: entry.id }] });
     setPayOpen(false);
   };
@@ -3327,10 +3328,10 @@ function ClientCard({ client, onUpdate, onDelete, addAccountEntry, removeAccount
           <div className="text-[11px] text-slate-400">تسجيل استلام — بيتضاف كدخل على الخزنة اللي تختارها</div>
           <WalletPicker value={payWallet} onChange={setPayWallet} />
           <div className="flex flex-wrap gap-2">
-            <input value={payAmount} onChange={(e) => setPayAmount(e.target.value)} type="number" placeholder="المبلغ" className={`w-28 ${INPUT_CLS}`} style={{ clipPath: clip }} />
+            <input value={payAmount} onChange={(e) => setPayAmount(e.target.value)} type="number" placeholder="المبلغ (قبل الخصم)" className={`w-40 ${INPUT_CLS}`} style={{ clipPath: clip }} />
             <input type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} className={INPUT_CLS} style={{ clipPath: clip }} />
             {monthly && <input type="month" value={payMonth} onChange={(e) => setPayMonth(e.target.value)} className={INPUT_CLS} style={{ clipPath: clip }} title="عن أنهي شهر" />}
-            <input value={payDiscount} onChange={(e) => setPayDiscount(e.target.value)} type="number" placeholder="خصم (اختياري)" title="مبلغ اتخصم من الراتب — بيتحسب من المتبقي بس مش بيتضاف للخزنة" className={`w-32 ${INPUT_CLS}`} style={{ clipPath: clip }} />
+            <input value={payDiscount} onChange={(e) => setPayDiscount(e.target.value)} type="number" placeholder="خصم (اختياري)" title="بيتخصم من المبلغ — الصافي بس هو اللي بيتضاف للخزنة" className={`w-32 ${INPUT_CLS}`} style={{ clipPath: clip }} />
           </div>
           <textarea value={payNote} onChange={(e) => setPayNote(e.target.value)} rows={3} placeholder="ملاحظات الاستلام: خصم، تأخير، اتفاق جديد، أي حاجة تفتكرها..." className={`w-full resize-y ${INPUT_CLS}`} style={{ clipPath: clip }} />
           <div className="flex gap-2">
