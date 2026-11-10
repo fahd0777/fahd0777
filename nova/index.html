@@ -3345,6 +3345,23 @@ function ClientCard({ client, onUpdate, onDelete, addAccountEntry, removeAccount
           </div>
           <label className="flex flex-col gap-1 text-[10px] text-slate-500">الاتفاق<BlurField multiline value={client.agreement} onSave={(v) => onUpdate({ ...client, agreement: v })} placeholder="تفاصيل الاتفاق والراتب..." /></label>
 
+          <div>
+            <div className="text-xs tracking-wide text-slate-400 mb-2">سجل الاستلام</div>
+            <div className="flex flex-col gap-1.5">
+              {payments.length === 0 && <div className="text-xs text-slate-500">مفيش استلام مسجل لسه.</div>}
+              {[...payments].sort((a, b) => (a.date < b.date ? 1 : -1)).map((pay) => (
+                <div key={pay.id} className="flex items-center gap-2 text-sm border px-2.5 py-1.5" style={{ borderColor: "rgba(148,163,184,0.15)", clipPath: clip }}>
+                  <span className="text-[10px] text-slate-500 font-mono shrink-0">{pay.date}</span>
+                  {pay.month && <span className="text-[10px] text-slate-500 shrink-0">عن {pay.month}</span>}
+                  <span className="text-[9px] px-1.5 py-0.5 border shrink-0" style={{ clipPath: clip, borderColor: `${walletColor(pay.wallet)}60`, color: walletColor(pay.wallet) }}>{walletLabel(pay.wallet)}</span>
+                  <span className="flex-1 min-w-0 truncate text-slate-300 text-xs">{pay.note}</span>
+                  <span className="font-mono text-emerald-300 shrink-0">+{Number(pay.amount).toLocaleString("ar-EG")}</span>
+                  <button onClick={() => deletePayment(pay)} className="text-slate-500 hover:text-rose-400 shrink-0"><Trash2 size={13} /></button>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="flex items-center justify-between">
             <button onClick={() => onUpdate({ ...client, status: paused ? "active" : "paused" })} className="text-xs px-3 py-1 border border-slate-600 text-slate-300 hover:bg-slate-800" style={{ clipPath: clip }}>
               {paused ? "رجّع العميل شغال" : "وقّف العميل"}
