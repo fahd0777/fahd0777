@@ -28,7 +28,17 @@
 <style>
   html, body, #root { min-height: 100%; margin: 0; background: #050b13; }
   * { box-sizing: border-box; }
+  input[type="date"], input[type="month"], input[type="time"] { color-scheme: dark; cursor: pointer; }
+  input[type="date"]::-webkit-calendar-picker-indicator, input[type="month"]::-webkit-calendar-picker-indicator { opacity: 1; cursor: pointer; }
 </style>
+<script>
+  document.addEventListener("click", function (e) {
+    var t = e.target;
+    if (t && t.tagName === "INPUT" && (t.type === "date" || t.type === "month" || t.type === "time") && typeof t.showPicker === "function") {
+      try { t.showPicker(); } catch (err) {}
+    }
+  });
+</script>
 <script>
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", function () {
@@ -4173,7 +4183,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-13
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-13 ب
       </div>
     </div>
   );
