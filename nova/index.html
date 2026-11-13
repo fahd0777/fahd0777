@@ -3784,7 +3784,8 @@ function DayStatusBar({ done, total, pct }) {
   );
 }
 
-function FocusCard({ task, onDone, onGo }) {
+function FocusCard({ task, tasks = [], onPick, picked, onDone }) {
+  const [choosing, setChoosing] = useState(false);
   const [endsAt, setEndsAt] = useState(null);
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -3820,7 +3821,23 @@ function FocusCard({ task, onDone, onGo }) {
             )}
             {endsAt && <button onClick={() => setEndsAt(null)} className="px-3 py-2 text-xs border border-slate-500/40 text-slate-300 hover:bg-slate-500/10" style={{ clipPath: clip }}>{finished ? "جلسة جديدة" : "إيقاف"}</button>}
             <button onClick={() => { onDone(); setEndsAt(null); }} className="px-3 py-2 text-xs border border-emerald-400/50 text-emerald-200 hover:bg-emerald-400/10 flex items-center gap-1" style={{ clipPath: clip }}><CheckCircle2 size={14} /> خلصتها</button>
+            {tasks.length > 1 && <button onClick={() => setChoosing((c) => !c)} className="px-3 py-2 text-xs border border-slate-500/40 text-slate-300 hover:bg-slate-500/10" style={{ clipPath: clip }}>{choosing ? "إغلاق" : "غيّر المهمة"}</button>}
+            {picked && <button onClick={() => { onPick(null); setChoosing(false); }} className="px-3 py-2 text-xs text-slate-500 hover:text-slate-300">رجّع الاختيار التلقائي</button>}
           </div>
+          {choosing && (
+            <div className="mt-3 flex flex-col gap-1.5 max-h-64 overflow-y-auto">
+              {tasks.map((t) => {
+                const tp = getPriority(t.priority);
+                return (
+                  <button key={t.key} onClick={() => { onPick(t.key); setChoosing(false); setEndsAt(null); }} className="flex items-center gap-2 text-right text-sm border px-2.5 py-1.5 hover:bg-cyan-400/5" style={{ clipPath: clip, borderColor: t.key === task.key ? "rgba(34,211,238,0.6)" : "rgba(148,163,184,0.18)" }}>
+                    <span className="text-[10px] px-1.5 border shrink-0" style={{ borderColor: tp.color + "66", color: tp.color }}>{tp.label}</span>
+                    <span className="flex-1 min-w-0 truncate text-slate-200">{t.text}</span>
+                    <span className="text-[10px] text-slate-500 shrink-0">{t.source}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </>
       )}
     </Panel>
@@ -3910,7 +3927,12 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
   const dayTotal = habits.length + dashTasks.length + top3Items.length;
   const dayDone = habitsDone + dashTasks.filter((t) => t.done).length + top3Items.filter((i) => i.done).length;
   const dayPct = dayTotal ? Math.round((dayDone / dayTotal) * 100) : 0;
-  const focusTask = dashTasks.find((t) => !t.done) || null;
+  const [focusKey, setFocusKey] = useState(null);
+  const pendingList = dashTasks.filter((t) => !t.done);
+  const pickedTask = pendingList.find((t) => t.key === focusKey) || null;
+  const focusTask = pickedTask || pendingList[0] || null;
+  const [kpiOpen, setKpiOpen] = useState(() => { try { return localStorage.getItem("nova:kpiOpen") === "1"; } catch (e) { return false; } });
+  const toggleKpi = () => setKpiOpen((o) => { const n = !o; try { localStorage.setItem("nova:kpiOpen", n ? "1" : "0"); } catch (e) { /* ignore */ } return n; });
 
   const kpiNames = NOVA_UNITS.map((u) => u.name);
   const kpiAccounts = (accounts || []).filter((c) => !kpiNames.includes(c.name));
@@ -3931,13 +3953,17 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
   return (
     <div className="flex flex-col gap-4">
       <DayStatusBar done={dayDone} total={dayTotal} pct={dayPct} />
-      <FocusCard task={focusTask} onDone={() => focusTask && toggleDashTask(focusTask)} />
-      <KpiRow items={[
+      <FocusCard task={focusTask} tasks={pendingList} picked={!!pickedTask} onPick={setFocusKey} onDone={() => { if (focusTask) toggleDashTask(focusTask); setFocusKey(null); }} />
+      <button onClick={toggleKpi} className="flex items-center gap-2 text-xs text-slate-400 hover:text-cyan-300 self-start px-1 py-1">
+        {kpiOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        {kpiOpen ? "إخفاء الأرقام" : "إظهار الأرقام (الخزن · الدخل · العملاء · الكورسات)"}
+      </button>
+      {kpiOpen && <KpiRow items={[
         { label: "إجمالي الخزن", value: fmtN(walletsTotal), color: walletsTotal >= 0 ? "#22d3ee" : "#fb7185", onClick: () => onGo("accounts") },
         { label: "دخل الشهر ده", value: fmtN(monthIncome), color: "#34d399", onClick: () => onGo("accounts") },
         { label: "متبقي تحصيله من العملاء", value: fmtN(clientsRemaining), color: clientsRemaining > 0 ? "#fbbf24" : "#34d399", sub: urgentClientAlerts > 0 ? `${urgentClientAlerts} متأخر` : "", onClick: () => onGo("clients") },
         { label: "كورسات شغالة", value: fmtN(activeCourseCount), color: "#a78bfa", onClick: () => onGo("courses") },
-      ]} />
+      ]} />}
       <Top3Panel top3={top3} updateTop3={updateTop3} />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <Panel className="p-4 md:col-span-2" glow>
@@ -4528,7 +4554,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-13 ي
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-13 ك
       </div>
     </div>
   );
