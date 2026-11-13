@@ -3756,6 +3756,92 @@ function NovaTab({ accounts, addAccountEntry, removeAccountEntry, novaTasks, upd
 }
 
 /* ---------------- Dashboard tab ---------------- */
+function DayStatusBar({ done, total, pct }) {
+  const h = new Date().getHours();
+  const greet = h < 5 ? "سهران يا فهد" : h < 12 ? "صباح الخير يا فهد" : h < 17 ? "يومك ماشي يا فهد" : h < 21 ? "مساء الخير يا فهد" : "ليلة هادية يا فهد";
+  const dateStr = new Date().toLocaleDateString("ar-EG", { weekday: "long", day: "numeric", month: "long" });
+  const msg = total === 0 ? "ضيف مهام وعادات النهارده وابدأ" : pct >= 100 ? "اليوم اتقفل 💪 كل حاجة خلصت" : pct >= 75 ? `فاضل ${total - done} بس وتقفل اليوم` : pct >= 40 ? `خلصت ${done} من ${total} — كمّل` : done > 0 ? `بدأت — ${done} من ${total}` : `${total} حاجة مستنياك النهارده — ابدأ بأهم واحدة`;
+  const r = 30, c = 2 * Math.PI * r;
+  const col = pct >= 100 ? "#34d399" : pct >= 50 ? "#22d3ee" : "#fbbf24";
+  return (
+    <Panel className="p-4" glow>
+      <CornerTicks />
+      <div className="flex items-center gap-4">
+        <div className="relative shrink-0" style={{ width: 76, height: 76 }}>
+          <svg width="76" height="76" viewBox="0 0 76 76" style={{ transform: "rotate(-90deg)" }}>
+            <circle cx="38" cy="38" r={r} fill="none" stroke="rgba(148,163,184,0.15)" strokeWidth="6" />
+            <circle cx="38" cy="38" r={r} fill="none" stroke={col} strokeWidth="6" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - Math.min(pct, 100) / 100)} style={{ transition: "stroke-dashoffset 0.6s ease" }} />
+          </svg>
+          <div className="absolute inset-0 flex items-center justify-center text-lg font-mono" style={{ color: col }}>{pct}%</div>
+        </div>
+        <div className="min-w-0">
+          <div className="text-xs text-slate-500">{dateStr}</div>
+          <div className="text-xl text-slate-100 font-medium">{greet}</div>
+          <div className="text-sm mt-0.5" style={{ color: col }}>{msg}</div>
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+function FocusCard({ task, onDone, onGo }) {
+  const [endsAt, setEndsAt] = useState(null);
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!endsAt) return undefined;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [endsAt]);
+  const left = endsAt ? Math.max(0, Math.ceil((endsAt - now) / 1000)) : 0;
+  const finished = endsAt && left === 0;
+  const mm = String(Math.floor(left / 60)).padStart(2, "0");
+  const ss = String(left % 60).padStart(2, "0");
+  const pr = task ? getPriority(task.priority) : null;
+  return (
+    <Panel className="p-5" glow>
+      <CornerTicks />
+      <div className="text-[11px] tracking-widest text-cyan-300/80 mb-2">التركيز دلوقتي</div>
+      {!task ? (
+        <div className="text-sm text-slate-400">مفيش مهام عاجلة ولا مهمة مستنية — يومك فاضي أو خلصت كله 👏</div>
+      ) : (
+        <>
+          <div className="flex items-start gap-2 mb-1">
+            <span className="text-[10px] px-1.5 py-0.5 border shrink-0 mt-1" style={{ borderColor: pr.color + "66", color: pr.color }}>{pr.label}</span>
+            <div className="text-lg text-slate-100 leading-snug">{task.text}</div>
+          </div>
+          <div className="text-[11px] text-slate-500 mb-3">{task.source}</div>
+          <div className="flex flex-wrap items-center gap-2">
+            {!endsAt ? (
+              <button onClick={() => { setNow(Date.now()); setEndsAt(Date.now() + 25 * 60 * 1000); }} className="px-4 py-2 text-sm border border-cyan-400/60 text-cyan-100 hover:bg-cyan-400/10" style={{ clipPath: clip }}>ابدأ ٢٥ دقيقة تركيز</button>
+            ) : finished ? (
+              <span className="text-sm text-emerald-300">خلصت الجلسة 💪 خد استراحة ٥ دقايق</span>
+            ) : (
+              <span className="text-2xl font-mono text-cyan-200">{mm}:{ss}</span>
+            )}
+            {endsAt && <button onClick={() => setEndsAt(null)} className="px-3 py-2 text-xs border border-slate-500/40 text-slate-300 hover:bg-slate-500/10" style={{ clipPath: clip }}>{finished ? "جلسة جديدة" : "إيقاف"}</button>}
+            <button onClick={() => { onDone(); setEndsAt(null); }} className="px-3 py-2 text-xs border border-emerald-400/50 text-emerald-200 hover:bg-emerald-400/10 flex items-center gap-1" style={{ clipPath: clip }}><CheckCircle2 size={14} /> خلصتها</button>
+          </div>
+        </>
+      )}
+    </Panel>
+  );
+}
+
+function KpiRow({ items }) {
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {items.map((k) => (
+        <Panel key={k.label} className="p-3" onClick={k.onClick}>
+          <CornerTicks />
+          <div className="text-[10px] text-slate-400 mb-1">{k.label}</div>
+          <div className="text-xl font-mono" style={{ color: k.color }}>{k.value}</div>
+          {k.sub && <div className="text-[10px] text-slate-500 mt-0.5">{k.sub}</div>}
+        </Panel>
+      ))}
+    </div>
+  );
+}
+
 function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNovaTasks, appointments, daily, accounts, courses, commitments, goals, top3, updateTop3, onGo }) {
   const today = todayISO();
   const [justDone, setJustDone] = useState({});
@@ -3818,8 +3904,40 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
   const dueSoonCommitments = commitments.filter((c) => commitmentRemaining(c) > 0 && c.dueDate >= today && c.dueDate <= addDaysToISO(today, 3));
   const activeGoals = [...goals].filter((g) => g.progress < 100).sort((a, b) => (a.deadline < b.deadline ? -1 : 1));
 
+  const habits = daily.filter((d) => d.type === "habit");
+  const habitsDone = habits.filter((d) => d.history && d.history[today]).length;
+  const top3Items = top3 && top3.date === today ? top3.items.filter((i) => i.text && i.text.trim()) : [];
+  const dayTotal = habits.length + dashTasks.length + top3Items.length;
+  const dayDone = habitsDone + dashTasks.filter((t) => t.done).length + top3Items.filter((i) => i.done).length;
+  const dayPct = dayTotal ? Math.round((dayDone / dayTotal) * 100) : 0;
+  const focusTask = dashTasks.find((t) => !t.done) || null;
+
+  const kpiNames = NOVA_UNITS.map((u) => u.name);
+  const kpiAccounts = (accounts || []).filter((c) => !kpiNames.includes(c.name));
+  const curMonth = today.slice(0, 7);
+  let walletsTotal = 0, monthIncome = 0;
+  kpiAccounts.forEach((cat) => cat.entries.forEach((e) => {
+    const amt = Number(e.amount) || 0;
+    walletsTotal += e.type === "income" ? amt : -amt;
+    if (cat.name !== "تحويلات" && e.type === "income" && String(e.date || "").slice(0, 7) === curMonth) monthIncome += amt;
+  }));
+  const clientsRemaining = (clients || []).filter((c) => c.status !== "paused" && c.payType === "monthly").reduce((sum, c) => {
+    const st = clientStatus(c);
+    return sum + (st.state === "upcoming" ? 0 : st.remaining) + (st.missedTotal || 0);
+  }, 0);
+  const activeCourseCount = courses.filter((c) => courseStage(c) === "active").length;
+  const fmtN = (n) => n.toLocaleString("ar-EG");
+
   return (
     <div className="flex flex-col gap-4">
+      <DayStatusBar done={dayDone} total={dayTotal} pct={dayPct} />
+      <FocusCard task={focusTask} onDone={() => focusTask && toggleDashTask(focusTask)} />
+      <KpiRow items={[
+        { label: "إجمالي الخزن", value: fmtN(walletsTotal), color: walletsTotal >= 0 ? "#22d3ee" : "#fb7185", onClick: () => onGo("accounts") },
+        { label: "دخل الشهر ده", value: fmtN(monthIncome), color: "#34d399", onClick: () => onGo("accounts") },
+        { label: "متبقي تحصيله من العملاء", value: fmtN(clientsRemaining), color: clientsRemaining > 0 ? "#fbbf24" : "#34d399", sub: urgentClientAlerts > 0 ? `${urgentClientAlerts} متأخر` : "", onClick: () => onGo("clients") },
+        { label: "كورسات شغالة", value: fmtN(activeCourseCount), color: "#a78bfa", onClick: () => onGo("courses") },
+      ]} />
       <Top3Panel top3={top3} updateTop3={updateTop3} />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <Panel className="p-4 md:col-span-2" glow>
@@ -4410,7 +4528,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-13 ط
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-13 ي
       </div>
     </div>
   );
