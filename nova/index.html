@@ -2297,7 +2297,7 @@ function SectionTitle({ children, color = "#22d3ee" }) {
   );
 }
 
-function ExpensePanel({ accounts, addAccountEntry }) {
+function ExpensePanel({ accounts, addAccountEntry, allAccounts, updateAccounts }) {
   const existingCategories = accounts.length ? accounts.map((c) => c.name) : ["مصروفات عامة"];
   const [categoryRaw, setCategory] = useState(null);
   const category = categoryRaw === "__custom__" || existingCategories.includes(categoryRaw) ? categoryRaw : null;
@@ -2346,6 +2346,21 @@ function ExpensePanel({ accounts, addAccountEntry }) {
             className="bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none text-sm text-slate-100 placeholder:text-slate-500 px-2.5 py-1.5"
             style={{ clipPath: clip }}
           />
+        )}
+        {category === "__custom__" && (
+          <button
+            onClick={() => {
+              const n = customCategory.trim();
+              if (!n) return;
+              if (!allAccounts.some((c) => c.name === n)) updateAccounts([...allAccounts, { id: uid(), name: n, entries: [] }]);
+              setCustomCategory("");
+              setCategory(n);
+            }}
+            className="text-xs px-3 py-1.5 border border-cyan-400/50 text-cyan-200 hover:bg-cyan-400/10"
+            style={{ clipPath: clip }}
+          >
+            إنشاء القسم
+          </button>
         )}
         <input
           value={desc}
@@ -2639,7 +2654,7 @@ function AccountsTab({ accounts, updateAccounts, commitments, updateCommitments,
       </div>
       {op === "balance" && <AddBalancePanel addAccountEntry={addAccountEntry} />}
       {op === "transfer" && <TransferPanel addAccountEntry={addAccountEntry} />}
-      {op === "expense" && <ExpensePanel accounts={mainAccounts.filter((c) => !isIncomeCategory(c) && c.name !== "تحويلات")} addAccountEntry={addAccountEntry} />}
+      {op === "expense" && <ExpensePanel accounts={mainAccounts.filter((c) => !isIncomeCategory(c) && c.name !== "تحويلات")} addAccountEntry={addAccountEntry} allAccounts={accounts} updateAccounts={updateAccounts} />}
 
       <SectionTitle color="#34d399">الدخل</SectionTitle>
       <CashFlowPanel accounts={accounts} updateAccounts={updateAccounts} />
@@ -4276,7 +4291,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-13 هـ
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-13 و
       </div>
     </div>
   );
