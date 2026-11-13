@@ -28,6 +28,7 @@
 <style>
   html, body, #root { min-height: 100%; margin: 0; background: #050b13; }
   * { box-sizing: border-box; }
+  .fold-open .fold-title { display: none; }
   input[type="date"], input[type="month"], input[type="time"] { color-scheme: dark; cursor: pointer; }
   input[type="date"]::-webkit-calendar-picker-indicator, input[type="month"]::-webkit-calendar-picker-indicator { opacity: 1; cursor: pointer; }
 </style>
@@ -3784,7 +3785,7 @@ function DayStatusBar({ done, total, pct }) {
   );
 }
 
-function FocusCard({ task, tasks = [], onPick, picked, onDone }) {
+function FocusCard({ task, tasks = [], onPick, picked, onDone, hideTitle }) {
   const [choosing, setChoosing] = useState(false);
   const [endsAt, setEndsAt] = useState(null);
   const [now, setNow] = useState(Date.now());
@@ -3801,7 +3802,7 @@ function FocusCard({ task, tasks = [], onPick, picked, onDone }) {
   return (
     <Panel className="p-5" glow>
       <CornerTicks />
-      <div className="text-[11px] tracking-widest text-cyan-300/80 mb-2">التركيز دلوقتي</div>
+      {!hideTitle && <div className="text-[11px] tracking-widest text-cyan-300/80 mb-2">التركيز دلوقتي</div>}
       {!task ? (
         <div className="text-sm text-slate-400">مفيش مهام عاجلة ولا مهمة مستنية — يومك فاضي أو خلصت كله 👏</div>
       ) : (
@@ -3855,6 +3856,20 @@ function KpiRow({ items }) {
           {k.sub && <div className="text-[10px] text-slate-500 mt-0.5">{k.sub}</div>}
         </Panel>
       ))}
+    </div>
+  );
+}
+
+function Fold({ id, title, summary, color = "#22d3ee", open, onToggle, className = "", children }) {
+  const isOpen = !!open[id];
+  return (
+    <div className={`flex flex-col gap-3 ${className}`}>
+      <button onClick={() => onToggle(id)} className="flex items-center gap-2 px-3 py-2.5 border text-sm w-full text-right transition-colors" style={{ clipPath: clip, borderColor: isOpen ? color + "88" : color + "33", background: isOpen ? color + "10" : "rgba(10,20,32,0.6)", color: isOpen ? color : "#cbd5e1" }}>
+        {isOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+        <span className="flex-1 min-w-0 truncate">{title}</span>
+        {summary !== undefined && summary !== null && summary !== "" && <span className="text-xs font-mono shrink-0" style={{ color }}>{summary}</span>}
+      </button>
+      {isOpen && <div className="fold-open">{children}</div>}
     </div>
   );
 }
@@ -3931,8 +3946,9 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
   const pendingList = dashTasks.filter((t) => !t.done);
   const pickedTask = pendingList.find((t) => t.key === focusKey) || null;
   const focusTask = pickedTask || pendingList[0] || null;
-  const [kpiOpen, setKpiOpen] = useState(() => { try { return localStorage.getItem("nova:kpiOpen") === "1"; } catch (e) { return false; } });
-  const toggleKpi = () => setKpiOpen((o) => { const n = !o; try { localStorage.setItem("nova:kpiOpen", n ? "1" : "0"); } catch (e) { /* ignore */ } return n; });
+  const [foldOpen, setFoldOpen] = useState(() => { try { return JSON.parse(localStorage.getItem("nova:dashFold") || "{}") || {}; } catch (e) { return {}; } });
+  const toggleFold = (id) => setFoldOpen((o) => { const n = { ...o, [id]: !o[id] }; try { localStorage.setItem("nova:dashFold", JSON.stringify(n)); } catch (e) { /* ignore */ } return n; });
+  const fp = { open: foldOpen, onToggle: toggleFold };
 
   const kpiNames = NOVA_UNITS.map((u) => u.name);
   const kpiAccounts = (accounts || []).filter((c) => !kpiNames.includes(c.name));
@@ -3953,23 +3969,26 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
   return (
     <div className="flex flex-col gap-4">
       <DayStatusBar done={dayDone} total={dayTotal} pct={dayPct} />
-      <FocusCard task={focusTask} tasks={pendingList} picked={!!pickedTask} onPick={setFocusKey} onDone={() => { if (focusTask) toggleDashTask(focusTask); setFocusKey(null); }} />
-      <button onClick={toggleKpi} className="flex items-center gap-2 text-xs text-slate-400 hover:text-cyan-300 self-start px-1 py-1">
-        {kpiOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        {kpiOpen ? "إخفاء الأرقام" : "إظهار الأرقام (الخزن · الدخل · العملاء · الكورسات)"}
-      </button>
-      {kpiOpen && <KpiRow items={[
+      <Fold id="focus" title="التركيز دلوقتي" summary={focusTask ? (focusTask.text.length > 22 ? focusTask.text.slice(0, 22) + "…" : focusTask.text) : "مفيش"} {...fp}>
+        <FocusCard hideTitle task={focusTask} tasks={pendingList} picked={!!pickedTask} onPick={setFocusKey} onDone={() => { if (focusTask) toggleDashTask(focusTask); setFocusKey(null); }} />
+      </Fold>
+      <Fold id="kpi" title="الأرقام — الخزن والدخل والعملاء والكورسات" summary={fmtN(walletsTotal)} color="#34d399" {...fp}>
+        <KpiRow items={[
         { label: "إجمالي الخزن", value: fmtN(walletsTotal), color: walletsTotal >= 0 ? "#22d3ee" : "#fb7185", onClick: () => onGo("accounts") },
         { label: "دخل الشهر ده", value: fmtN(monthIncome), color: "#34d399", onClick: () => onGo("accounts") },
         { label: "متبقي تحصيله من العملاء", value: fmtN(clientsRemaining), color: clientsRemaining > 0 ? "#fbbf24" : "#34d399", sub: urgentClientAlerts > 0 ? `${urgentClientAlerts} متأخر` : "", onClick: () => onGo("clients") },
         { label: "كورسات شغالة", value: fmtN(activeCourseCount), color: "#a78bfa", onClick: () => onGo("courses") },
-      ]} />}
-      <Top3Panel top3={top3} updateTop3={updateTop3} />
+      ]} />
+      </Fold>
+      <Fold id="top3" title="أهم 3 النهارده" summary={top3 && top3.date === today ? `${top3.items.filter((i) => i.done).length}/${top3.items.filter((i) => i.text && i.text.trim()).length}` : "0/0"} color="#fbbf24" {...fp}>
+        <Top3Panel top3={top3} updateTop3={updateTop3} />
+      </Fold>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <Panel className="p-4 md:col-span-2" glow>
+      <Fold id="tasks" title="المهام — عاجلة ومهمة" summary={pendingTaskCount} color="#fb7185" className="md:col-span-2" {...fp}>
+      <Panel className="p-4" glow>
         <CornerTicks />
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs tracking-wide text-slate-400">المهام — عاجلة ومهمة</span>
+          <span className="text-xs tracking-wide text-slate-400 fold-title">المهام — عاجلة ومهمة</span>
           <div className="flex items-center gap-3">
             <span className="text-lg font-mono text-rose-300">{pendingTaskCount}</span>
             <button onClick={() => onGo("projects")} className="text-[11px] text-cyan-300 hover:underline">كل المشاريع ←</button>
@@ -4039,11 +4058,13 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
           </div>
         )}
       </Panel>
+      </Fold>
 
+      <Fold id="appts" title="مواعيد النهاردة" summary={todayAppts.length} color="#22d3ee" className="" {...fp}>
       <Panel className="p-4" onClick={() => onGo("calendar")}>
         <CornerTicks />
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs tracking-wide text-slate-400">مواعيد النهاردة</span>
+          <span className="text-xs tracking-wide text-slate-400 fold-title">مواعيد النهاردة</span>
           <span className="text-lg font-mono text-cyan-300">{todayAppts.length}</span>
         </div>
         {todayAppts.length === 0 ? (
@@ -4056,11 +4077,13 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
           </div>
         )}
       </Panel>
+      </Fold>
 
+      <Fold id="habits" title="عادات لسه ماخلصتهاش النهاردة" summary={pendingHabits.length} color="#a78bfa" className="" {...fp}>
       <Panel className="p-4" onClick={() => onGo("daily")}>
         <CornerTicks />
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs tracking-wide text-slate-400">عادات لسه ماخلصتهاش النهاردة</span>
+          <span className="text-xs tracking-wide text-slate-400 fold-title">عادات لسه ماخلصتهاش النهاردة</span>
           <span className="text-lg font-mono text-amber-300">{pendingHabits.length}</span>
         </div>
         {pendingHabits.length === 0 ? (
@@ -4073,11 +4096,13 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
           </div>
         )}
       </Panel>
+      </Fold>
 
+      <Fold id="clients" title="مستحقات العملاء" summary={clientAlerts.length} color="#fbbf24" className="" {...fp}>
       <Panel className="p-4" onClick={() => onGo("clients")}>
         <CornerTicks />
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs tracking-wide text-slate-400">مستحقات العملاء</span>
+          <span className="text-xs tracking-wide text-slate-400 fold-title">مستحقات العملاء</span>
           <span className="text-lg font-mono" style={{ color: urgentClientAlerts > 0 ? "#fb7185" : "#6ee7b7" }}>{clientAlerts.length}</span>
         </div>
         {clientAlerts.length === 0 ? (
@@ -4097,11 +4122,13 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
           </div>
         )}
       </Panel>
+      </Fold>
 
+      <Fold id="commit" title="تنبيهات الالتزامات" summary={overdueCommitments.length + dueSoonCommitments.length} color="#fb7185" className="" {...fp}>
       <Panel className="p-4" onClick={() => onGo("accounts")}>
         <CornerTicks />
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs tracking-wide text-slate-400">تنبيهات الالتزامات</span>
+          <span className="text-xs tracking-wide text-slate-400 fold-title">تنبيهات الالتزامات</span>
         </div>
         {(overdueCommitments.length > 0 || dueSoonCommitments.length > 0) ? (
           <div className="flex flex-col gap-1">
@@ -4112,11 +4139,13 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
           <div className="text-xs text-slate-500">مفيش التزامات مستعجلة.</div>
         )}
       </Panel>
+      </Fold>
 
-      <Panel className="p-4 md:col-span-2" onClick={() => onGo("goals")}>
+      <Fold id="goals" title="أهداف نشطة" summary={activeGoals.length} color="#34d399" className="md:col-span-2" {...fp}>
+      <Panel className="p-4" onClick={() => onGo("goals")}>
         <CornerTicks />
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs tracking-wide text-slate-400">أهداف نشطة</span>
+          <span className="text-xs tracking-wide text-slate-400 fold-title">أهداف نشطة</span>
           <span className="text-lg font-mono text-cyan-300">{activeGoals.length}</span>
         </div>
         {activeGoals.length === 0 ? (
@@ -4132,11 +4161,13 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
           </div>
         )}
       </Panel>
+      </Fold>
 
-      <Panel className="p-4 md:col-span-2" onClick={() => onGo("courses")}>
+      <Fold id="near" title="كورسات قربت تخلص (75%+)" summary={nearDoneCourses.length} color="#a78bfa" className="md:col-span-2" {...fp}>
+      <Panel className="p-4" onClick={() => onGo("courses")}>
         <CornerTicks />
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs tracking-wide text-slate-400">كورسات قربت تخلص (75%+)</span>
+          <span className="text-xs tracking-wide text-slate-400 fold-title">كورسات قربت تخلص (75%+)</span>
           <span className="text-lg font-mono text-emerald-300">{nearDoneCourses.length}</span>
         </div>
         {nearDoneCourses.length === 0 ? (
@@ -4150,8 +4181,11 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
           </div>
         )}
       </Panel>
+      </Fold>
       </div>
-      <BackupPanel />
+      <Fold id="backup" title="نسخ احتياطي يدوي" color="#94a3b8" {...fp}>
+        <BackupPanel />
+      </Fold>
     </div>
   );
 }
@@ -4554,7 +4588,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-13 ك
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-13 ل
       </div>
     </div>
   );
