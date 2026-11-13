@@ -30,6 +30,7 @@
   * { box-sizing: border-box; }
   .fold-open .fold-title { display: none; }
   @keyframes nova-fall { 0% { transform: translateY(-12vh) rotate(0deg); opacity: 1; } 100% { transform: translateY(108vh) rotate(720deg); opacity: 0.9; } }
+  @keyframes nova-edge { 0% { box-shadow: inset 0 0 0 rgba(52,211,153,0); } 30% { box-shadow: inset 0 0 90px rgba(52,211,153,0.35); } 100% { box-shadow: inset 0 0 0 rgba(52,211,153,0); } }
   @keyframes nova-pop { 0% { transform: scale(0.6); opacity: 0; } 60% { transform: scale(1.06); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
   input[type="date"], input[type="month"], input[type="time"] { color-scheme: dark; cursor: pointer; }
   input[type="date"]::-webkit-calendar-picker-indicator, input[type="month"]::-webkit-calendar-picker-indicator { opacity: 1; cursor: pointer; }
@@ -3759,7 +3760,43 @@ function NovaTab({ accounts, addAccountEntry, removeAccountEntry, novaTasks, upd
 }
 
 /* ---------------- Dashboard tab ---------------- */
-function Celebration({ onClose }) {
+const CELE_TASK = [
+  "كمّل يا وحش، خطوة كمان وتقفل اليوم 🔥",
+  "تاسك راح.. وإنت لسه ماشي بنفس القوة 💪",
+  "ده الفرق بين اللي بيقول واللي بينفّذ 👊",
+  "إنجاز جديد في رصيدك.. استمر 🚀",
+  "مش أي حد بيخلّص.. إنت بتخلّص ✅",
+  "خلصت! الطاقة دي هي اللي بتبني براند 🏆",
+  "واحدة وراها واحدة.. كده بتتبني الإمبراطورية 👑",
+  "ضربة قوية! التالي بقى 🎯",
+  "بثبات.. وإنت ماشي صح ⚡",
+  "كل تاسك بتخلصه بيقربك من اللي عايزه 🌟",
+  "الشغل الحقيقي بيتعمل كده.. من غير كلام 🔥",
+];
+const CELE_HABITS = [
+  "عاداتك كلها خلصت.. ده انضباط الكبار 🌙",
+  "الانضباط اللي بيبني الإنسان لسه شغال عندك 🔥",
+  "عادات اليوم اتقفلت.. ربنا يتقبل ويبارك 🤲",
+  "يوم تاني من الالتزام.. دي القوة الحقيقية 💎",
+  "اللي بيحافظ على عاداته بيحافظ على مستقبله 🏅",
+  "سلسلتك مستمرة.. متكسرهاش ⛓️",
+];
+const CELE_DAY = [
+  "التلاتة الأهم خلصوا — إنت مختلف عن السوق",
+  "أهم ٣ اتنفذوا.. ده يوم محسوب مش ضايع 🏆",
+  "قفلت اليوم بإيدك.. نام مرتاح 🌙",
+  "التركيز دايماً بيكسب — النهارده كسبت 🚀",
+  "٣ من ٣! ده يوم رجل أعمال حقيقي 👑",
+  "ناس كتير بتخطط.. إنت خلّصت ✅",
+];
+const pickPhrase = (list, store, key) => {
+  let t = list[Math.floor(Math.random() * list.length)];
+  if (list.length > 1) { let g = 0; while (t === store[key] && g++ < 6) t = list[Math.floor(Math.random() * list.length)]; }
+  store[key] = t;
+  return t;
+};
+
+function Celebration({ emoji = "💪", title, text, onClose }) {
   const pieces = useMemo(() => Array.from({ length: 44 }, (_, i) => ({
     left: Math.random() * 100,
     delay: Math.random() * 0.9,
@@ -3773,11 +3810,23 @@ function Celebration({ onClose }) {
       {pieces.map((p, i) => (
         <span key={i} style={{ position: "absolute", top: 0, left: p.left + "%", width: p.size, height: p.size * (p.round ? 1 : 1.6), background: p.color, borderRadius: p.round ? "50%" : 2, animation: `nova-fall ${p.dur}s ${p.delay}s ease-in forwards`, opacity: 0 }} />
       ))}
-      <div className="absolute inset-x-0 top-1/3 flex justify-center" style={{ pointerEvents: "auto" }} onClick={onClose}>
-        <div className="px-8 py-5 border text-center" style={{ clipPath: clipBig, borderColor: "rgba(52,211,153,0.7)", background: "rgba(6,13,22,0.94)", boxShadow: "0 0 40px rgba(52,211,153,0.35)", animation: "nova-pop 0.5s ease-out both" }}>
-          <div className="text-3xl mb-1">💪</div>
-          <div className="text-xl text-emerald-300 font-medium">اليوم اتقفل</div>
-          <div className="text-xs text-slate-400 mt-1">كل مهام وعادات النهارده خلصت — عاش</div>
+      <div className="absolute inset-x-0 top-1/3 flex justify-center px-4" style={{ pointerEvents: "auto" }} onClick={onClose}>
+        <div className="px-8 py-5 border text-center max-w-md" style={{ clipPath: clipBig, borderColor: "rgba(52,211,153,0.7)", background: "rgba(6,13,22,0.94)", boxShadow: "0 0 40px rgba(52,211,153,0.35)", animation: "nova-pop 0.5s ease-out both" }}>
+          <div className="text-3xl mb-1">{emoji}</div>
+          <div className="text-xl text-emerald-300 font-medium">{title}</div>
+          <div className="text-sm text-slate-300 mt-1.5 leading-relaxed">{text}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TaskToast({ text }) {
+  return (
+    <div className="fixed inset-0 z-50" style={{ pointerEvents: "none", animation: "nova-edge 1.4s ease-out both" }}>
+      <div className="absolute inset-x-0 top-4 flex justify-center px-4">
+        <div className="px-5 py-3 border text-sm text-emerald-100 text-center max-w-md" style={{ clipPath: clip, borderColor: "rgba(52,211,153,0.6)", background: "rgba(6,13,22,0.95)", boxShadow: "0 0 24px rgba(52,211,153,0.35)", animation: "nova-pop 0.35s ease-out both" }}>
+          {text}
         </div>
       </div>
     </div>
@@ -3971,18 +4020,6 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
   const dayTotal = habits.length + dashTasks.length + top3Items.length;
   const dayDone = habitsDone + dashTasks.filter((t) => t.done).length + top3Items.filter((i) => i.done).length;
   const dayPct = dayTotal ? Math.round((dayDone / dayTotal) * 100) : 0;
-  const [celebrate, setCelebrate] = useState(false);
-  const prevPct = useRef(dayPct);
-  useEffect(() => {
-    if (prevPct.current < 100 && dayPct >= 100 && dayTotal > 0) {
-      setCelebrate(true);
-      const t = setTimeout(() => setCelebrate(false), 4200);
-      prevPct.current = dayPct;
-      return () => clearTimeout(t);
-    }
-    prevPct.current = dayPct;
-    return undefined;
-  }, [dayPct, dayTotal]);
   const [focusKey, setFocusKey] = useState(null);
   const pendingList = dashTasks.filter((t) => !t.done);
   const pickedTask = pendingList.find((t) => t.key === focusKey) || null;
@@ -4009,7 +4046,6 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
 
   return (
     <div className="flex flex-col gap-4">
-      {celebrate && <Celebration onClose={() => setCelebrate(false)} />}
       <DayStatusBar done={dayDone} total={dayTotal} pct={dayPct} />
       <Fold id="focus" title="التركيز دلوقتي" summary={focusTask ? (focusTask.text.length > 22 ? focusTask.text.slice(0, 22) + "…" : focusTask.text) : "مفيش"} {...fp}>
         <FocusCard hideTitle task={focusTask} tasks={pendingList} picked={!!pickedTask} onPick={setFocusKey} onDone={() => { if (focusTask) toggleDashTask(focusTask); setFocusKey(null); }} />
@@ -4374,6 +4410,9 @@ function App() {
   const [theme, setTheme] = useState({ preset: "grid", image: "", dim: 0.65 });
   const [loaded, setLoaded] = useState(false);
   const [saveError, setSaveError] = useState(false);
+  const [cele, setCele] = useState(null);
+  const celePrev = useRef(null);
+  const lastPhrase = useRef({ task: "", habits: "", day: "" });
   const [now, setNow] = useState(new Date());
   const debounceRef = useRef({});
 
@@ -4414,6 +4453,33 @@ function App() {
       setLoaded(true);
     })();
   }, []);
+
+  useEffect(() => {
+    if (!loaded) return;
+    const today = todayISO();
+    let taskDone = 0;
+    projects.forEach((p) => (p.tasks || []).forEach((t) => { if (t.done) taskDone++; }));
+    NOVA_UNITS.forEach((u) => ((novaTasks && novaTasks[u.key]) || []).forEach((t) => { if (t.done) taskDone++; }));
+    const habits = daily.filter((d) => d.type === "habit");
+    const habitsAll = habits.length > 0 && habits.every((d) => d.history && d.history[today]);
+    const t3 = topThree && topThree.date === today ? topThree.items.filter((i) => i.text && i.text.trim()) : [];
+    const t3Done = t3.filter((i) => i.done).length;
+    const t3All = t3.length === 3 && t3Done === 3;
+    const cur = { taskDone, habitsAll, t3Done, t3All };
+    const prev = celePrev.current;
+    celePrev.current = cur;
+    if (!prev) return;
+    const id = Date.now();
+    if (t3All && !prev.t3All) setCele({ id, kind: "day", emoji: "💪", title: "اليوم اتقفل", text: pickPhrase(CELE_DAY, lastPhrase.current, "day") });
+    else if (habitsAll && !prev.habitsAll) setCele({ id, kind: "habits", emoji: "🌙", title: "عادات اليوم خلصت", text: pickPhrase(CELE_HABITS, lastPhrase.current, "habits") });
+    else if (t3Done > prev.t3Done || taskDone > prev.taskDone) setCele({ id, kind: "task", text: pickPhrase(CELE_TASK, lastPhrase.current, "task") });
+  }, [loaded, projects, novaTasks, daily, topThree]);
+
+  useEffect(() => {
+    if (!cele) return undefined;
+    const t = setTimeout(() => setCele(null), cele.kind === "task" ? 2800 : 4500);
+    return () => clearTimeout(t);
+  }, [cele]);
 
   const persist = useCallback((key, value, debounceMs = 0) => {
     const doSave = async () => {
@@ -4545,6 +4611,8 @@ function App() {
         )}
       </Panel>
 
+      {cele && cele.kind === "task" && <TaskToast key={cele.id} text={cele.text} />}
+      {cele && cele.kind !== "task" && <Celebration key={cele.id} emoji={cele.emoji} title={cele.title} text={cele.text} onClose={() => setCele(null)} />}
       {saveError && (
         <div className="mb-4 text-xs text-rose-300 border border-rose-500/30 bg-rose-500/10 px-3 py-2" style={{ clipPath: clip }}>
           حصل خطأ في الحفظ — التعديل اتسجل بس ممكن يضيع لو قفلت الصفحة.
@@ -4630,7 +4698,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-13 م
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-13 ن
       </div>
     </div>
   );
