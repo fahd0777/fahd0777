@@ -1569,6 +1569,7 @@ function CoursesTab({ courses, appointments, updateCourses, addAppointment, dele
   const activeCourses = courses.filter((c) => courseStage(c) === "active");
   const pendingCourses = courses.filter((c) => courseStage(c) === "pending");
   const doneCourses = courses.filter((c) => courseStage(c) === "done");
+  const sumPrice = (list) => list.reduce((sum, c) => sum + (Number(c.price) || 0), 0);
   const pendingTotal = pendingCourses.reduce((sum, c) => sum + (Number(c.price) || 0), 0);
 
   const renderCourse = (course) => {
@@ -1655,9 +1656,9 @@ function CoursesTab({ courses, appointments, updateCourses, addAppointment, dele
       {courses.length === 0 && <div className="text-sm text-slate-500 text-center py-6">لسه مفيش كورسات — ضيف أول واحد فوق.</div>}
 
       {[
-        { key: "active", list: activeCourses, label: "كورسات شغالة", color: "#22d3ee", Icon: BookOpen, extra: "" },
-        { key: "pending", list: pendingCourses, label: "تحت التحصيل", color: "#fbbf24", Icon: Clock3, extra: pendingTotal > 0 ? " · " + pendingTotal.toLocaleString("ar-EG") : "" },
-        { key: "done", list: doneCourses, label: "كورسات خلصت", color: "#34d399", Icon: CheckCircle2, extra: "" },
+        { key: "active", list: activeCourses, label: "كورسات شغالة", color: "#22d3ee", Icon: BookOpen, extra: sumPrice(activeCourses) > 0 ? " · " + sumPrice(activeCourses).toLocaleString("ar-EG") : "" },
+        { key: "pending", list: pendingCourses, label: "تحت التحصيل", color: "#fbbf24", Icon: Clock3, extra: sumPrice(pendingCourses) > 0 ? " · " + sumPrice(pendingCourses).toLocaleString("ar-EG") : "" },
+        { key: "done", list: doneCourses, label: "كورسات خلصت", color: "#34d399", Icon: CheckCircle2, extra: sumPrice(doneCourses) > 0 ? " · " + sumPrice(doneCourses).toLocaleString("ar-EG") : "" },
       ].map(({ key, list, label, color, Icon, extra }) => (
         <div key={key} className="flex flex-col gap-3">
           <button
@@ -4183,7 +4184,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-13 ب
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-13 ج
       </div>
     </div>
   );
