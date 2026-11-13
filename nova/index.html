@@ -2211,9 +2211,96 @@ function TransferPanel({ addAccountEntry }) {
   );
 }
 
+function AddBalancePanel({ addAccountEntry }) {
+  const [wallet, setWallet] = useState(DEFAULT_WALLET);
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+  const [date, setDate] = useState(todayISO());
+  const [done, setDone] = useState(false);
+  const invalid = !amount || Number(amount) <= 0;
+  const submit = () => {
+    if (invalid) return;
+    addAccountEntry("إضافة رصيد", { id: uid(), description: note.trim() || "إضافة رصيد", amount: Number(amount), type: "income", date, wallet });
+    setAmount("");
+    setNote("");
+    setDone(true);
+    setTimeout(() => setDone(false), 2000);
+  };
+  return (
+    <Panel className="p-4">
+      <CornerTicks />
+      <div className="text-xs tracking-wide text-slate-400 mb-3">إضافة رصيد لخزنة</div>
+      <div className="flex flex-col gap-2">
+        <WalletPicker value={wallet} onChange={setWallet} />
+        <div className="flex flex-wrap items-center gap-2">
+          <input value={amount} onChange={(e) => setAmount(e.target.value)} type="number" placeholder="المبلغ" className={`w-28 ${INPUT_CLS}`} style={{ clipPath: clip }} />
+          <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="ملاحظة (اختياري) — مثال: رصيد افتتاحي" className={`flex-1 min-w-[160px] ${INPUT_CLS}`} style={{ clipPath: clip }} />
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={INPUT_CLS} style={{ clipPath: clip }} />
+          <button onClick={submit} disabled={invalid} className="flex items-center gap-1 text-xs px-3 py-1.5 border border-emerald-400/50 text-emerald-200 hover:bg-emerald-400/10 disabled:opacity-40" style={{ clipPath: clip }}>
+            <Plus size={13} /> {done ? "اتضاف ✅" : "ضيف الرصيد"}
+          </button>
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+function SummaryPanel({ accounts }) {
+  const [period, setPeriod] = useState("month");
+  const cur = todayISO().slice(0, 7);
+  let income = 0, expense = 0, walletsTotal = 0;
+  accounts.forEach((cat) =>
+    cat.entries.forEach((e) => {
+      const amt = Number(e.amount) || 0;
+      walletsTotal += e.type === "income" ? amt : -amt;
+      if (cat.name === "تحويلات") return;
+      if (period === "month" && String(e.date || "").slice(0, 7) !== cur) return;
+      if (e.type === "income") income += amt; else expense += amt;
+    })
+  );
+  const net = income - expense;
+  const fmt = (n) => n.toLocaleString("ar-EG");
+  const Box = ({ label, value, color }) => (
+    <div className="border px-3 py-2" style={{ borderColor: color + "55", clipPath: clip }}>
+      <div className="text-[10px] text-slate-400">{label}</div>
+      <div className="text-lg font-mono" style={{ color }}>{fmt(value)}</div>
+    </div>
+  );
+  return (
+    <Panel className="p-4">
+      <CornerTicks />
+      <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+        <div className="text-xs tracking-wide text-slate-400">ملخص الحسابات (من غير التحويلات بين الخزن)</div>
+        <div className="flex gap-1.5">
+          {[["month", "الشهر ده"], ["all", "الكل"]].map(([k, l]) => (
+            <button key={k} onClick={() => setPeriod(k)} className="text-[11px] px-2.5 py-1 border" style={{ clipPath: clip, borderColor: period === k ? "#22d3ee" : "rgba(148,163,184,0.25)", color: period === k ? "#22d3ee" : "#94a3b8", background: period === k ? "rgba(34,211,238,0.1)" : "transparent" }}>{l}</button>
+          ))}
+        </div>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <Box label="المصروفات" value={expense} color="#fb7185" />
+        <Box label="الإيرادات" value={income} color="#34d399" />
+        <Box label="إجمالي الخزن" value={walletsTotal} color={walletsTotal >= 0 ? "#22d3ee" : "#fb7185"} />
+        <Box label={period === "month" ? "الصافي (الشهر ده)" : "الصافي (الكل)"} value={net} color={net >= 0 ? "#fbbf24" : "#fb7185"} />
+      </div>
+    </Panel>
+  );
+}
+
+function SectionTitle({ children, color = "#22d3ee" }) {
+  return (
+    <div className="flex items-center gap-2 mt-3">
+      <div className="h-px flex-1" style={{ background: color + "40" }} />
+      <span className="text-xs tracking-wide" style={{ color }}>{children}</span>
+      <div className="h-px flex-1" style={{ background: color + "40" }} />
+    </div>
+  );
+}
+
 function ExpensePanel({ accounts, addAccountEntry }) {
   const existingCategories = accounts.length ? accounts.map((c) => c.name) : ["مصروفات عامة"];
-  const [category, setCategory] = useState(existingCategories[0]);
+  const [categoryRaw, setCategory] = useState(existingCategories[0]);
+  const category = categoryRaw === "__custom__" || existingCategories.includes(categoryRaw) ? categoryRaw : existingCategories[0];
   const [customCategory, setCustomCategory] = useState("");
   const [subtype, setSubtype] = useState("تشغيلية");
   const [wallet, setWallet] = useState(DEFAULT_WALLET);
@@ -2241,6 +2328,7 @@ function ExpensePanel({ accounts, addAccountEntry }) {
       <CornerTicks />
       <div className="text-xs tracking-wide text-slate-400 mb-3">إضافة مصروف</div>
       <div className="flex flex-wrap items-center gap-2 mb-2">
+        <span className="text-[10px] text-slate-500 shrink-0">القسم:</span>
         <select value={category} onChange={(e) => setCategory(e.target.value)} className={selectCls} style={{ clipPath: clip }}>
           {existingCategories.map((c) => (
             <option key={c} value={c} className="bg-slate-900">{c}</option>
@@ -2324,7 +2412,7 @@ function WalletPicker({ value, onChange }) {
   );
 }
 
-const INCOME_CATEGORY_NAMES = ["كورسات", "مستحقات", "عملاء"];
+const INCOME_CATEGORY_NAMES = ["كورسات", "مستحقات", "عملاء", "إضافة رصيد"];
 const isIncomeCategory = (c) => !!c.cashflow || INCOME_CATEGORY_NAMES.includes(c.name);
 
 /* ---------------- Cash Flow: sections (e.g. company collections) with entries that hit a wallet ---------------- */
@@ -2530,30 +2618,30 @@ function AccountsTab({ accounts, updateAccounts, commitments, updateCommitments,
   const novaNames = NOVA_UNITS.map((u) => u.name);
   const mainAccounts = accounts.filter((c) => !novaNames.includes(c.name));
 
-  const grandTotal = computeGrandTotal(mainAccounts);
+  const [op, setOp] = useState("balance");
+  const ops = [["balance", "إضافة رصيد", "#34d399"], ["transfer", "تحويل بين الخزن", "#22d3ee"], ["expense", "إضافة مصروف", "#fb7185"]];
 
   return (
     <div className="flex flex-col gap-4">
-      <Panel className="p-4" glow>
-        <CornerTicks />
-        <div className="flex items-center justify-between">
-          <div className="text-xs tracking-wide text-slate-400">الصافي الإجمالي — كل الأقسام</div>
-          <div className="text-xl font-mono" style={{ color: grandTotal >= 0 ? "#34d399" : "#fb7185" }}>
-            {grandTotal.toLocaleString("ar-EG")}
-          </div>
-        </div>
-      </Panel>
-
       <WalletsPanel accounts={mainAccounts} />
 
-      <TransferPanel addAccountEntry={addAccountEntry} />
+      <SummaryPanel accounts={mainAccounts} />
 
+      <SectionTitle>عمليات الخزن</SectionTitle>
+      <div className="flex gap-2 flex-wrap">
+        {ops.map(([k, l, c]) => (
+          <button key={k} onClick={() => setOp(k)} className="text-xs px-3 py-2 border flex-1 min-w-[110px]" style={{ clipPath: clip, borderColor: op === k ? c : "rgba(148,163,184,0.25)", color: op === k ? c : "#94a3b8", background: op === k ? c + "14" : "transparent" }}>{l}</button>
+        ))}
+      </div>
+      {op === "balance" && <AddBalancePanel addAccountEntry={addAccountEntry} />}
+      {op === "transfer" && <TransferPanel addAccountEntry={addAccountEntry} />}
+      {op === "expense" && <ExpensePanel accounts={mainAccounts.filter((c) => !isIncomeCategory(c) && c.name !== "تحويلات")} addAccountEntry={addAccountEntry} />}
+
+      <SectionTitle color="#34d399">الدخل</SectionTitle>
       <CashFlowPanel accounts={accounts} updateAccounts={updateAccounts} />
-
       <ReceivablesPanel receivables={receivables || []} updateReceivables={updateReceivables} addAccountEntry={addAccountEntry} removeAccountEntry={removeAccountEntry} />
 
-      <ExpensePanel accounts={mainAccounts.filter((c) => !isIncomeCategory(c) && c.name !== "تحويلات")} addAccountEntry={addAccountEntry} />
-
+      <SectionTitle color="#fb7185">المصروفات والالتزامات</SectionTitle>
       <CommitmentsPanel commitments={commitments} updateCommitments={updateCommitments} addAccountEntry={addAccountEntry} removeAccountEntry={removeAccountEntry} />
 
       {mainAccounts.length === 0 && <div className="text-sm text-slate-500 text-center py-6">لسه مفيش أقسام حسابات — ضيف قسم من Cash Flow، أو من إضافة مصروف، أو خلّص كورس وهيتضاف القسم أوتوماتيك.</div>}
@@ -4184,7 +4272,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-13 ج
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-13 د
       </div>
     </div>
   );
