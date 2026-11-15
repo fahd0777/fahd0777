@@ -1280,12 +1280,14 @@ function CourseCard({ course, appointments, onUpdate, onDelete, addAppointment, 
   const [sessionsDraft, setSessionsDraft] = useState("");
   const [editErr, setEditErr] = useState("");
   const [startDraft, setStartDraft] = useState("");
+  const [modeDraft, setModeDraft] = useState("");
 
   const startEdit = () => {
     setNameDraft(course.name);
     setPriceDraft(String(course.price));
     setSessionsDraft(String(course.lectures.length));
     setStartDraft(course.startDate || "");
+    setModeDraft(course.mode || "");
     setEditErr("");
     setEditingName(true);
   };
@@ -1305,7 +1307,7 @@ function CourseCard({ course, appointments, onUpdate, onDelete, addAppointment, 
       if (hasData) { setEditErr("السيشنز الأخيرة فيها بيانات أو ميعاد — امسحها الأول أو قلّل بعدد أقل."); return; }
       lectures = lectures.slice(0, count);
     }
-    onUpdate({ ...course, name: n, price: priceNum, lectures, startDate: startDraft });
+    onUpdate({ ...course, name: n, price: priceNum, lectures, startDate: startDraft, mode: modeDraft });
     setEditErr("");
     setEditingName(false);
   };
@@ -1372,6 +1374,9 @@ function CourseCard({ course, appointments, onUpdate, onDelete, addAppointment, 
                 {open ? <ChevronDown size={16} className="text-slate-400 shrink-0" /> : <ChevronRight size={16} className="text-slate-400 shrink-0" />}
                 <BookOpen size={15} className="text-amber-300 shrink-0" />
                 <span className={`text-sm font-medium text-slate-100 truncate min-w-0 ${course.done ? "line-through opacity-60" : ""}`}>{course.name}</span>
+                {course.mode && (
+                  <span className="shrink-0 text-[10px] px-1.5 py-0.5 border" style={{ borderColor: course.mode === "offline" ? "rgba(251,191,36,0.45)" : "rgba(34,211,238,0.45)", color: course.mode === "offline" ? "#fcd34d" : "#67e8f9" }}>{course.mode === "offline" ? "أوفلاين" : "أونلاين"}</span>
+                )}
                 {startLabel(course.startDate) && (
                   <span className="shrink-0 text-[10px] px-1.5 py-0.5 border" style={{ borderColor: startLabel(course.startDate).started ? "rgba(52,211,153,0.4)" : "rgba(251,191,36,0.4)", color: startLabel(course.startDate).started ? "#6ee7b7" : "#fcd34d" }}>{startLabel(course.startDate).text}</span>
                 )}
@@ -1395,6 +1400,12 @@ function CourseCard({ course, appointments, onUpdate, onDelete, addAppointment, 
                   <input value={priceDraft} onChange={(e) => setPriceDraft(e.target.value)} type="number" className="w-28 bg-slate-900/60 border border-cyan-400/40 px-2 py-1 text-sm text-slate-100 outline-none focus:border-cyan-300" />
                 </label>
               )}
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                النوع
+                {[["offline", "أوفلاين", "#fbbf24"], ["online", "أونلاين", "#22d3ee"]].map(([k, l, c]) => (
+                  <button key={k} onClick={() => setModeDraft(modeDraft === k ? "" : k)} className="text-xs px-2.5 py-1 border" style={{ clipPath: clip, borderColor: modeDraft === k ? c : "rgba(148,163,184,0.25)", color: modeDraft === k ? c : "#94a3b8", background: modeDraft === k ? c + "14" : "transparent" }}>{l}</button>
+                ))}
+              </div>
               <label className="flex items-center gap-1.5 text-[11px] text-slate-400">
                 بداية الكورس
                 <input value={startDraft} onChange={(e) => setStartDraft(e.target.value)} type="date" className="bg-slate-900/60 border border-cyan-400/40 px-2 py-1 text-sm text-slate-100 outline-none focus:border-cyan-300" />
@@ -1537,6 +1548,7 @@ function CoursesTab({ courses, appointments, updateCourses, addAppointment, dele
   const [newSessions, setNewSessions] = useState(8);
   const [priceError, setPriceError] = useState(false);
   const [newStart, setNewStart] = useState("");
+  const [newMode, setNewMode] = useState("online");
   const [openSec, setOpenSec] = useState({ active: false, pending: false, done: false });
   const toggleSec = (k) => setOpenSec((o) => ({ ...o, [k]: !o[k] }));
 
@@ -1548,7 +1560,7 @@ function CoursesTab({ courses, appointments, updateCourses, addAppointment, dele
     }
     const count = Math.max(1, Number(newSessions) || 1);
     const lectures = Array.from({ length: count }, () => ({ title: "", description: "", notes: "", done: false, date: "", time: "", duration: 60, apptId: null }));
-    updateCourses([...courses, { id: uid(), name: newCourse.trim(), price: priceNum, type: newType, done: false, accountEntryId: null, lectures, startDate: newStart }]);
+    updateCourses([...courses, { id: uid(), name: newCourse.trim(), price: priceNum, type: newType, done: false, accountEntryId: null, lectures, startDate: newStart, mode: newMode }]);
     setNewCourse("");
     setNewPrice("");
     setNewSessions(8);
@@ -1630,6 +1642,11 @@ function CoursesTab({ courses, appointments, updateCourses, addAppointment, dele
               min="1"
               className="w-12 bg-transparent outline-none text-sm text-slate-100 text-center py-2"
             />
+          </div>
+          <div className="flex gap-1.5">
+            {[["online", "أونلاين", "#22d3ee"], ["offline", "أوفلاين", "#fbbf24"]].map(([k, l, c]) => (
+              <button key={k} onClick={() => setNewMode(k)} className="text-xs px-3 py-2 border" style={{ clipPath: clip, borderColor: newMode === k ? c : "rgba(148,163,184,0.25)", color: newMode === k ? c : "#94a3b8", background: newMode === k ? c + "14" : "transparent" }}>{l}</button>
+            ))}
           </div>
           <label className="flex items-center gap-1.5 border border-cyan-500/25 px-2.5 text-[10px] text-slate-500" style={{ clipPath: clip }}>
             بداية الكورس
@@ -4698,7 +4715,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-13 ن
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-15 أ
       </div>
     </div>
   );
