@@ -1380,10 +1380,14 @@ function CourseCard({ course, appointments, onUpdate, onDelete, addAppointment, 
             </>
           ) : (
             <>
-              <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-2 min-w-0 flex-1 text-right">
-                {open ? <ChevronDown size={16} className="text-slate-400 shrink-0" /> : <ChevronRight size={16} className="text-slate-400 shrink-0" />}
-                <BookOpen size={15} className="text-amber-300 shrink-0" />
-                <span className={`text-sm font-medium text-slate-100 truncate min-w-0 ${course.done ? "line-through opacity-60" : ""}`}>{course.name}</span>
+              <button onClick={() => setOpen((o) => !o)} className="flex items-start gap-2 min-w-0 flex-1 text-right">
+                <span className="flex items-center gap-1.5 shrink-0 mt-0.5">
+                  {open ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
+                  <BookOpen size={15} className="text-amber-300" />
+                </span>
+                <span className="flex flex-col gap-1.5 min-w-0 flex-1">
+                  <span className={`text-sm font-medium text-slate-100 leading-snug break-words whitespace-normal ${course.done ? "line-through opacity-60" : ""}`}>{course.name}</span>
+                  <span className="flex flex-wrap gap-1.5">
                 {trackOf(course.track) && (
                   <span className="shrink-0 text-[10px] px-1.5 py-0.5 border" style={{ borderColor: trackOf(course.track).color + "77", color: trackOf(course.track).color }}>{trackOf(course.track).label}</span>
                 )}
@@ -1393,6 +1397,8 @@ function CourseCard({ course, appointments, onUpdate, onDelete, addAppointment, 
                 {startLabel(course.startDate) && (
                   <span className="shrink-0 text-[10px] px-1.5 py-0.5 border" style={{ borderColor: startLabel(course.startDate).started ? "rgba(52,211,153,0.4)" : "rgba(251,191,36,0.4)", color: startLabel(course.startDate).started ? "#6ee7b7" : "#fcd34d" }}>{startLabel(course.startDate).text}</span>
                 )}
+                  </span>
+                </span>
               </button>
               <button
                 onClick={startEdit}
@@ -4740,7 +4746,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-15 ب
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-15 ج
       </div>
     </div>
   );
