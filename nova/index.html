@@ -1088,7 +1088,23 @@ function DailyTab({ daily, updateDaily }) {
 }
 
 /* ---------------- Calendar tab ---------------- */
-function CalendarTab({ appointments, addAppointment, deleteAppointment }) {
+function CalendarTab({ appointments, addAppointment, deleteAppointment, courses = [], updateCourses }) {
+  const [linkCourse, setLinkCourse] = useState("");
+  const [linkLecture, setLinkLecture] = useState("");
+  const linkable = courses.filter((c) => courseStage(c) === "active");
+  const linkedCourse = linkable.find((c) => c.id === linkCourse) || null;
+  const handleAddAppt = (appt) => {
+    if (linkedCourse && linkLecture !== "" && updateCourses) {
+      const idx = Number(linkLecture);
+      const prevId = linkedCourse.lectures[idx] && linkedCourse.lectures[idx].apptId;
+      if (prevId) deleteAppointment(prevId);
+      addAppointment({ ...appt, courseId: linkedCourse.id, lectureIdx: idx, projectName: linkedCourse.name, source: "lecture" });
+      updateCourses(courses.map((c) => (c.id === linkedCourse.id ? { ...c, lectures: c.lectures.map((x, i) => (i === idx ? { ...x, date: appt.date, time: appt.time, duration: appt.duration, apptId: appt.id, title: x.title || appt.title } : x)) } : c)));
+      setLinkLecture("");
+    } else {
+      addAppointment(appt);
+    }
+  };
   const [monthDate, setMonthDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(todayISO());
 
@@ -1181,7 +1197,22 @@ function CalendarTab({ appointments, addAppointment, deleteAppointment }) {
               ))}
             </div>
           )}
-          <AppointmentForm appointments={appointments} initialDate={selectedDay} onAdd={addAppointment} />
+          {linkable.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 mb-2 text-[11px] text-slate-400">
+              اربطه بسيشن كورس (اختياري):
+              <select value={linkCourse} onChange={(e) => { setLinkCourse(e.target.value); setLinkLecture(""); }} className="bg-slate-900/60 border border-cyan-400/40 px-2 py-1 text-xs text-slate-100 outline-none max-w-full">
+                <option value="" className="bg-slate-900">— من غير ربط —</option>
+                {linkable.map((c) => <option key={c.id} value={c.id} className="bg-slate-900">{c.name.length > 40 ? c.name.slice(0, 40) + "…" : c.name}</option>)}
+              </select>
+              {linkedCourse && (
+                <select value={linkLecture} onChange={(e) => setLinkLecture(e.target.value)} className="bg-slate-900/60 border border-cyan-400/40 px-2 py-1 text-xs text-slate-100 outline-none">
+                  <option value="" className="bg-slate-900">— اختار السيشن —</option>
+                  {linkedCourse.lectures.map((x, i) => <option key={i} value={i} className="bg-slate-900">{`سيشن ${i + 1}${x.title ? " — " + x.title : ""}${x.date ? " (" + x.date + ")" : ""}`}</option>)}
+                </select>
+              )}
+            </div>
+          )}
+          <AppointmentForm appointments={appointments} initialDate={selectedDay} onAdd={handleAddAppt} />
         </Panel>
       </div>
     </div>
@@ -1192,6 +1223,17 @@ function CalendarTab({ appointments, addAppointment, deleteAppointment }) {
 function LectureRow({ lecture, idx, appointments, onUpdate, addAppointment, deleteAppointment }) {
   const [scheduling, setScheduling] = useState(false);
   const l = { title: "", description: "", notes: "", done: false, date: "", time: "", duration: 60, apptId: null, ...lecture };
+
+  const freeAppts = (appointments || []).filter((a) => a.source !== "lecture" && a.source !== "task").sort((a, b) => (a.date < b.date ? 1 : -1));
+  const handleLink = (id) => {
+    const old = (appointments || []).find((a) => a.id === id);
+    if (!old) return;
+    if (l.apptId && l.apptId !== old.id) deleteAppointment(l.apptId);
+    deleteAppointment(old.id);
+    addAppointment({ ...old });
+    onUpdate({ date: old.date, time: old.time, duration: old.duration, apptId: old.id, ...(l.title ? {} : { title: old.title }) });
+    setScheduling(false);
+  };
 
   const handleSchedule = (appt) => {
     if (l.apptId) deleteAppointment(l.apptId);
@@ -1226,6 +1268,15 @@ function LectureRow({ lecture, idx, appointments, onUpdate, addAppointment, dele
 
       {scheduling && (
         <div className="mb-2">
+          {freeAppts.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 mb-2 text-[11px] text-slate-400">
+              اربط بميعاد موجود في الكاليندر:
+              <select value="" onChange={(e) => e.target.value && handleLink(e.target.value)} className="bg-slate-900/60 border border-cyan-400/40 px-2 py-1 text-xs text-slate-100 outline-none max-w-full">
+                <option value="" className="bg-slate-900">— اختار ميعاد —</option>
+                {freeAppts.map((a) => <option key={a.id} value={a.id} className="bg-slate-900">{a.date} · {formatTime12(a.time)} · {a.title}</option>)}
+              </select>
+            </div>
+          )}
           <AppointmentForm
             appointments={appointments}
             initialTitle={l.title || `محاضرة ${idx + 1}`}
@@ -4707,7 +4758,7 @@ function App() {
           {tab === "goals" && <GoalsTab goals={goals} updateGoals={updateGoals} />}
           {tab === "projects" && <ProjectsTab projects={projects} appointments={appointments} updateProjects={updateProjects} addAppointment={addAppointment} />}
           {tab === "daily" && <DailyTab daily={daily} updateDaily={updateDaily} />}
-          {tab === "calendar" && <CalendarTab appointments={appointments} addAppointment={addAppointment} deleteAppointment={deleteAppointment} />}
+          {tab === "calendar" && <CalendarTab appointments={appointments} addAppointment={addAppointment} deleteAppointment={deleteAppointment} courses={courses} updateCourses={updateCourses} />}
           {tab === "courses" && (
             <CoursesTab
               courses={courses}
@@ -4746,7 +4797,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-15 ج
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-16 أ
       </div>
     </div>
   );
