@@ -524,6 +524,106 @@ function TabButton({ active, onClick, icon: Icon, label, badge }) {
   );
 }
 
+/* ---------------- Time field: type (auto-select) or pick by scroll ---------------- */
+function TimeField({ value, onChange, inputCls }) {
+  const pad = (n) => String(n).padStart(2, "0");
+  const parts = value ? value.split(":").map(Number) : [null, null];
+  const h24 = parts[0], mm = parts[1];
+  const h12 = h24 == null ? null : (h24 % 12 === 0 ? 12 : h24 % 12);
+  const [pmLocal, setPmLocal] = useState(true);
+  const pm = h24 == null ? pmLocal : h24 >= 12;
+  const [editing, setEditing] = useState(null);
+  const [hd, setHd] = useState("");
+  const [md, setMd] = useState("");
+  const [open, setOpen] = useState(false);
+  const mRef = useRef(null);
+  const emit = (h, m, p) => onChange(`${pad((h % 12) + (p ? 12 : 0))}:${pad(m)}`);
+
+  const onHour = (e) => {
+    const d = e.target.value.replace(/\D/g, "").slice(0, 2);
+    setHd(d);
+    if (!d) return;
+    const n = Number(d);
+    if (n >= 13 && n <= 23) { setPmLocal(true); onChange(`${pad(n)}:${pad(mm == null ? 0 : mm)}`); }
+    else if (n >= 1 && n <= 12) emit(n, mm == null ? 0 : mm, pm);
+    if ((d.length === 2 || n >= 2) && mRef.current) mRef.current.focus();
+  };
+  const onMin = (e) => {
+    const d = e.target.value.replace(/\D/g, "").slice(0, 2);
+    setMd(d);
+    if (!d) return;
+    const n = Number(d);
+    if (n <= 59) emit(h12 == null ? 12 : h12, n, pm);
+  };
+  const togglePm = () => {
+    const np = !pm;
+    setPmLocal(np);
+    if (h24 != null) emit(h12, mm == null ? 0 : mm, np);
+  };
+  const box = `${inputCls} w-9 text-center px-1`;
+  const mins = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
+  if (mm != null && !mins.includes(mm)) mins.push(mm), mins.sort((a, b) => a - b);
+
+  return (
+    <div className="relative" dir="ltr">
+      <div className="flex items-center gap-1 border border-cyan-500/25 focus-within:border-cyan-400/60 px-1.5 py-0.5" style={{ clipPath: clip }}>
+        <input
+          inputMode="numeric"
+          value={editing === "h" ? hd : (h12 == null ? "" : pad(h12))}
+          placeholder="--"
+          onFocus={(e) => { setEditing("h"); setHd(h12 == null ? "" : pad(h12)); const t = e.target; setTimeout(() => t.select(), 0); }}
+          onBlur={() => setEditing(null)}
+          onChange={onHour}
+          className="w-8 bg-transparent outline-none text-sm text-slate-100 text-center py-1 focus:bg-cyan-400/20"
+        />
+        <span className="text-slate-500">:</span>
+        <input
+          ref={mRef}
+          inputMode="numeric"
+          value={editing === "m" ? md : (mm == null ? "" : pad(mm))}
+          placeholder="--"
+          onFocus={(e) => { setEditing("m"); setMd(mm == null ? "" : pad(mm)); const t = e.target; setTimeout(() => t.select(), 0); }}
+          onBlur={() => setEditing(null)}
+          onChange={onMin}
+          className="w-8 bg-transparent outline-none text-sm text-slate-100 text-center py-1 focus:bg-cyan-400/20"
+        />
+        <button type="button" onClick={togglePm} className="text-xs px-1.5 py-1 border border-cyan-400/40 text-cyan-200 hover:bg-cyan-400/10" title="ص / م">
+          {pm ? "م" : "ص"}
+        </button>
+        <button type="button" onClick={() => setOpen((o) => !o)} className="text-cyan-300 hover:text-cyan-100 px-1" title="اختار بالسكرول">
+          <Clock3 size={15} />
+        </button>
+      </div>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute z-50 mt-1 flex gap-1 p-1.5 border border-cyan-400/40 bg-slate-950 shadow-xl">
+            <div className="max-h-44 overflow-y-auto flex flex-col gap-0.5 pr-1">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((h) => (
+                <button key={h} type="button" onClick={() => emit(h, mm == null ? 0 : mm, pm)}
+                  className={`px-3 py-1 text-sm ${h12 === h ? "bg-cyan-400/30 text-cyan-100" : "text-slate-300 hover:bg-cyan-400/10"}`}>{pad(h)}</button>
+              ))}
+            </div>
+            <div className="max-h-44 overflow-y-auto flex flex-col gap-0.5 pr-1">
+              {mins.map((m) => (
+                <button key={m} type="button" onClick={() => emit(h12 == null ? 12 : h12, m, pm)}
+                  className={`px-3 py-1 text-sm ${mm === m ? "bg-cyan-400/30 text-cyan-100" : "text-slate-300 hover:bg-cyan-400/10"}`}>{pad(m)}</button>
+              ))}
+            </div>
+            <div className="flex flex-col gap-0.5">
+              {[["ص", false], ["م", true]].map(([lbl, v]) => (
+                <button key={lbl} type="button" onClick={() => { setPmLocal(v); if (h24 != null) emit(h12, mm == null ? 0 : mm, v); }}
+                  className={`px-3 py-1 text-sm ${pm === v ? "bg-cyan-400/30 text-cyan-100" : "text-slate-300 hover:bg-cyan-400/10"}`}>{lbl}</button>
+              ))}
+              <button type="button" onClick={() => setOpen(false)} className="mt-auto px-2 py-1 text-xs text-emerald-300 border border-emerald-400/40">تم</button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 /* ---------------- Appointment mini-form ---------------- */
 function AppointmentForm({ appointments, initialTitle = "", initialDate = "", initialTime = "", initialDuration = 60, excludeId = null, onAdd, onCancel, compact = false, onLink = null }) {
   const [title, setTitle] = useState(initialTitle);
@@ -554,7 +654,7 @@ function AppointmentForm({ appointments, initialTitle = "", initialDate = "", in
           <input value={title} onChange={(e) => { setTitle(e.target.value); setConfirming(false); }} placeholder="عنوان الميعاد" className={`${inputCls} flex-1 min-w-[140px]`} style={{ clipPath: clip }} />
         )}
         <input type="date" value={date} onChange={(e) => { setDate(e.target.value); setConfirming(false); }} className={inputCls} style={{ clipPath: clip }} />
-        <input type="time" value={time} onChange={(e) => { setTime(e.target.value); setConfirming(false); }} className={inputCls} style={{ clipPath: clip }} />
+        <TimeField value={time} onChange={(v) => { setTime(v); setConfirming(false); }} inputCls={inputCls} />
         <div className="flex items-center gap-1.5 border border-cyan-500/25 focus-within:border-cyan-400/60 px-2.5" style={{ clipPath: clip }}>
           <span className="text-[10px] text-slate-500 shrink-0">المدة</span>
           <input
@@ -4813,7 +4913,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-16 ج
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-16 د
       </div>
     </div>
   );
