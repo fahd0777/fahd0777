@@ -537,10 +537,14 @@ function TimeField({ value, onChange, inputCls }) {
   const [md, setMd] = useState("");
   const [open, setOpen] = useState(false);
   const mRef = useRef(null);
+  const fresh = useRef({ h: false, m: false });
   const emit = (h, m, p) => onChange(`${pad((h % 12) + (p ? 12 : 0))}:${pad(m)}`);
 
   const onHour = (e) => {
-    const d = e.target.value.replace(/\D/g, "").slice(0, 2);
+    let raw = e.target.value.replace(/\D/g, "");
+    if (fresh.current.h_) { fresh.current.h_ = false; raw = raw.slice(-1); }
+    if (raw.length > 2) raw = raw.slice(-1);
+    const d = raw;
     setHd(d);
     if (!d) return;
     const n = Number(d);
@@ -549,7 +553,10 @@ function TimeField({ value, onChange, inputCls }) {
     if ((d.length === 2 || n >= 2) && mRef.current) mRef.current.focus();
   };
   const onMin = (e) => {
-    const d = e.target.value.replace(/\D/g, "").slice(0, 2);
+    let raw = e.target.value.replace(/\D/g, "");
+    if (fresh.current.m_) { fresh.current.m_ = false; raw = raw.slice(-1); }
+    if (raw.length > 2) raw = raw.slice(-1);
+    const d = raw;
     setMd(d);
     if (!d) return;
     const n = Number(d);
@@ -571,7 +578,9 @@ function TimeField({ value, onChange, inputCls }) {
           inputMode="numeric"
           value={editing === "h" ? hd : (h12 == null ? "" : pad(h12))}
           placeholder="--"
-          onFocus={(e) => { setEditing("h"); setHd(h12 == null ? "" : pad(h12)); const t = e.target; setTimeout(() => t.select(), 0); }}
+          onFocus={(e) => { fresh.current.h_ = true; setEditing("h"); setHd(h12 == null ? "" : pad(h12)); e.target.select(); }}
+          onMouseUp={(e) => e.preventDefault()}
+          onClick={(e) => { fresh.current.h_ = true; e.target.select(); }}
           onBlur={() => setEditing(null)}
           onChange={onHour}
           className="w-8 bg-transparent outline-none text-sm text-slate-100 text-center py-1 focus:bg-cyan-400/20"
@@ -582,7 +591,9 @@ function TimeField({ value, onChange, inputCls }) {
           inputMode="numeric"
           value={editing === "m" ? md : (mm == null ? "" : pad(mm))}
           placeholder="--"
-          onFocus={(e) => { setEditing("m"); setMd(mm == null ? "" : pad(mm)); const t = e.target; setTimeout(() => t.select(), 0); }}
+          onFocus={(e) => { fresh.current.m_ = true; setEditing("m"); setMd(mm == null ? "" : pad(mm)); e.target.select(); }}
+          onMouseUp={(e) => e.preventDefault()}
+          onClick={(e) => { fresh.current.m_ = true; e.target.select(); }}
           onBlur={() => setEditing(null)}
           onChange={onMin}
           className="w-8 bg-transparent outline-none text-sm text-slate-100 text-center py-1 focus:bg-cyan-400/20"
@@ -4913,7 +4924,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-16 د
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-16 هـ
       </div>
     </div>
   );
