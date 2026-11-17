@@ -1219,6 +1219,12 @@ function CalendarTab({ appointments, addAppointment, deleteAppointment, courses 
   const [linkLecture, setLinkLecture] = useState("");
   const linkable = courses.filter((c) => courseStage(c) === "active");
   const linkedCourse = linkable.find((c) => c.id === linkCourse) || null;
+  const removeAppt = (a) => {
+    deleteAppointment(a.id);
+    if (a.source === "lecture" && a.courseId && updateCourses) {
+      updateCourses(courses.map((c) => (c.id === a.courseId ? { ...c, lectures: (c.lectures || []).map((x) => (x.apptId === a.id ? { ...x, apptId: null, date: "", time: "" } : x)) } : c)));
+    }
+  };
   const handleAddAppt = (appt) => {
     if (linkedCourse && linkLecture !== "" && updateCourses) {
       const idx = Number(linkLecture);
@@ -1316,7 +1322,7 @@ function CalendarTab({ appointments, addAppointment, deleteAppointment, courses 
                   <span className="text-slate-400 text-xs font-mono">{formatTime12(a.time)}</span>
                   <span className="flex-1 text-slate-100 truncate">{a.title}</span>
                   {a.projectName && <span className="text-[10px] text-slate-500 shrink-0">{a.projectName}</span>}
-                  <button onClick={() => deleteAppointment(a.id)} className="text-slate-500 hover:text-rose-400 shrink-0">
+                  <button onClick={() => removeAppt(a)} className="text-slate-500 hover:text-rose-400 shrink-0">
                     <Trash2 size={13} />
                   </button>
                 </div>
@@ -4227,7 +4233,19 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
     setJustDone((m) => ({ ...m, [t.key]: true }));
   };
 
-  const todayAppts = appointments.filter((a) => a.date === today).sort((a, b) => toMinutes(a.time) - toMinutes(b.time));
+  const todayAppts = (() => {
+    const list = appointments.filter((a) => a.date === today);
+    const seen = new Set(appointments.map((a) => a.id));
+    (courses || []).forEach((c) => {
+      if (c.done || c.finished) return;
+      (c.lectures || []).forEach((l, i) => {
+        if (l.done || l.date !== today || !l.time) return;
+        if (l.apptId && seen.has(l.apptId)) return;
+        list.push({ id: `lec:${c.id}:${i}`, date: l.date, time: l.time, title: l.title || `محاضرة ${i + 1}` });
+      });
+    });
+    return list.sort((a, b) => toMinutes(a.time) - toMinutes(b.time));
+  })();
   const upcomingAppts = (() => {
     const addDays = (iso, n) => { const d = new Date(iso + "T00:00:00"); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
     const limit = addDays(today, 7);
@@ -4677,6 +4695,8 @@ function App() {
   const lastPhrase = useRef({ task: "", habits: "", day: "" });
   const [now, setNow] = useState(new Date());
   const debounceRef = useRef({});
+  const saveQ = useRef({});
+  const loadOk = useRef({});
 
   useEffect(() => {
     try { document.title = "NOVA"; } catch (e) { /* sandboxed, ignore */ }
@@ -4693,6 +4713,7 @@ function App() {
         try {
           const r = await window.storage.get(key, false);
           if (r && r.value) setter(JSON.parse(r.value));
+          loadOk.current[key] = true;
         } catch (e) {
           /* nothing saved yet */
         }
@@ -4745,11 +4766,24 @@ function App() {
 
   const persist = useCallback((key, value, debounceMs = 0) => {
     const doSave = async () => {
+      // serialize writes per key: latest value wins, never out of order
+      const q = saveQ.current[key] || (saveQ.current[key] = { running: false, pending: null });
+      q.pending = { value };
+      if (q.running) return;
+      q.running = true;
       try {
-        const r = await window.storage.set(key, JSON.stringify(value), false);
-        setSaveError(!r);
-      } catch (e) {
-        setSaveError(true);
+        while (q.pending) {
+          const v = q.pending.value;
+          q.pending = null;
+          try {
+            const r = await window.storage.set(key, JSON.stringify(v), false);
+            setSaveError(!r);
+          } catch (e) {
+            setSaveError(true);
+          }
+        }
+      } finally {
+        q.running = false;
       }
     };
     if (!debounceMs) return doSave();
@@ -4769,6 +4803,29 @@ function App() {
   const updateWorkout = (next) => { setWorkout(next); persist(KEYS.workout, next); };
   const updateTheme = (next) => { setTheme(next); persist(KEYS.theme, next); };
   const updateNovaTasks = (next) => { setNovaTasks(next); persist(KEYS.novaTasks, next); };
+  // Self-heal: a session linked to an appointment that no longer exists gets its appointment back
+  useEffect(() => {
+    if (!loaded || !loadOk.current[KEYS.appointments] || !loadOk.current[KEYS.courses]) return;
+    const ids = new Set(appointments.map((a) => a.id));
+    const todayStr = todayISO();
+    const add = [];
+    courses.forEach((c) => {
+      if (c.done || c.finished) return;
+      (c.lectures || []).forEach((l, i) => {
+        if (l.done || !l.apptId || !l.date || !l.time || l.date < todayStr || ids.has(l.apptId)) return;
+        add.push({ id: l.apptId, title: l.title || `محاضرة ${i + 1}`, date: l.date, time: l.time, duration: l.duration || 60, source: "lecture", courseId: c.id, lectureIdx: i, projectName: c.name });
+      });
+    });
+    if (add.length) {
+      setAppointments((prev) => {
+        const have = new Set(prev.map((a) => a.id));
+        const next = [...prev, ...add.filter((a) => !have.has(a.id))];
+        persist(KEYS.appointments, next);
+        return next;
+      });
+    }
+  }, [loaded, courses, appointments]);
+
   const addAppointment = (appt) => { setAppointments((prev) => { const next = [...prev, appt]; persist(KEYS.appointments, next); return next; }); };
   const deleteAppointment = (id) => { setAppointments((prev) => { const next = prev.filter((a) => a.id !== id); persist(KEYS.appointments, next); return next; }); };
 
@@ -4960,7 +5017,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-17 أ
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-17 ب
       </div>
     </div>
   );
