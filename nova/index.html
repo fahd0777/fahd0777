@@ -4228,6 +4228,28 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
   };
 
   const todayAppts = appointments.filter((a) => a.date === today).sort((a, b) => toMinutes(a.time) - toMinutes(b.time));
+  const upcomingAppts = (() => {
+    const addDays = (iso, n) => { const d = new Date(iso + "T00:00:00"); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+    const limit = addDays(today, 7);
+    const list = appointments.filter((a) => a.date > today && a.date <= limit).map((a) => ({ id: a.id, date: a.date, time: a.time, title: a.title, course: a.projectName || "" }));
+    const seen = new Set(appointments.map((a) => a.id));
+    (courses || []).forEach((c) => {
+      if (c.done || c.finished) return;
+      (c.lectures || []).forEach((l, i) => {
+        if (l.done || !l.date || l.date <= today || l.date > limit) return;
+        if (l.apptId && seen.has(l.apptId)) return;
+        list.push({ id: `lec:${c.id}:${i}`, date: l.date, time: l.time || "", title: l.title || `محاضرة ${i + 1}`, course: c.name });
+      });
+    });
+    return list.sort((a, b) => (a.date + (a.time || "")).localeCompare(b.date + (b.time || "")));
+  })();
+  const dayLabel = (iso) => {
+    const d = new Date(iso + "T00:00:00");
+    const t = new Date(today + "T00:00:00");
+    const diff = Math.round((d - t) / 86400000);
+    if (diff === 1) return "بكرة";
+    return d.toLocaleDateString("ar-EG", { weekday: "long", day: "numeric", month: "short" });
+  };
   const pendingHabits = daily.filter((d) => d.type === "habit" && !d.history[today]);
   const nearDoneCourses = courses.filter((c) => !c.done && !c.finished && c.lectures.length > 0 && c.lectures.filter((l) => l.done).length / c.lectures.length >= 0.75);
   const clientAlerts = (clients || [])
@@ -4364,11 +4386,11 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
       </Panel>
       </Fold>
 
-      <Fold id="appts" title="مواعيد النهاردة" summary={todayAppts.length} color="#22d3ee" className="" {...fp}>
+      <Fold id="appts" title="المواعيد" summary={todayAppts.length + upcomingAppts.length} color="#22d3ee" className="" {...fp}>
       <Panel className="p-4" onClick={() => onGo("calendar")}>
         <CornerTicks />
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs tracking-wide text-slate-400 fold-title">مواعيد النهاردة</span>
+          <span className="text-xs tracking-wide text-slate-400 fold-title">المواعيد</span>
           <span className="text-lg font-mono text-cyan-300">{todayAppts.length}</span>
         </div>
         {todayAppts.length === 0 ? (
@@ -4378,6 +4400,20 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
             {todayAppts.slice(0, 5).map((a) => (
               <div key={a.id} className="text-sm text-slate-200 truncate">🕐 {formatTime12(a.time)} — {a.title}</div>
             ))}
+          </div>
+        )}
+        {upcomingAppts.length > 0 && (
+          <div className="mt-3 pt-2 border-t border-cyan-500/15">
+            <div className="text-[11px] text-slate-500 mb-1">الجاي (٧ أيام)</div>
+            <div className="flex flex-col gap-1.5">
+              {upcomingAppts.slice(0, 6).map((a) => (
+                <div key={a.id} className="text-sm text-slate-300 flex flex-wrap items-baseline gap-x-2">
+                  <span className="text-amber-300 text-xs shrink-0">{dayLabel(a.date)}</span>
+                  <span className="truncate">{a.time ? `${formatTime12(a.time)} — ` : ""}{a.title}</span>
+                  {a.course && <span className="text-[10px] text-slate-500 truncate">{a.course}</span>}
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </Panel>
@@ -4924,7 +4960,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-16 هـ
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-17 أ
       </div>
     </div>
   );
