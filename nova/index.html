@@ -4316,14 +4316,6 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
       <Fold id="focus" title="التركيز دلوقتي" summary={focusTask ? (focusTask.text.length > 22 ? focusTask.text.slice(0, 22) + "…" : focusTask.text) : "مفيش"} {...fp}>
         <FocusCard hideTitle task={focusTask} tasks={pendingList} picked={!!pickedTask} onPick={setFocusKey} onDone={() => { if (focusTask) toggleDashTask(focusTask); setFocusKey(null); }} />
       </Fold>
-      <Fold id="kpi" title="الأرقام — الخزن والدخل والعملاء والكورسات" summary={fmtN(walletsTotal)} color="#34d399" {...fp}>
-        <KpiRow items={[
-        { label: "إجمالي الخزن", value: fmtN(walletsTotal), color: walletsTotal >= 0 ? "#22d3ee" : "#fb7185", onClick: () => onGo("accounts") },
-        { label: "دخل الشهر ده", value: fmtN(monthIncome), color: "#34d399", onClick: () => onGo("accounts") },
-        { label: "متبقي تحصيله من العملاء", value: fmtN(clientsRemaining), color: clientsRemaining > 0 ? "#fbbf24" : "#34d399", sub: urgentClientAlerts > 0 ? `${urgentClientAlerts} متأخر` : "", onClick: () => onGo("clients") },
-        { label: "كورسات شغالة", value: fmtN(activeCourseCount), color: "#a78bfa", onClick: () => onGo("courses") },
-      ]} />
-      </Fold>
       <Fold id="top3" title="أهم 3 النهارده" summary={top3 && top3.date === today ? `${top3.items.filter((i) => i.done).length}/${top3.items.filter((i) => i.text && i.text.trim()).length}` : "0/0"} color="#fbbf24" {...fp}>
         <Top3Panel top3={top3} updateTop3={updateTop3} />
       </Fold>
@@ -5017,7 +5009,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-17 ب
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-19 أ
       </div>
     </div>
   );
