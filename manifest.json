@@ -1,0 +1,24 @@
+{
+  "id": "./",
+  "name": "فهد إبراهيم | Fahd Ibrahim",
+  "short_name": "فهد إبراهيم",
+  "description": "Marketing Strategist, Trainer & Business Consultant — التسويق الرقمي والعقاري والبراندينج والذكاء الاصطناعي",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./?source=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#070b0c",
+  "theme_color": "#070b0c",
+  "categories": ["business", "education", "productivity"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-192-maskable.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "تواصل واتساب", "short_name": "واتساب", "url": "https://wa.me/201013851353", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] }
+  ]
+}
