@@ -4782,7 +4782,7 @@ function Fold({ id, title, summary, color = "#22d3ee", open, onToggle, className
                 <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: color + "22", color }}><Icon size={15} /></span>
                 <span className="flex-1 text-sm text-slate-100 truncate">{title}</span>
                 {str && <span className="text-xs font-mono" style={{ color }}>{str.length > 24 ? "" : str}</span>}
-                <button onClick={() => onToggle(id)} className="text-slate-400 hover:text-slate-200 p-1"><X size={18} /></button>
+                <button onPointerDown={(e) => e.stopPropagation()} onClick={() => onToggle(id)} className="text-slate-400 hover:text-slate-200 p-2 -m-1"><X size={20} /></button>
               </div>
             </div>
             <div className="overflow-y-auto px-3 pb-6 pt-2 fold-open">{children}</div>
@@ -5903,7 +5903,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-23 ج
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-23 ح
       </div>
       <UndoBar item={undoItem} onUndo={doUndo} onClose={() => { clearTimeout(undoTimer.current); setUndoItem(null); }} />
       <QuickAdd appointments={appointments} addAppointment={addAppointment} deleteAppointment={deleteAppointment} accounts={accounts} addAccountEntry={addAccountEntry} projects={projects} novaTasks={novaTasks} updateProjects={updateProjects} updateNovaTasks={updateNovaTasks} />
