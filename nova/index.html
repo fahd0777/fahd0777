@@ -5903,7 +5903,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-23 خ
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-23 د
       </div>
       <UndoBar item={undoItem} onUndo={doUndo} onClose={() => { clearTimeout(undoTimer.current); setUndoItem(null); }} />
       <QuickAdd appointments={appointments} addAppointment={addAppointment} deleteAppointment={deleteAppointment} accounts={accounts} addAccountEntry={addAccountEntry} projects={projects} novaTasks={novaTasks} updateProjects={updateProjects} updateNovaTasks={updateNovaTasks} />
@@ -6094,12 +6094,6 @@ function AuthGate() {
               نسيت كلمة السر؟
             </button>
           )}
-          <button
-            onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setError(""); setNotice(""); }}
-            className="text-xs text-slate-400 hover:text-cyan-300 text-center mt-1"
-          >
-            {mode === "signin" ? "معندكش حساب؟ اعمل واحد" : "عندك حساب؟ سجّل دخول"}
-          </button>
         </div>
       </div>
     </div>
