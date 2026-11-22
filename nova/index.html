@@ -4834,6 +4834,14 @@ function QuickAdd({ appointments, addAppointment, deleteAppointment, accounts, a
   const pushUndo = useContext(UndoCtx);
   const [menu, setMenu] = useState(false);
   const [mode, setMode] = useState(null);
+  const FAB = 48;
+  const clampPos = (x, y) => ({ x: Math.min(Math.max(0, x), window.innerWidth - FAB), y: Math.min(Math.max(0, y), window.innerHeight - FAB) });
+  const [pos, setPos] = useState(() => {
+    try { const v = JSON.parse(localStorage.getItem("nova:fabPos") || "null"); if (v && typeof v.x === "number" && typeof v.y === "number") return clampPos(v.x, v.y); } catch (e) { /* ignore */ }
+    return clampPos(window.innerWidth - FAB - 12, 12);
+  });
+  const [active, setActive] = useState(false);
+  const drag = useRef(null);
   const close = () => { setMode(null); setMenu(false); };
   const novaNames = NOVA_UNITS.map((u) => u.name);
   const mainAccounts = (accounts || []).filter((c) => !novaNames.includes(c.name));
@@ -4841,15 +4849,42 @@ function QuickAdd({ appointments, addAppointment, deleteAppointment, accounts, a
   const titles = { appt: "إضافة ميعاد", money: "إضافة مصروف / دخل", task: "إضافة مهمة" };
   return (
     <>
-      <div className="fixed top-3 right-3 z-40 flex flex-col items-end gap-2">
-        <button onClick={() => setMenu((m) => !m)} className="w-12 h-12 flex items-center justify-center border" style={{ clipPath: clip, borderColor: "rgba(34,211,238,0.7)", color: "#a5f3fc", background: "rgba(6,13,22,0.97)", boxShadow: "0 0 16px rgba(34,211,238,0.3)" }} title="إضافة سريعة">
+      <div className="fixed z-40" style={{ left: pos.x, top: pos.y, width: FAB, height: FAB, touchAction: "none" }}>
+        <button
+          onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); drag.current = { sx: e.clientX, sy: e.clientY, ox: pos.x, oy: pos.y, moved: false }; setActive(true); }}
+          onPointerMove={(e) => {
+            const d = drag.current;
+            if (!d) return;
+            const dx = e.clientX - d.sx, dy = e.clientY - d.sy;
+            if (!d.moved && Math.abs(dx) + Math.abs(dy) < 8) return;
+            d.moved = true;
+            setMenu(false);
+            setPos(clampPos(d.ox + dx, d.oy + dy));
+          }}
+          onPointerUp={() => {
+            const d = drag.current;
+            drag.current = null;
+            setActive(false);
+            if (!d) return;
+            if (d.moved) { try { localStorage.setItem("nova:fabPos", JSON.stringify(pos)); } catch (e) { /* ignore */ } }
+            else setMenu((m) => !m);
+          }}
+          onPointerCancel={() => { drag.current = null; setActive(false); }}
+          className="w-full h-full flex items-center justify-center border select-none"
+          style={{ clipPath: clip, borderColor: "rgba(34,211,238,0.7)", color: "#a5f3fc", background: "rgba(6,13,22,0.97)", boxShadow: "0 0 16px rgba(34,211,238,0.3)", opacity: active || menu ? 1 : 0.4, transition: "opacity .2s", touchAction: "none" }}
+          title="إضافة سريعة (اسحبه لأي مكان)"
+        >
           {menu ? <X size={20} /> : <Plus size={22} />}
         </button>
-        {menu && items.map(([k, l, Icon, c]) => (
-          <button key={k} onClick={() => { setMode(k); setMenu(false); }} className="flex items-center gap-2 px-3 py-2 text-sm border" style={{ clipPath: clip, borderColor: c + "99", color: c, background: "rgba(6,13,22,0.97)" }}>
-            <Icon size={15} /> {l}
-          </button>
-        ))}
+        {menu && (
+          <div className="absolute flex flex-col gap-2" style={{ [pos.y > (typeof window !== "undefined" ? window.innerHeight : 800) / 2 ? "bottom" : "top"]: FAB + 8, [pos.x > (typeof window !== "undefined" ? window.innerWidth : 400) / 2 ? "right" : "left"]: 0, alignItems: pos.x > (typeof window !== "undefined" ? window.innerWidth : 400) / 2 ? "flex-end" : "flex-start" }}>
+            {items.map(([k, l, Icon, c]) => (
+              <button key={k} onClick={() => { setMode(k); setMenu(false); }} className="flex items-center gap-2 px-3 py-2 text-sm border whitespace-nowrap" style={{ clipPath: clip, borderColor: c + "99", color: c, background: "rgba(6,13,22,0.97)" }}>
+                <Icon size={15} /> {l}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       {mode && (
         <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-16" style={{ background: "rgba(2,6,14,0.75)" }} onClick={close}>
@@ -5743,7 +5778,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 ح
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 ط
       </div>
       <UndoBar item={undoItem} onUndo={doUndo} onClose={() => { clearTimeout(undoTimer.current); setUndoItem(null); }} />
       <QuickAdd appointments={appointments} addAppointment={addAppointment} deleteAppointment={deleteAppointment} accounts={accounts} addAccountEntry={addAccountEntry} projects={projects} novaTasks={novaTasks} updateProjects={updateProjects} updateNovaTasks={updateNovaTasks} />
