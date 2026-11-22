@@ -1777,7 +1777,7 @@ function SchedulePlanner({ initial = null, startDate, onStartDate, count, appoin
         <div className="text-xs text-slate-500">{hint}</div>
       ) : (
         <div className="flex flex-col gap-1.5">
-          <div className="text-[11px] text-slate-400">
+          <div className="text-sm text-slate-300">
             هيتسجل {included.length} من {rows.length} ميعاد{conflictCount > 0 ? ` · ${conflictCount} فيهم تعارض (مش متعلّم عليهم — علّم عليهم لو عايزهم)` : ""} · تقدر تغيّر ساعة أي سيشن لوحدها من القايمة
           </div>
           {rows.map((r) => {
@@ -1785,7 +1785,7 @@ function SchedulePlanner({ initial = null, startDate, onStartDate, count, appoin
             const d = parseISO(r.date);
             const startM = toMinutes(r.time);
             return (
-              <div key={r.idx} className="flex flex-wrap items-center gap-2 text-xs border px-2.5 py-1.5" style={{ borderColor: r.conflicts.length ? "rgba(251,191,36,0.4)" : "rgba(148,163,184,0.15)", clipPath: clip, opacity: r.locked ? 0.45 : 1 }}>
+              <div key={r.idx} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-base border px-3 py-2" style={{ borderColor: r.conflicts.length ? "rgba(251,191,36,0.4)" : "rgba(148,163,184,0.15)", clipPath: clip, opacity: r.locked ? 0.45 : 1 }}>
                 <input type="checkbox" disabled={r.locked} checked={on} onChange={() => setOverride((o) => ({ ...o, [r.idx]: !on }))} />
                 <span className="text-amber-300 shrink-0">سيشن {r.idx + 1}</span>
                 <span className="text-slate-200">{WEEKDAY_SHORT[d.getDay()]} {r.date}</span>
@@ -5455,7 +5455,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 م
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 ن
       </div>
     </div>
   );
