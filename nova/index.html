@@ -486,7 +486,7 @@ function FreeSlotsList({ slots, onPick, emptyText = "اليوم كله مشغو�
             key={i}
             type={onPick ? "button" : undefined}
             onClick={onPick ? (e) => { e.stopPropagation(); onPick(sl[0]); } : undefined}
-            className="text-[11px] px-2 py-1 border"
+            className="text-sm px-3 py-1.5 border"
             style={{
               clipPath: clip,
               borderColor: big ? "rgba(52,211,153,0.7)" : "rgba(52,211,153,0.3)",
@@ -562,7 +562,7 @@ function FreeTimePanel({ appointments, date, emptyText }) {
   if (slots.length > 1) parts.push(`أطول فراغ ${durText(longest)}`);
   return (
     <div>
-      <div className="text-[11px] text-slate-300 mb-1.5">{parts.join(" · ")}</div>
+      <div className="text-sm text-slate-200 mb-2">{parts.join(" · ")}</div>
       <DayTimeline appointments={appointments} date={date} slots={slots} />
       <FreeSlotsList slots={slots} emptyText={emptyText} />
     </div>
@@ -824,7 +824,7 @@ function AppointmentForm({ appointments, initialTitle = "", initialDate = "", in
       </div>
       {date && (
         <div className="flex flex-col gap-1">
-          <span className="text-[10px] text-slate-500">فاضي في اليوم ده — دوس تختار الوقت:</span>
+          <span className="text-sm text-slate-300">فاضي في اليوم ده — دوس تختار الوقت:</span>
           <FreeSlotsList slots={formSlots} onPick={(m) => { setTime(minToHHMM(m)); setConfirming(false); }} />
         </div>
       )}
@@ -5391,7 +5391,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 ط
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 ي
       </div>
     </div>
   );
