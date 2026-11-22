@@ -503,7 +503,20 @@ function FreeSlotsList({ slots, onPick, emptyText = "اليوم كله مشغو�
   );
 }
 
-function DayTimeline({ appointments, date, slots }) {
+// online/offline of a course session, read from its course (null if not a session or course has no mode)
+const apptMode = (a, courses) => {
+  if (!a || a.source === "task" || !a.courseId) return null;
+  const c = (courses || []).find((x) => x.id === a.courseId);
+  return c && (c.mode === "online" || c.mode === "offline") ? c.mode : null;
+};
+const modeIcon = (m) => (m === "online" ? "💻" : m === "offline" ? "📍" : "");
+function ModeTag({ mode }) {
+  if (!mode) return null;
+  const off = mode === "offline";
+  return <span className="shrink-0 text-[10px] px-1.5 py-0.5 border" style={{ borderColor: off ? "rgba(251,191,36,0.45)" : "rgba(34,211,238,0.45)", color: off ? "#fcd34d" : "#67e8f9" }}>{off ? "أوفلاين" : "أونلاين"}</span>;
+}
+
+function DayTimeline({ appointments, date, slots, courses }) {
   const total = DAY_END - DAY_START;
   const busy = busyIntervals(appointments, date, null);
   const pct = (m) => ((m - DAY_START) / total) * 100;
@@ -534,9 +547,9 @@ function DayTimeline({ appointments, date, slots }) {
           if (r <= l) return null;
           const w = ((r - l) / total) * 100;
           return (
-            <div key={`b${i}`} title={`${ap.title} · ${fmtMin(st)}`} className="absolute top-0 bottom-0 flex items-center justify-center px-1 text-[10px] font-medium text-slate-950 overflow-hidden whitespace-nowrap"
+            <div key={`b${i}`} title={`${ap.title} · ${fmtMin(st)}${apptMode(ap, courses) ? " · " + (apptMode(ap, courses) === "offline" ? "أوفلاين" : "أونلاين") : ""}`} className="absolute top-0 bottom-0 flex items-center justify-center px-1 text-[10px] font-medium text-slate-950 overflow-hidden whitespace-nowrap"
               style={{ right: `${pct(l)}%`, width: `${w}%`, background: "rgba(251,113,133,0.92)", borderLeft: "1px solid #0b1220", borderRight: "1px solid #0b1220" }}>
-              {w >= 9 ? ap.title : ""}
+              {w >= 9 ? `${modeIcon(apptMode(ap, courses))}${modeIcon(apptMode(ap, courses)) ? " " : ""}${ap.title}` : (w >= 4 ? modeIcon(apptMode(ap, courses)) : "")}
             </div>
           );
         })}
@@ -552,7 +565,7 @@ function DayTimeline({ appointments, date, slots }) {
   );
 }
 
-function FreeTimePanel({ appointments, date, emptyText }) {
+function FreeTimePanel({ appointments, date, emptyText, courses }) {
   const from = nowFromMin(date);
   const slots = freeSlotsFor(appointments, date, null, from);
   const lo = Math.max(DAY_START, from);
@@ -564,7 +577,7 @@ function FreeTimePanel({ appointments, date, emptyText }) {
   return (
     <div>
       <div className="text-sm text-slate-200 mb-2">{parts.join(" · ")}</div>
-      <DayTimeline appointments={appointments} date={date} slots={slots} />
+      <DayTimeline appointments={appointments} date={date} slots={slots} courses={courses} />
       <FreeSlotsList slots={slots} emptyText={emptyText} />
     </div>
   );
@@ -1468,7 +1481,7 @@ function CalendarTab({ appointments, addAppointment, deleteAppointment, updateAp
           <div className="text-xs text-slate-400 mb-2">
             ساعات يوم {new Date(selectedDay).toLocaleDateString("ar-EG", { day: "numeric", month: "long" })} (٩ ص ← ١٢ ص)
           </div>
-          <FreeTimePanel appointments={appointments} date={selectedDay} />
+          <FreeTimePanel appointments={appointments} date={selectedDay} courses={courses} />
         </div>
       </Panel>
 
@@ -1505,6 +1518,7 @@ function CalendarTab({ appointments, addAppointment, deleteAppointment, updateAp
                     <Clock3 size={13} className="text-cyan-400 shrink-0" />
                     <span className="text-slate-400 text-xs font-mono">{formatTime12(a.time)}</span>
                     <span className="flex-1 text-slate-100 truncate">{a.title}</span>
+                    <ModeTag mode={apptMode(a, courses)} />
                     {a.projectName && <span className="text-[10px] text-slate-500 shrink-0">{a.projectName}</span>}
                     <button onClick={() => setEditingId(a.id)} className="text-slate-500 hover:text-cyan-300 shrink-0" title="تعديل">
                       <Pencil size={13} />
@@ -4734,7 +4748,7 @@ function NextSessionCard({ appointments, courses, updateCourses, projects, updat
         </span>
       </div>
       <div className="text-base text-slate-100 mt-1.5">{isSession ? `سيشن ${best.i + 1} — ` : ""}{best.a.title}</div>
-      <div className="text-xs text-slate-400 mt-0.5 truncate">{isSession ? `${best.c.name} · ` : ""}{best.a.date} · {formatTime12(best.a.time)}</div>
+      <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-2"><span className="truncate">{isSession ? `${best.c.name} · ` : ""}{best.a.date} · {formatTime12(best.a.time)}</span><ModeTag mode={apptMode(best.a, courses)} /></div>
       {taskProj && (
         <button onClick={finishTask} className="mt-3 flex items-center gap-1.5 text-sm px-3 py-1.5 border border-emerald-400/50 text-emerald-200 hover:bg-emerald-400/10" style={{ clipPath: clip }}>
           <CheckCircle2 size={15} /> تم
@@ -4972,7 +4986,7 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
       (c.lectures || []).forEach((l, i) => {
         if (l.done || l.date !== today || !l.time) return;
         if (l.apptId && seen.has(l.apptId)) return;
-        list.push({ id: `lec:${c.id}:${i}`, date: l.date, time: l.time, duration: l.duration || 60, title: l.title || `محاضرة ${i + 1}` });
+        list.push({ id: `lec:${c.id}:${i}`, date: l.date, time: l.time, duration: l.duration || 60, title: l.title || `محاضرة ${i + 1}`, courseId: c.id, source: "lecture" });
       });
     });
     return list.sort((a, b) => toMinutes(a.time) - toMinutes(b.time));
@@ -4980,14 +4994,14 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
   const upcomingAppts = (() => {
     const addDays = (iso, n) => { const d = new Date(iso + "T00:00:00"); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
     const limit = addDays(today, 7);
-    const list = appointments.filter((a) => a.date > today && a.date <= limit).map((a) => ({ id: a.id, date: a.date, time: a.time, title: a.title, course: a.projectName || "" }));
+    const list = appointments.filter((a) => a.date > today && a.date <= limit).map((a) => ({ id: a.id, date: a.date, time: a.time, title: a.title, course: a.projectName || "", mode: apptMode(a, courses) }));
     const seen = new Set(appointments.map((a) => a.id));
     (courses || []).forEach((c) => {
       if (c.done || c.finished) return;
       (c.lectures || []).forEach((l, i) => {
         if (l.done || !l.date || l.date <= today || l.date > limit) return;
         if (l.apptId && seen.has(l.apptId)) return;
-        list.push({ id: `lec:${c.id}:${i}`, date: l.date, time: l.time || "", title: l.title || `محاضرة ${i + 1}`, course: c.name });
+        list.push({ id: `lec:${c.id}:${i}`, date: l.date, time: l.time || "", title: l.title || `محاضرة ${i + 1}`, course: c.name, mode: c.mode === "online" || c.mode === "offline" ? c.mode : null });
       });
     });
     return list.sort((a, b) => (a.date + (a.time || "")).localeCompare(b.date + (b.time || "")));
@@ -5140,13 +5154,13 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
         ) : (
           <div className="flex flex-col gap-1.5">
             {todayAppts.slice(0, 5).map((a) => (
-              <div key={a.id} className="text-sm text-slate-200 truncate">🕐 {formatTime12(a.time)} — {a.title}</div>
+              <div key={a.id} className="text-sm text-slate-200 flex items-baseline gap-2"><span className="truncate">🕐 {formatTime12(a.time)} — {a.title}</span><ModeTag mode={apptMode(a, courses)} /></div>
             ))}
           </div>
         )}
         <div className="mt-3 pt-2 border-t border-cyan-500/15">
           <div className="text-[11px] text-slate-500 mb-1">فاضي النهاردة (٩ ص ← ١٢ ص)</div>
-          <FreeTimePanel appointments={todayAppts} date={today} emptyText="باقي اليوم كله مشغول" />
+          <FreeTimePanel appointments={todayAppts} date={today} emptyText="باقي اليوم كله مشغول" courses={courses} />
         </div>
         {upcomingAppts.length > 0 && (
           <div className="mt-3 pt-2 border-t border-cyan-500/15">
@@ -5156,6 +5170,7 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
                 <div key={a.id} className="text-sm text-slate-300 flex flex-wrap items-baseline gap-x-2">
                   <span className="text-amber-300 text-xs shrink-0">{dayLabel(a.date)}</span>
                   <span className="truncate">{a.time ? `${formatTime12(a.time)} — ` : ""}{a.title}</span>
+                  <ModeTag mode={a.mode} />
                   {a.course && <span className="text-[10px] text-slate-500 truncate">{a.course}</span>}
                 </div>
               ))}
@@ -5778,7 +5793,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 ي
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 ك
       </div>
       <UndoBar item={undoItem} onUndo={doUndo} onClose={() => { clearTimeout(undoTimer.current); setUndoItem(null); }} />
       <QuickAdd appointments={appointments} addAppointment={addAppointment} deleteAppointment={deleteAppointment} accounts={accounts} addAccountEntry={addAccountEntry} projects={projects} novaTasks={novaTasks} updateProjects={updateProjects} updateNovaTasks={updateNovaTasks} />
