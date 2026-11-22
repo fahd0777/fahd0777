@@ -506,17 +506,17 @@ function DayTimeline({ appointments, date }) {
   const total = DAY_END - DAY_START;
   const busy = busyIntervals(appointments, date, null);
   return (
-    <div className="mb-2" dir="ltr">
+    <div className="mb-2" dir="rtl">
       <div className="relative h-3 border border-emerald-400/30 bg-emerald-400/10" style={{ clipPath: clip }}>
         {busy.map(([st, en, a], i) => {
           const l = Math.max(st, DAY_START), r = Math.min(en, DAY_END);
           if (r <= l) return null;
-          return <div key={i} title={`${a.title} · ${fmtMin(st)}`} className="absolute top-0 bottom-0 bg-cyan-400/70" style={{ left: `${((l - DAY_START) / total) * 100}%`, width: `${((r - l) / total) * 100}%`, borderLeft: "1px solid #0b1220", borderRight: "1px solid #0b1220" }} />;
+          return <div key={i} title={`${a.title} · ${fmtMin(st)}`} className="absolute top-0 bottom-0 bg-cyan-400/70" style={{ right: `${((l - DAY_START) / total) * 100}%`, width: `${((r - l) / total) * 100}%`, borderLeft: "1px solid #0b1220", borderRight: "1px solid #0b1220" }} />;
         })}
       </div>
       <div className="relative h-3 mt-0.5 text-[9px] text-slate-500">
         {[9, 12, 15, 18, 21, 24].map((h) => (
-          <span key={h} className="absolute -translate-x-1/2" style={{ left: `${(((h * 60) - DAY_START) / total) * 100}%` }}>{h === 24 ? "12ص" : h === 12 ? "12م" : h > 12 ? h - 12 : h}</span>
+          <span key={h} className="absolute translate-x-1/2" style={{ right: `${(((h * 60) - DAY_START) / total) * 100}%` }}>{h === 24 ? "12ص" : h === 12 ? "12م" : h > 12 ? h - 12 : h}</span>
         ))}
       </div>
     </div>
@@ -5105,7 +5105,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 أ
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 ب
       </div>
     </div>
   );
