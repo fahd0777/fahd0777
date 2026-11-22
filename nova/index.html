@@ -1649,12 +1649,28 @@ function buildScheduleDates(startISO, days, count) {
   return out;
 }
 
-function SchedulePlanner({ startDate, onStartDate, count, appointments, excludeIds = [], lockedIdx = [], onResult }) {
-  const [preset, setPreset] = useState("");
-  const [customDays, setCustomDays] = useState([]);
-  const [time, setTime] = useState("19:00");
-  const [durKey, setDurKey] = useState("120");
-  const [customHours, setCustomHours] = useState("3");
+function inferSchedule(course) {
+  if (course && course.schedule) return course.schedule;
+  const dated = ((course && course.lectures) || []).filter((l) => l.date && l.time);
+  if (!dated.length) return null;
+  const days = [...new Set(dated.map((l) => parseISO(l.date).getDay()))].sort();
+  const match = SCHEDULE_PRESETS.find((x) => x.days && x.days.length === days.length && x.days.every((d) => days.includes(d)));
+  const dur = Number(dated[0].duration) || 120;
+  return {
+    preset: match ? match.key : "custom",
+    customDays: days,
+    time: dated[0].time,
+    durKey: dur === 120 ? "120" : dur === 240 ? "240" : "custom",
+    customHours: String(dur / 60),
+  };
+}
+
+function SchedulePlanner({ initial = null, startDate, onStartDate, count, appointments, excludeIds = [], lockedIdx = [], onResult }) {
+  const [preset, setPreset] = useState((initial && initial.preset) || "");
+  const [customDays, setCustomDays] = useState((initial && initial.customDays) || []);
+  const [time, setTime] = useState((initial && initial.time) || "19:00");
+  const [durKey, setDurKey] = useState((initial && initial.durKey) || "120");
+  const [customHours, setCustomHours] = useState((initial && initial.customHours) || "3");
   const [override, setOverride] = useState({});
 
   const presetDays = (SCHEDULE_PRESETS.find((x) => x.key === preset) || {}).days || [];
@@ -1678,7 +1694,7 @@ function SchedulePlanner({ startDate, onStartDate, count, appointments, excludeI
 
   useEffect(() => { setOverride({}); }, [startDate, daysKey, count, time, duration, lockKey]);
   useEffect(() => {
-    onResult(included.map((r) => ({ idx: r.idx, date: r.date, time, duration })));
+    onResult(included.map((r) => ({ idx: r.idx, date: r.date, time, duration })), { preset, customDays, time, durKey, customHours });
   }, [key]);
 
   const chip = (active, c = "#22d3ee") => ({ clipPath: clip, borderColor: active ? c : "rgba(148,163,184,0.25)", color: active ? c : "#94a3b8", background: active ? c + "14" : "transparent" });
@@ -1769,6 +1785,7 @@ function CourseCard({ course, appointments, onUpdate, onDelete, addAppointment, 
   const [trackDraft, setTrackDraft] = useState("");
   const [planOpen, setPlanOpen] = useState(false);
   const [planResult, setPlanResult] = useState([]);
+  const [planCfg, setPlanCfg] = useState(null);
 
   const applyPlan = () => {
     if (!planResult.length) return;
@@ -1780,7 +1797,7 @@ function CourseCard({ course, appointments, onUpdate, onDelete, addAppointment, 
       addAppointment({ id, title: l.title || `محاضرة ${i + 1}`, date: sel.date, time: sel.time, duration: sel.duration, courseId: course.id, lectureIdx: i, projectName: course.name, source: "lecture" });
       return { ...l, date: sel.date, time: sel.time, duration: sel.duration, apptId: id };
     });
-    onUpdate({ ...course, lectures });
+    onUpdate({ ...course, lectures, schedule: planCfg || course.schedule });
     setPlanOpen(false);
     setPlanResult([]);
   };
@@ -2050,19 +2067,20 @@ function CourseCard({ course, appointments, onUpdate, onDelete, addAppointment, 
               className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-cyan-400/40 text-cyan-200 hover:bg-cyan-400/10"
               style={{ clipPath: clip }}
             >
-              <Calendar size={13} /> {planOpen ? "إغلاق الجدولة" : "جدولة تلقائية للمواعيد"}
+              <Calendar size={13} /> {planOpen ? "إغلاق الجدولة" : inferSchedule(course) ? "تعديل الجدولة" : "جدولة تلقائية للمواعيد"}
             </button>
           </div>
           {planOpen && (
             <div className="flex flex-col gap-2">
               <SchedulePlanner
+                initial={inferSchedule(course)}
                 startDate={course.startDate || ""}
                 onStartDate={(v) => onUpdate({ ...course, startDate: v })}
                 count={course.lectures.length}
                 appointments={appointments}
                 excludeIds={course.lectures.filter((l) => !l.done && l.apptId).map((l) => l.apptId)}
                 lockedIdx={course.lectures.map((l, i) => (l.done ? i : -1)).filter((i) => i >= 0)}
-                onResult={setPlanResult}
+                onResult={(list, cfg) => { setPlanResult(list); setPlanCfg(cfg); }}
               />
               <div className="flex items-center gap-3">
                 <button
@@ -2071,9 +2089,16 @@ function CourseCard({ course, appointments, onUpdate, onDelete, addAppointment, 
                   className="flex items-center gap-1.5 px-4 py-2 text-sm border border-emerald-400/60 text-emerald-200 hover:bg-emerald-400/10 disabled:opacity-40"
                   style={{ clipPath: clip }}
                 >
-                  <Plus size={14} /> سجّل {planResult.length} ميعاد على الكاليندر
+                  <CheckCircle2 size={15} /> تم
                 </button>
-                <span className="text-[11px] text-slate-500">هيستبدل مواعيد السيشنات الحالية (غير الخالصة).</span>
+                <button
+                  onClick={() => { setPlanOpen(false); setPlanResult([]); }}
+                  className="px-4 py-2 text-sm border border-slate-600/60 text-slate-300 hover:bg-slate-400/10"
+                  style={{ clipPath: clip }}
+                >
+                  إلغاء
+                </button>
+                <span className="text-[11px] text-slate-500">لما تدوس "تم" هيتسجل {planResult.length} ميعاد على الكاليندر ويستبدل مواعيد السيشنات الحالية (غير الخالصة). قبلها مفيش حاجة بتتغير.</span>
               </div>
             </div>
           )}
@@ -2105,6 +2130,7 @@ function CoursesTab({ courses, appointments, updateCourses, addAppointment, dele
   const [newTrack, setNewTrack] = useState("");
   const [planOpen, setPlanOpen] = useState(false);
   const [planResult, setPlanResult] = useState([]);
+  const [planCfg, setPlanCfg] = useState(null);
   const [openSec, setOpenSec] = useState({ active: false, pending: false, done: false });
   const toggleSec = (k) => setOpenSec((o) => ({ ...o, [k]: !o[k] }));
 
@@ -2126,7 +2152,7 @@ function CoursesTab({ courses, appointments, updateCourses, addAppointment, dele
         return { ...l, date: sel.date, time: sel.time, duration: sel.duration, apptId: id };
       });
     }
-    updateCourses([...courses, { id: courseId, name: newCourse.trim(), price: priceNum, type: newType, done: false, accountEntryId: null, lectures, startDate: newStart, mode: newMode, track: newTrack }]);
+    updateCourses([...courses, { id: courseId, name: newCourse.trim(), price: priceNum, type: newType, done: false, accountEntryId: null, lectures, startDate: newStart, mode: newMode, track: newTrack, ...(planOpen && planResult.length && planCfg ? { schedule: planCfg } : {}) }]);
     setNewCourse("");
     setNewPrice("");
     setNewSessions(8);
@@ -2258,7 +2284,7 @@ function CoursesTab({ courses, appointments, updateCourses, addAppointment, dele
                 startDate={newStart}
                 count={Math.max(1, Number(newSessions) || 1)}
                 appointments={appointments}
-                onResult={setPlanResult}
+                onResult={(list, cfg) => { setPlanResult(list); setPlanCfg(cfg); }}
               />
               <div className="text-[11px] text-slate-500 mt-1.5">المواعيد دي هتتسجل على الكاليندر أول ما تدوس "كورس".</div>
             </div>
@@ -5391,7 +5417,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 ي
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 ك
       </div>
     </div>
   );
