@@ -4870,8 +4870,8 @@ function QuickAdd({ appointments, addAppointment, deleteAppointment, accounts, a
             else setMenu((m) => !m);
           }}
           onPointerCancel={() => { drag.current = null; setActive(false); }}
-          className="w-full h-full flex items-center justify-center border select-none"
-          style={{ clipPath: clip, borderColor: "rgba(34,211,238,0.7)", color: "#a5f3fc", background: "rgba(6,13,22,0.97)", boxShadow: "0 0 16px rgba(34,211,238,0.3)", opacity: active || menu ? 1 : 0.4, transition: "opacity .2s", touchAction: "none" }}
+          className="w-full h-full flex items-center justify-center border select-none rounded-full"
+          style={{ borderColor: "rgba(34,211,238,0.7)", color: "#a5f3fc", background: "rgba(6,13,22,0.97)", boxShadow: "0 0 16px rgba(34,211,238,0.3)", opacity: active || menu ? 1 : 0.4, transition: "opacity .2s", touchAction: "none" }}
           title="إضافة سريعة (اسحبه لأي مكان)"
         >
           {menu ? <X size={20} /> : <Plus size={22} />}
@@ -5778,7 +5778,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 ط
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 ي
       </div>
       <UndoBar item={undoItem} onUndo={doUndo} onClose={() => { clearTimeout(undoTimer.current); setUndoItem(null); }} />
       <QuickAdd appointments={appointments} addAppointment={addAppointment} deleteAppointment={deleteAppointment} accounts={accounts} addAccountEntry={addAccountEntry} projects={projects} novaTasks={novaTasks} updateProjects={updateProjects} updateNovaTasks={updateNovaTasks} />
