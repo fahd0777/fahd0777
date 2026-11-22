@@ -5044,6 +5044,8 @@ function QuickAdd({ appointments, addAppointment, deleteAppointment, accounts, a
   );
 }
 
+let dashFoldSession = {};
+try { localStorage.removeItem("nova:dashFold"); } catch (e) { /* ignore */ }
 function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNovaTasks, appointments, daily, accounts, courses, commitments, goals, top3, updateTop3, onGo, onGoDay, updateCourses }) {
   const today = todayISO();
   const [justDone, setJustDone] = useState({});
@@ -5150,8 +5152,9 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
   const pendingList = dashTasks.filter((t) => !t.done);
   const pickedTask = pendingList.find((t) => t.key === focusKey) || null;
   const focusTask = pickedTask || pendingList[0] || null;
-  const [foldOpen, setFoldOpen] = useState(() => { try { return JSON.parse(localStorage.getItem("nova:dashFold") || "{}") || {}; } catch (e) { return {}; } });
-  const toggleFold = (id) => setFoldOpen((o) => { const n = { ...o, [id]: !o[id] }; try { localStorage.setItem("nova:dashFold", JSON.stringify(n)); } catch (e) { /* ignore */ } return n; });
+  // folds always start closed on every app open; they only stay as you left them while switching tabs in the same session
+  const [foldOpen, setFoldOpen] = useState(() => dashFoldSession);
+  const toggleFold = (id) => setFoldOpen((o) => { const n = { ...o, [id]: !o[id] }; dashFoldSession = n; return n; });
   const fp = { open: foldOpen, onToggle: toggleFold };
 
   const kpiNames = NOVA_UNITS.map((u) => u.name);
@@ -5897,7 +5900,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 م
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-23 أ
       </div>
       <div className="h-14" />
       <UndoBar item={undoItem} onUndo={doUndo} onClose={() => { clearTimeout(undoTimer.current); setUndoItem(null); }} />
