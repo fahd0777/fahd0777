@@ -4902,26 +4902,6 @@ function NextSessionCard({ appointments, courses, updateCourses, projects, updat
 }
 
 /* ---------------- Week strip ---------------- */
-// 7 tiny bars (busy = rose from the bottom, rest = green) shown on the "week" icon
-function WeekMini({ appointments }) {
-  const today = todayISO();
-  const total = DAY_END - DAY_START;
-  return (
-    <span className="flex items-end gap-[3px]" dir="rtl" style={{ height: 36 }}>
-      {Array.from({ length: 7 }, (_, i) => {
-        const iso = addDaysToISO(today, i);
-        const busy = busyIntervals(appointments, iso, null).reduce((t, [st, en]) => t + Math.max(0, Math.min(en, DAY_END) - Math.max(st, DAY_START)), 0);
-        const h = Math.min(100, Math.round((busy / total) * 100));
-        return (
-          <span key={iso} className="relative w-[7px] h-full overflow-hidden rounded-sm" style={{ background: "rgba(52,211,153,0.35)", outline: i === 0 ? "1px solid #fbbf24" : "none" }}>
-            <span className="absolute bottom-0 inset-x-0" style={{ height: `${h}%`, background: "rgba(251,113,133,0.95)" }} />
-          </span>
-        );
-      })}
-    </span>
-  );
-}
-
 function WeekStrip({ appointments, onPickDay }) {
   const today = todayISO();
   const days = Array.from({ length: 7 }, (_, i) => addDaysToISO(today, i));
@@ -5334,7 +5314,7 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
       </Panel>
       </Fold>
 
-      <Fold id="week" title="الأسبوع ده" summary="" color="#34d399" preview={<WeekMini appointments={appointments} />} {...fp}>
+      <Fold id="week" title="الأسبوع ده" summary="" color="#34d399" {...fp}>
         <Panel className="p-3">
           <CornerTicks />
           <WeekStrip appointments={appointments} onPickDay={onGoDay} />
@@ -5925,7 +5905,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-23 ر
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-23 ز
       </div>
       <UndoBar item={undoItem} onUndo={doUndo} onClose={() => { clearTimeout(undoTimer.current); setUndoItem(null); }} />
       <QuickAdd appointments={appointments} addAppointment={addAppointment} deleteAppointment={deleteAppointment} accounts={accounts} addAccountEntry={addAccountEntry} projects={projects} novaTasks={novaTasks} updateProjects={updateProjects} updateNovaTasks={updateNovaTasks} />
