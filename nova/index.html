@@ -4841,15 +4841,15 @@ function QuickAdd({ appointments, addAppointment, deleteAppointment, accounts, a
   const titles = { appt: "إضافة ميعاد", money: "إضافة مصروف / دخل", task: "إضافة مهمة" };
   return (
     <>
-      <div className="fixed bottom-4 left-4 z-40 flex flex-col items-start gap-2">
+      <div className="fixed top-3 right-3 z-40 flex flex-col items-end gap-2">
+        <button onClick={() => setMenu((m) => !m)} className="w-12 h-12 flex items-center justify-center border" style={{ clipPath: clip, borderColor: "rgba(34,211,238,0.7)", color: "#a5f3fc", background: "rgba(6,13,22,0.97)", boxShadow: "0 0 16px rgba(34,211,238,0.3)" }} title="إضافة سريعة">
+          {menu ? <X size={20} /> : <Plus size={22} />}
+        </button>
         {menu && items.map(([k, l, Icon, c]) => (
           <button key={k} onClick={() => { setMode(k); setMenu(false); }} className="flex items-center gap-2 px-3 py-2 text-sm border" style={{ clipPath: clip, borderColor: c + "99", color: c, background: "rgba(6,13,22,0.97)" }}>
             <Icon size={15} /> {l}
           </button>
         ))}
-        <button onClick={() => setMenu((m) => !m)} className="w-12 h-12 flex items-center justify-center border" style={{ clipPath: clip, borderColor: "rgba(34,211,238,0.7)", color: "#a5f3fc", background: "rgba(6,13,22,0.97)", boxShadow: "0 0 16px rgba(34,211,238,0.3)" }} title="إضافة سريعة">
-          {menu ? <X size={20} /> : <Plus size={22} />}
-        </button>
       </div>
       {mode && (
         <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-16" style={{ background: "rgba(2,6,14,0.75)" }} onClick={close}>
@@ -5743,7 +5743,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 ز
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 ح
       </div>
       <UndoBar item={undoItem} onUndo={doUndo} onClose={() => { clearTimeout(undoTimer.current); setUndoItem(null); }} />
       <QuickAdd appointments={appointments} addAppointment={addAppointment} deleteAppointment={deleteAppointment} accounts={accounts} addAccountEntry={addAccountEntry} projects={projects} novaTasks={novaTasks} updateProjects={updateProjects} updateNovaTasks={updateNovaTasks} />
