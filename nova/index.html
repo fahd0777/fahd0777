@@ -32,6 +32,7 @@
   @keyframes nova-fall { 0% { transform: translateY(-12vh) rotate(0deg); opacity: 1; } 100% { transform: translateY(108vh) rotate(720deg); opacity: 0.9; } }
   @keyframes nova-edge { 0% { box-shadow: inset 0 0 0 rgba(52,211,153,0); } 30% { box-shadow: inset 0 0 90px rgba(52,211,153,0.35); } 100% { box-shadow: inset 0 0 0 rgba(52,211,153,0); } }
   @keyframes nova-pop { 0% { transform: scale(0.6); opacity: 0; } 60% { transform: scale(1.06); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+  @keyframes nova-undo { from { width: 100%; } to { width: 0%; } }
   input[type="date"], input[type="month"], input[type="time"] { color-scheme: dark; cursor: pointer; }
   input[type="date"]::-webkit-calendar-picker-indicator, input[type="month"]::-webkit-calendar-picker-indicator { opacity: 1; cursor: pointer; }
 </style>
@@ -54,7 +55,7 @@
 <body>
 <div id="root"></div>
 <script type="text/babel" data-type="module" data-presets="react">
-import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback, useContext } from "react";
 import { createRoot } from "react-dom/client";
 import { createClient } from "@supabase/supabase-js";
 import {
@@ -1346,7 +1347,8 @@ function DailyTab({ daily, updateDaily }) {
 }
 
 /* ---------------- Calendar tab ---------------- */
-function CalendarTab({ appointments, addAppointment, deleteAppointment, updateAppointment, courses = [], updateCourses }) {
+function CalendarTab({ appointments, addAppointment, deleteAppointment, updateAppointment, courses = [], updateCourses, focusDay = null, onFocusDone = null }) {
+  const pushUndo = useContext(UndoCtx);
   const [editingId, setEditingId] = useState(null);
   const saveEdit = (a, v) => {
     updateAppointment(a.id, { title: v.title, date: v.date, time: v.time, duration: v.duration });
@@ -1355,11 +1357,22 @@ function CalendarTab({ appointments, addAppointment, deleteAppointment, updateAp
     }
     setEditingId(null);
   };
+  const coursesRef = useRef(courses);
+  coursesRef.current = courses;
   const [linkCourse, setLinkCourse] = useState("");
   const [linkLecture, setLinkLecture] = useState("");
   const linkable = courses.filter((c) => courseStage(c) === "active");
   const linkedCourse = linkable.find((c) => c.id === linkCourse) || null;
   const removeAppt = (a) => {
+    const lecKey = a.source === "lecture" && a.courseId ? (courses.find((c) => c.id === a.courseId)?.lectures || []).findIndex((x) => x.apptId === a.id) : -1;
+    const lecPrev = lecKey >= 0 ? courses.find((c) => c.id === a.courseId).lectures[lecKey] : null;
+    pushUndo(`اتمسح ميعاد "${a.title}"`, () => {
+      addAppointment(a);
+      if (lecPrev && updateCourses) {
+        const cur = coursesRef.current;
+        updateCourses(cur.map((c) => (c.id === a.courseId ? { ...c, lectures: (c.lectures || []).map((x, i) => (i === lecKey ? { ...x, apptId: lecPrev.apptId, date: lecPrev.date, time: lecPrev.time } : x)) } : c)));
+      }
+    });
     deleteAppointment(a.id);
     if (a.source === "lecture" && a.courseId && updateCourses) {
       updateCourses(courses.map((c) => (c.id === a.courseId ? { ...c, lectures: (c.lectures || []).map((x) => (x.apptId === a.id ? { ...x, apptId: null, date: "", time: "" } : x)) } : c)));
@@ -1379,6 +1392,12 @@ function CalendarTab({ appointments, addAppointment, deleteAppointment, updateAp
   };
   const [monthDate, setMonthDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(todayISO());
+  useEffect(() => {
+    if (!focusDay) return;
+    setSelectedDay(focusDay);
+    setMonthDate(parseISO(focusDay));
+    if (onFocusDone) onFocusDone();
+  }, [focusDay]);
 
   const year = monthDate.getFullYear();
   const month = monthDate.getMonth();
@@ -1808,6 +1827,7 @@ function SchedulePlanner({ initial = null, startDate, onStartDate, count, appoin
 }
 
 function CourseCard({ course, appointments, onUpdate, onDelete, addAppointment, deleteAppointment, addAccountEntry, removeAccountEntry, onMoveUp, onMoveDown, canMoveUp, canMoveDown, position }) {
+  const pushUndo = useContext(UndoCtx);
   const [open, setOpen] = useState(false);
   const [collecting, setCollecting] = useState(false);
   const [collectDesc, setCollectDesc] = useState("");
@@ -1827,15 +1847,24 @@ function CourseCard({ course, appointments, onUpdate, onDelete, addAppointment, 
 
   const applyPlan = () => {
     if (!planResult.length) return;
+    const prevCourse = course;
+    const prevAppts = (course.lectures || []).map((l) => (l.apptId ? (appointments || []).find((a) => a.id === l.apptId) : null)).filter(Boolean);
+    const newIds = [];
     const lectures = course.lectures.map((l, i) => {
       const sel = planResult.find((r) => r.idx === i);
       if (!sel || l.done) return l;
       if (l.apptId) deleteAppointment(l.apptId);
       const id = uid();
+      newIds.push(id);
       addAppointment({ id, title: l.title || `محاضرة ${i + 1}`, date: sel.date, time: sel.time, duration: sel.duration, courseId: course.id, lectureIdx: i, projectName: course.name, source: "lecture" });
       return { ...l, date: sel.date, time: sel.time, duration: sel.duration, apptId: id };
     });
     onUpdate({ ...course, lectures, schedule: planCfg || course.schedule });
+    pushUndo("اتطبقت الجدولة على السيشنات", () => {
+      newIds.forEach((id) => deleteAppointment(id));
+      prevAppts.forEach((a) => addAppointment(a));
+      onUpdate(prevCourse);
+    });
     setPlanOpen(false);
     setPlanResult([]);
   };
@@ -4625,7 +4654,213 @@ function Fold({ id, title, summary, color = "#22d3ee", open, onToggle, className
   );
 }
 
-function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNovaTasks, appointments, daily, accounts, courses, commitments, goals, top3, updateTop3, onGo }) {
+/* ---------------- Undo ---------------- */
+const UndoCtx = React.createContext(() => {});
+const UNDO_MS = 7000;
+
+function UndoBar({ item, onUndo, onClose }) {
+  if (!item) return null;
+  return (
+    <div className="fixed inset-x-0 bottom-20 z-[60] flex justify-center px-4" style={{ pointerEvents: "none" }}>
+      <div key={item.id} className="relative overflow-hidden flex items-center gap-3 px-4 py-2.5 border text-sm text-slate-100 max-w-md" style={{ pointerEvents: "auto", clipPath: clip, borderColor: "rgba(251,191,36,0.6)", background: "rgba(6,13,22,0.97)", boxShadow: "0 0 20px rgba(251,191,36,0.25)" }}>
+        <span className="min-w-0 truncate">{item.label}</span>
+        <button onClick={onUndo} className="shrink-0 text-amber-300 font-medium border border-amber-400/60 px-3 py-1 hover:bg-amber-400/10" style={{ clipPath: clip }}>تراجع</button>
+        <button onClick={onClose} className="shrink-0 text-slate-500 hover:text-slate-300"><X size={14} /></button>
+        <div className="absolute bottom-0 right-0 h-0.5 bg-amber-400/80" style={{ animation: `nova-undo ${UNDO_MS}ms linear forwards` }} />
+      </div>
+    </div>
+  );
+}
+
+// counts objects that carry an id (tasks, courses, clients, entries ...) and objects marked done/finished
+const idCount = (v) => (Array.isArray(v) ? v.reduce((t, x) => t + idCount(x), 0) : v && typeof v === "object" ? (v.id != null ? 1 : 0) + Object.values(v).reduce((t, x) => t + (x && typeof x === "object" ? idCount(x) : 0), 0) : 0);
+const doneCount = (v) => (Array.isArray(v) ? v.reduce((t, x) => t + doneCount(x), 0) : v && typeof v === "object" ? (v.done === true ? 1 : 0) + (v.finished === true ? 1 : 0) + Object.values(v).reduce((t, x) => t + (x && typeof x === "object" ? doneCount(x) : 0), 0) : 0);
+
+/* ---------------- Next session card ---------------- */
+function fmtCountdown(ms) {
+  const m = Math.max(0, Math.round(ms / 60000));
+  if (m < 60) return `${m} دقيقة`;
+  const h = Math.floor(m / 60), r = m % 60;
+  if (h < 24) return r ? `${h} ساعة و${r} دقيقة` : `${h} ساعة`;
+  const d = Math.floor(h / 24), hh = h % 24;
+  return hh ? `${d} يوم و${hh} ساعة` : `${d} يوم`;
+}
+
+function NextSessionCard({ courses, updateCourses }) {
+  const [noting, setNoting] = useState(false);
+  const [note, setNote] = useState("");
+  const nowMs = Date.now();
+  let best = null;
+  (courses || []).forEach((c) => {
+    if (c.done || c.finished) return;
+    (c.lectures || []).forEach((l, i) => {
+      if (l.done || !l.date || !l.time) return;
+      const st = new Date(`${l.date}T${l.time}:00`).getTime();
+      const en = st + (Number(l.duration) || 60) * 60000;
+      if (!(en > nowMs)) return;
+      if (!best || st < best.st) best = { c, l, i, st, en };
+    });
+  });
+  if (!best) return null;
+  const live = nowMs >= best.st;
+  const finish = () => {
+    const n = note.trim();
+    updateCourses(courses.map((c) => (c.id === best.c.id ? { ...c, lectures: c.lectures.map((x, i) => (i === best.i ? { ...x, done: true, notes: n ? (x.notes ? x.notes + "\n" + n : n) : x.notes } : x)) } : c)));
+    setNoting(false);
+    setNote("");
+  };
+  return (
+    <Panel className="p-4">
+      <CornerTicks />
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="text-xs text-slate-400">سيشنك الجاية</span>
+        <span className="text-xs px-2 py-0.5 border" style={{ clipPath: clip, borderColor: live ? "rgba(52,211,153,0.6)" : "rgba(251,191,36,0.5)", color: live ? "#6ee7b7" : "#fcd34d" }}>
+          {live ? `شغالة دلوقتي — باقي ${fmtCountdown(best.en - nowMs)}` : `بعد ${fmtCountdown(best.st - nowMs)}`}
+        </span>
+      </div>
+      <div className="text-base text-slate-100 mt-1.5">سيشن {best.i + 1}{best.l.title ? ` — ${best.l.title}` : ""}</div>
+      <div className="text-xs text-slate-400 mt-0.5 truncate">{best.c.name} · {best.l.date} · {formatTime12(best.l.time)}</div>
+      {!noting ? (
+        <button onClick={() => setNoting(true)} className="mt-3 flex items-center gap-1.5 text-sm px-3 py-1.5 border border-emerald-400/50 text-emerald-200 hover:bg-emerald-400/10" style={{ clipPath: clip }}>
+          <CheckCircle2 size={15} /> خلصتها + ملاحظة
+        </button>
+      ) : (
+        <div className="mt-3 flex flex-col gap-2">
+          <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="ملاحظات بعد ما تخلّص السيشن (اختياري)…" className="w-full bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none text-sm text-slate-200 placeholder:text-slate-600 px-2 py-1.5 resize-y" />
+          <div className="flex gap-2">
+            <button onClick={finish} className="px-4 py-1.5 text-sm border border-emerald-400/60 text-emerald-200 hover:bg-emerald-400/10" style={{ clipPath: clip }}>تم</button>
+            <button onClick={() => { setNoting(false); setNote(""); }} className="px-4 py-1.5 text-sm border border-slate-600/60 text-slate-300" style={{ clipPath: clip }}>إلغاء</button>
+          </div>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+/* ---------------- Week strip ---------------- */
+function WeekStrip({ appointments, onPickDay }) {
+  const today = todayISO();
+  const days = Array.from({ length: 7 }, (_, i) => addDaysToISO(today, i));
+  const info = days.map((iso) => {
+    const slots = freeSlotsFor(appointments, iso, null, nowFromMin(iso));
+    const free = slots.reduce((t, [a, e]) => t + (e - a), 0);
+    return { iso, free, busy: busyIntervals(appointments, iso, null) };
+  });
+  const best = info.reduce((b, x) => (x.free > b.free ? x : b), info[0]);
+  const total = DAY_END - DAY_START;
+  return (
+    <div className="flex gap-2 overflow-x-auto pb-1">
+      {info.map((x) => {
+        const d = parseISO(x.iso);
+        const isBest = x.iso === best.iso && x.free > 0;
+        return (
+          <button key={x.iso} onClick={() => onPickDay(x.iso)} className="flex-1 min-w-[88px] text-right border px-2.5 py-2 flex flex-col gap-1.5" style={{ clipPath: clip, borderColor: isBest ? "rgba(52,211,153,0.7)" : x.iso === today ? "rgba(251,191,36,0.5)" : "rgba(148,163,184,0.2)", background: isBest ? "rgba(52,211,153,0.08)" : "transparent" }}>
+            <div className="flex items-baseline justify-between gap-1">
+              <span className="text-xs text-slate-300">{x.iso === today ? "النهاردة" : WEEKDAY_SHORT[d.getDay()]}</span>
+              <span className="text-sm font-mono text-slate-100">{d.getDate()}</span>
+            </div>
+            <div className="relative h-2.5 overflow-hidden" dir="rtl" style={{ background: "repeating-linear-gradient(135deg, rgba(52,211,153,0.25) 0 4px, rgba(52,211,153,0.08) 4px 8px)" }}>
+              {x.busy.map(([st, en], i) => {
+                const l = Math.max(st, DAY_START), r = Math.min(en, DAY_END);
+                if (r <= l) return null;
+                return <div key={i} className="absolute top-0 bottom-0" style={{ right: `${((l - DAY_START) / total) * 100}%`, width: `${((r - l) / total) * 100}%`, background: "rgba(251,113,133,0.92)" }} />;
+              })}
+            </div>
+            <div className="text-[11px]" style={{ color: x.free === 0 ? "#fda4af" : "#6ee7b7" }}>{x.free === 0 ? "مشغول" : `فاضي ${durText(x.free)}`}</div>
+            {isBest && <div className="text-[10px] text-emerald-300">الأفضل لميعاد جديد</div>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ---------------- Quick add (floating +) ---------------- */
+function QuickTaskForm({ projects, novaTasks, updateProjects, updateNovaTasks, onDone }) {
+  const [text, setText] = useState("");
+  const [priority, setPriority] = useState("urgent");
+  const [target, setTarget] = useState("");
+  const options = [
+    ...projects.map((p) => ({ value: `p:${p.id}`, label: p.name })),
+    ...NOVA_UNITS.map((u) => ({ value: `n:${u.key}`, label: u.name })),
+  ];
+  const eff = options.some((o) => o.value === target) ? target : (options[0] ? options[0].value : "");
+  const submit = () => {
+    const t = text.trim();
+    if (!t || !eff) return;
+    const kind = eff.slice(0, 1), id = eff.slice(2);
+    if (kind === "p") updateProjects(projects.map((p) => (p.id === id ? { ...p, tasks: [...(p.tasks || []), { id: uid(), text: t, priority, time: "", done: false }] } : p)));
+    else updateNovaTasks({ ...novaTasks, [id]: [...((novaTasks && novaTasks[id]) || []), { id: uid(), text: t, priority, done: false }] });
+    onDone();
+  };
+  return (
+    <div className="flex flex-col gap-3">
+      <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()} placeholder="المهمة…" autoFocus className="bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500" style={{ clipPath: clip }} />
+      <div className="flex flex-wrap gap-1.5">
+        {Object.keys(PRIORITIES).map((k) => {
+          const pr = PRIORITIES[k];
+          return <button key={k} onClick={() => setPriority(k)} className="text-xs px-3 py-1.5 border" style={{ clipPath: clip, borderColor: priority === k ? pr.color : "rgba(148,163,184,0.25)", color: priority === k ? pr.color : "#94a3b8", background: priority === k ? `${pr.color}18` : "transparent" }}>{pr.label}</button>;
+        })}
+      </div>
+      <select value={eff} onChange={(e) => setTarget(e.target.value)} className="bg-transparent border border-cyan-500/25 outline-none px-3 py-2 text-sm text-slate-100" style={{ clipPath: clip }}>
+        {options.map((o) => <option key={o.value} value={o.value} className="bg-slate-900">{o.label}</option>)}
+      </select>
+      <div><button onClick={submit} className="flex items-center gap-1.5 px-4 py-2 text-sm text-cyan-100 border border-cyan-400/50 hover:bg-cyan-400/10" style={{ clipPath: clip }}><Plus size={15} /> إضافة</button></div>
+    </div>
+  );
+}
+
+function QuickAdd({ appointments, addAppointment, deleteAppointment, accounts, addAccountEntry, projects, novaTasks, updateProjects, updateNovaTasks }) {
+  const pushUndo = useContext(UndoCtx);
+  const [menu, setMenu] = useState(false);
+  const [mode, setMode] = useState(null);
+  const close = () => { setMode(null); setMenu(false); };
+  const novaNames = NOVA_UNITS.map((u) => u.name);
+  const mainAccounts = (accounts || []).filter((c) => !novaNames.includes(c.name));
+  const items = [["appt", "ميعاد", Calendar, "#22d3ee"], ["money", "مصروف / دخل", Wallet, "#fb7185"], ["task", "مهمة", ListChecks, "#fbbf24"]];
+  const titles = { appt: "إضافة ميعاد", money: "إضافة مصروف / دخل", task: "إضافة مهمة" };
+  return (
+    <>
+      <div className="fixed bottom-4 left-4 z-40 flex flex-col items-start gap-2">
+        {menu && items.map(([k, l, Icon, c]) => (
+          <button key={k} onClick={() => { setMode(k); setMenu(false); }} className="flex items-center gap-2 px-3 py-2 text-sm border" style={{ clipPath: clip, borderColor: c + "99", color: c, background: "rgba(6,13,22,0.97)" }}>
+            <Icon size={15} /> {l}
+          </button>
+        ))}
+        <button onClick={() => setMenu((m) => !m)} className="w-12 h-12 flex items-center justify-center border" style={{ clipPath: clip, borderColor: "rgba(34,211,238,0.7)", color: "#a5f3fc", background: "rgba(6,13,22,0.97)", boxShadow: "0 0 16px rgba(34,211,238,0.3)" }} title="إضافة سريعة">
+          {menu ? <X size={20} /> : <Plus size={22} />}
+        </button>
+      </div>
+      {mode && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-16" style={{ background: "rgba(2,6,14,0.75)" }} onClick={close}>
+          <div className="w-full max-w-xl max-h-[80vh] overflow-y-auto border p-4" style={{ clipPath: clipBig, borderColor: "rgba(34,211,238,0.4)", background: "rgba(8,16,28,0.98)" }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm text-cyan-100">{titles[mode]}</span>
+              <button onClick={close} className="text-slate-400 hover:text-slate-200"><X size={16} /></button>
+            </div>
+            {mode === "appt" && (
+              <AppointmentForm
+                appointments={appointments}
+                initialDate={todayISO()}
+                onAdd={(v) => { addAppointment(v); close(); pushUndo(`اتضاف ميعاد "${v.title}"`, () => deleteAppointment(v.id)); }}
+              />
+            )}
+            {mode === "money" && (
+              <ExpensePanel
+                accounts={mainAccounts.filter((c) => !isIncomeCategory(c) && c.name !== "تحويلات")}
+                incomeAccounts={mainAccounts.filter((c) => isIncomeCategory(c) && c.name !== "إضافة رصيد")}
+                addAccountEntry={addAccountEntry}
+              />
+            )}
+            {mode === "task" && <QuickTaskForm projects={projects} novaTasks={novaTasks} updateProjects={updateProjects} updateNovaTasks={updateNovaTasks} onDone={close} />}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNovaTasks, appointments, daily, accounts, courses, commitments, goals, top3, updateTop3, onGo, onGoDay, updateCourses }) {
   const today = todayISO();
   const [justDone, setJustDone] = useState({});
 
@@ -4754,6 +4989,7 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
   return (
     <div className="flex flex-col gap-4">
       <DayStatusBar done={dayDone} total={dayTotal} pct={dayPct} />
+      <NextSessionCard courses={courses} updateCourses={updateCourses} />
       <Fold id="focus" title="التركيز دلوقتي" summary={focusTask ? (focusTask.text.length > 22 ? focusTask.text.slice(0, 22) + "…" : focusTask.text) : "مفيش"} {...fp}>
         <FocusCard hideTitle task={focusTask} tasks={pendingList} picked={!!pickedTask} onPick={setFocusKey} onDone={() => { if (focusTask) toggleDashTask(focusTask); setFocusKey(null); }} />
       </Fold>
@@ -4872,6 +5108,13 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
           </div>
         )}
       </Panel>
+      </Fold>
+
+      <Fold id="week" title="الأسبوع ده" summary="" color="#34d399" {...fp}>
+        <Panel className="p-3">
+          <CornerTicks />
+          <WeekStrip appointments={appointments} onPickDay={onGoDay} />
+        </Panel>
       </Fold>
 
       <Fold id="habits" title="عادات لسه ماخلصتهاش النهاردة" summary={pendingHabits.length} color="#a78bfa" className="" {...fp}>
@@ -5112,6 +5355,20 @@ function ThemePicker({ theme, updateTheme }) {
 
 function App() {
   const [tab, setTab] = useState("dashboard");
+  const [calDay, setCalDay] = useState(null);
+  const [undoItem, setUndoItem] = useState(null);
+  const undoTimer = useRef(null);
+  const pushUndo = useCallback((label, restore) => {
+    clearTimeout(undoTimer.current);
+    setUndoItem({ id: uid(), label, restore });
+    undoTimer.current = setTimeout(() => setUndoItem(null), UNDO_MS);
+  }, []);
+  const doUndo = () => {
+    const it = undoItem;
+    clearTimeout(undoTimer.current);
+    setUndoItem(null);
+    if (it) it.restore();
+  };
   const [projects, setProjects] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [courses, setCourses] = useState([]);
@@ -5228,18 +5485,24 @@ function App() {
     debounceRef.current[key] = setTimeout(doSave, debounceMs);
   }, []);
 
-  const updateProjects = (next) => { setProjects(next); persist(KEYS.projects, next); };
-  const updateCourses = (next) => { setCourses(next); persist(KEYS.courses, next); };
-  const updateAccounts = (next) => { setAccounts(next); persist(KEYS.accounts, next); };
+  const trackUndo = (label, prev, next, setter, key) => {
+    const removed = idCount(prev) - idCount(next);
+    const restore = () => { setter(prev); persist(key, prev); };
+    if (removed > 0) pushUndo(removed === 1 ? `اتمسح عنصر من ${label}` : `اتمسح ${removed} عناصر من ${label}`, restore);
+    else if (doneCount(next) > doneCount(prev)) pushUndo(`اتعلّم "خلصان" في ${label}`, restore);
+  };
+  const updateProjects = (next) => { trackUndo("المشاريع", projects, next, setProjects, KEYS.projects); setProjects(next); persist(KEYS.projects, next); };
+  const updateCourses = (next) => { trackUndo("الكورسات", courses, next, setCourses, KEYS.courses); setCourses(next); persist(KEYS.courses, next); };
+  const updateAccounts = (next) => { trackUndo("الحسابات", accounts, next, setAccounts, KEYS.accounts); setAccounts(next); persist(KEYS.accounts, next); };
   const updateDaily = (next) => { setDaily(next); persist(KEYS.daily, next); };
-  const updateCommitments = (next) => { setCommitments(next); persist(KEYS.commitments, next); };
-  const updateClients = (next) => { setClients(next); persist(KEYS.clients, next); };
-  const updateReceivables = (next) => { setReceivables(next); persist(KEYS.receivables, next); };
-  const updateGoals = (next) => { setGoals(next); persist(KEYS.goals, next); };
+  const updateCommitments = (next) => { trackUndo("الالتزامات", commitments, next, setCommitments, KEYS.commitments); setCommitments(next); persist(KEYS.commitments, next); };
+  const updateClients = (next) => { trackUndo("العملاء", clients, next, setClients, KEYS.clients); setClients(next); persist(KEYS.clients, next); };
+  const updateReceivables = (next) => { trackUndo("المستحقات", receivables, next, setReceivables, KEYS.receivables); setReceivables(next); persist(KEYS.receivables, next); };
+  const updateGoals = (next) => { trackUndo("الأهداف", goals, next, setGoals, KEYS.goals); setGoals(next); persist(KEYS.goals, next); };
   const updateTopThree = (next) => { setTopThree(next); persist(KEYS.topThree, next); };
   const updateWorkout = (next) => { setWorkout(next); persist(KEYS.workout, next); };
   const updateTheme = (next) => { setTheme(next); persist(KEYS.theme, next); };
-  const updateNovaTasks = (next) => { setNovaTasks(next); persist(KEYS.novaTasks, next); };
+  const updateNovaTasks = (next) => { trackUndo("مهام NOVA", novaTasks, next, setNovaTasks, KEYS.novaTasks); setNovaTasks(next); persist(KEYS.novaTasks, next); };
   // Self-heal: a session linked to an appointment that no longer exists gets its appointment back
   useEffect(() => {
     if (!loaded || !loadOk.current[KEYS.appointments] || !loadOk.current[KEYS.courses]) return;
@@ -5278,6 +5541,8 @@ function App() {
   };
 
   const removeAccountEntry = (categoryName, entryId) => {
+    const snap = accounts;
+    pushUndo("اتمسحت عملية من الحسابات", () => { setAccounts(snap); persist(KEYS.accounts, snap); });
     setAccounts((prev) => {
       const next = prev.map((c) => (c.name === categoryName ? { ...c, entries: c.entries.filter((e) => e.id !== entryId) } : c));
       persist(KEYS.accounts, next);
@@ -5294,6 +5559,7 @@ function App() {
   const dueTodayCommitmentsCount = commitments.filter((c) => commitmentRemaining(c) > 0 && c.dueDate === todayISO()).length;
 
   return (
+    <UndoCtx.Provider value={pushUndo}>
     <div
       dir="rtl"
       className="min-h-screen w-full font-sans text-slate-200 p-4 md:p-6 relative z-0"
@@ -5411,12 +5677,14 @@ function App() {
               top3={topThree}
               updateTop3={updateTopThree}
               onGo={setTab}
+              onGoDay={(iso) => { setCalDay(iso); setTab("calendar"); }}
+              updateCourses={updateCourses}
             />
           )}
           {tab === "goals" && <GoalsTab goals={goals} updateGoals={updateGoals} />}
           {tab === "projects" && <ProjectsTab projects={projects} appointments={appointments} updateProjects={updateProjects} addAppointment={addAppointment} />}
           {tab === "daily" && <DailyTab daily={daily} updateDaily={updateDaily} />}
-          {tab === "calendar" && <CalendarTab appointments={appointments} addAppointment={addAppointment} deleteAppointment={deleteAppointment} updateAppointment={updateAppointment} courses={courses} updateCourses={updateCourses} />}
+          {tab === "calendar" && <CalendarTab appointments={appointments} addAppointment={addAppointment} deleteAppointment={deleteAppointment} updateAppointment={updateAppointment} courses={courses} updateCourses={updateCourses} focusDay={calDay} onFocusDone={() => setCalDay(null)} />}
           {tab === "courses" && (
             <CoursesTab
               courses={courses}
@@ -5455,9 +5723,12 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 ن
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 هـ
       </div>
+      <UndoBar item={undoItem} onUndo={doUndo} onClose={() => { clearTimeout(undoTimer.current); setUndoItem(null); }} />
+      <QuickAdd appointments={appointments} addAppointment={addAppointment} deleteAppointment={deleteAppointment} accounts={accounts} addAccountEntry={addAccountEntry} projects={projects} novaTasks={novaTasks} updateProjects={updateProjects} updateNovaTasks={updateNovaTasks} />
     </div>
+    </UndoCtx.Provider>
   );
 }
 /* ---------------- Auth gate ---------------- */
