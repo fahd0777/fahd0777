@@ -1395,7 +1395,7 @@ function CalendarTab({ appointments, addAppointment, deleteAppointment, courses 
   const monthLabel = monthDate.toLocaleDateString("ar-EG", { month: "long", year: "numeric" });
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
       <Panel className="p-3 lg:col-span-2">
         <CornerTicks />
         <div className="flex items-center justify-between mb-3">
@@ -5150,7 +5150,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 ج
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 د
       </div>
     </div>
   );
