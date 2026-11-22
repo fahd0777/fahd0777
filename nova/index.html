@@ -4686,7 +4686,7 @@ function fmtCountdown(ms) {
   return hh ? `${d} يوم و${hh} ساعة` : `${d} يوم`;
 }
 
-function NextSessionCard({ appointments, courses, updateCourses }) {
+function NextSessionCard({ appointments, courses, updateCourses, projects, updateProjects }) {
   const [noting, setNoting] = useState(false);
   const [note, setNote] = useState("");
   const nowMs = Date.now();
@@ -4698,6 +4698,11 @@ function NextSessionCard({ appointments, courses, updateCourses }) {
     const en = st + (Number(a.duration) || 60) * 60000;
     if (!(en > nowMs)) return;
     let c = null, i = -1;
+    if (a.source === "task" && a.taskId) {
+      const pr = (projects || []).find((x) => x.name === a.projectName);
+      const tk = pr && (pr.tasks || []).find((t) => t.id === a.taskId);
+      if (tk && tk.done) return; // task already done
+    }
     if (a.source === "lecture" && a.courseId) {
       c = (courses || []).find((x) => x.id === a.courseId) || null;
       if (c) {
@@ -4711,6 +4716,8 @@ function NextSessionCard({ appointments, courses, updateCourses }) {
   if (!best) return null;
   const live = nowMs >= best.st;
   const isSession = best.c && best.i >= 0;
+  const taskProj = best.a.source === "task" && best.a.taskId ? (projects || []).find((x) => x.name === best.a.projectName && (x.tasks || []).some((t) => t.id === best.a.taskId)) : null;
+  const finishTask = () => updateProjects(projects.map((x) => (x === taskProj ? { ...x, tasks: x.tasks.map((t) => (t.id === best.a.taskId ? { ...t, done: true } : t)) } : x)));
   const finish = () => {
     const n = note.trim();
     updateCourses(courses.map((c) => (c.id === best.c.id ? { ...c, lectures: c.lectures.map((x, i) => (i === best.i ? { ...x, done: true, notes: n ? (x.notes ? x.notes + "\n" + n : n) : x.notes } : x)) } : c)));
@@ -4728,6 +4735,11 @@ function NextSessionCard({ appointments, courses, updateCourses }) {
       </div>
       <div className="text-base text-slate-100 mt-1.5">{isSession ? `سيشن ${best.i + 1} — ` : ""}{best.a.title}</div>
       <div className="text-xs text-slate-400 mt-0.5 truncate">{isSession ? `${best.c.name} · ` : ""}{best.a.date} · {formatTime12(best.a.time)}</div>
+      {taskProj && (
+        <button onClick={finishTask} className="mt-3 flex items-center gap-1.5 text-sm px-3 py-1.5 border border-emerald-400/50 text-emerald-200 hover:bg-emerald-400/10" style={{ clipPath: clip }}>
+          <CheckCircle2 size={15} /> تم
+        </button>
+      )}
       {isSession && (!noting ? (
         <button onClick={() => setNoting(true)} className="mt-3 flex items-center gap-1.5 text-sm px-3 py-1.5 border border-emerald-400/50 text-emerald-200 hover:bg-emerald-400/10" style={{ clipPath: clip }}>
           <CheckCircle2 size={15} /> خلصتها + ملاحظة
@@ -4997,7 +5009,7 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
   return (
     <div className="flex flex-col gap-4">
       <DayStatusBar done={dayDone} total={dayTotal} pct={dayPct} />
-      <NextSessionCard appointments={appointments} courses={courses} updateCourses={updateCourses} />
+      <NextSessionCard appointments={appointments} courses={courses} updateCourses={updateCourses} projects={projects} updateProjects={updateProjects} />
       <Fold id="focus" title="التركيز دلوقتي" summary={focusTask ? (focusTask.text.length > 22 ? focusTask.text.slice(0, 22) + "…" : focusTask.text) : "مفيش"} {...fp}>
         <FocusCard hideTitle task={focusTask} tasks={pendingList} picked={!!pickedTask} onPick={setFocusKey} onDone={() => { if (focusTask) toggleDashTask(focusTask); setFocusKey(null); }} />
       </Fold>
@@ -5731,7 +5743,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 و
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 ز
       </div>
       <UndoBar item={undoItem} onUndo={doUndo} onClose={() => { clearTimeout(undoTimer.current); setUndoItem(null); }} />
       <QuickAdd appointments={appointments} addAppointment={addAppointment} deleteAppointment={deleteAppointment} accounts={accounts} addAccountEntry={addAccountEntry} projects={projects} novaTasks={novaTasks} updateProjects={updateProjects} updateNovaTasks={updateNovaTasks} />
