@@ -4741,7 +4741,7 @@ function KpiRow({ items }) {
 const FOLD_ICONS = { focus: Zap, top3: Flame, tasks: ListChecks, appts: Calendar, week: Clock3, habits: Repeat, clients: Users, commit: AlertTriangle, goals: Target, near: BookOpen, backup: Download };
 
 // dashboard section as a phone-style app icon; its content opens as a bottom sheet
-function Fold({ id, title, summary, color = "#22d3ee", open, onToggle, className = "", children }) {
+function Fold({ id, title, summary, color = "#22d3ee", open, onToggle, className = "", preview = null, children }) {
   const isOpen = !!open[id];
   const Icon = FOLD_ICONS[id] || Folder;
   const [dy, setDy] = useState(0);
@@ -4761,9 +4761,13 @@ function Fold({ id, title, summary, color = "#22d3ee", open, onToggle, className
   return (
     <>
       <button onClick={() => onToggle(id)} className="relative flex flex-col items-center gap-1.5 py-3 px-1 border rounded-2xl" style={{ borderColor: isOpen ? color : "rgba(148,163,184,0.18)", background: isOpen ? color + "1c" : "rgba(15,23,42,0.35)", opacity: dim && !isOpen ? 0.55 : 1 }}>
-        <span className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: color + "22", color, boxShadow: `inset 0 0 0 1px ${color}44` }}>
-          <Icon size={22} />
-        </span>
+        {preview ? (
+          <span className="h-11 flex items-center justify-center">{preview}</span>
+        ) : (
+          <span className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: color + "22", color, boxShadow: `inset 0 0 0 1px ${color}44` }}>
+            <Icon size={22} />
+          </span>
+        )}
         <span className="text-[11px] leading-tight text-slate-300 text-center line-clamp-2" style={{ minHeight: 28 }}>{title}</span>
         {badge && <span className="absolute -top-1.5 -left-1.5 min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-mono flex items-center justify-center text-slate-950 font-bold" style={{ background: color }}>{badge}</span>}
         {dot && <span className="absolute top-1.5 left-1.5 w-2.5 h-2.5 rounded-full" style={{ background: color, boxShadow: `0 0 6px ${color}` }} />}
@@ -4898,6 +4902,26 @@ function NextSessionCard({ appointments, courses, updateCourses, projects, updat
 }
 
 /* ---------------- Week strip ---------------- */
+// 7 tiny bars (busy = rose from the bottom, rest = green) shown on the "week" icon
+function WeekMini({ appointments }) {
+  const today = todayISO();
+  const total = DAY_END - DAY_START;
+  return (
+    <span className="flex items-end gap-[3px]" dir="rtl" style={{ height: 36 }}>
+      {Array.from({ length: 7 }, (_, i) => {
+        const iso = addDaysToISO(today, i);
+        const busy = busyIntervals(appointments, iso, null).reduce((t, [st, en]) => t + Math.max(0, Math.min(en, DAY_END) - Math.max(st, DAY_START)), 0);
+        const h = Math.min(100, Math.round((busy / total) * 100));
+        return (
+          <span key={iso} className="relative w-[7px] h-full overflow-hidden rounded-sm" style={{ background: "rgba(52,211,153,0.35)", outline: i === 0 ? "1px solid #fbbf24" : "none" }}>
+            <span className="absolute bottom-0 inset-x-0" style={{ height: `${h}%`, background: "rgba(251,113,133,0.95)" }} />
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 function WeekStrip({ appointments, onPickDay }) {
   const today = todayISO();
   const days = Array.from({ length: 7 }, (_, i) => addDaysToISO(today, i));
@@ -5310,7 +5334,7 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
       </Panel>
       </Fold>
 
-      <Fold id="week" title="الأسبوع ده" summary="" color="#34d399" {...fp}>
+      <Fold id="week" title="الأسبوع ده" summary="" color="#34d399" preview={<WeekMini appointments={appointments} />} {...fp}>
         <Panel className="p-3">
           <CornerTicks />
           <WeekStrip appointments={appointments} onPickDay={onGoDay} />
@@ -5901,7 +5925,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-23 ذ
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-23 ر
       </div>
       <UndoBar item={undoItem} onUndo={doUndo} onClose={() => { clearTimeout(undoTimer.current); setUndoItem(null); }} />
       <QuickAdd appointments={appointments} addAppointment={addAppointment} deleteAppointment={deleteAppointment} accounts={accounts} addAccountEntry={addAccountEntry} projects={projects} novaTasks={novaTasks} updateProjects={updateProjects} updateNovaTasks={updateNovaTasks} />
