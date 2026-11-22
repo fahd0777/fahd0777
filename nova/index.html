@@ -546,10 +546,14 @@ function DayTimeline({ appointments, date, slots, courses }) {
           const l = Math.max(st, DAY_START), r = Math.min(en, DAY_END);
           if (r <= l) return null;
           const w = ((r - l) / total) * 100;
+          const md = apptMode(ap, courses);
+          const bg = md === "online" ? "rgba(34,211,238,0.95)" : md === "offline" ? "rgba(251,191,36,0.95)" : "rgba(251,113,133,0.92)";
+          const word = md === "online" ? "أونلاين" : md === "offline" ? "أوفلاين" : "";
           return (
-            <div key={`b${i}`} title={`${ap.title} · ${fmtMin(st)}${apptMode(ap, courses) ? " · " + (apptMode(ap, courses) === "offline" ? "أوفلاين" : "أونلاين") : ""}`} className="absolute top-0 bottom-0 flex items-center justify-center px-1 text-[10px] font-medium text-slate-950 overflow-hidden whitespace-nowrap"
-              style={{ right: `${pct(l)}%`, width: `${w}%`, background: "rgba(251,113,133,0.92)", borderLeft: "1px solid #0b1220", borderRight: "1px solid #0b1220" }}>
-              {w >= 9 ? `${modeIcon(apptMode(ap, courses))}${modeIcon(apptMode(ap, courses)) ? " " : ""}${ap.title}` : (w >= 4 ? modeIcon(apptMode(ap, courses)) : "")}
+            <div key={`b${i}`} title={`${ap.title} · ${fmtMin(st)}${word ? " · " + word : ""}`} className="absolute top-0 bottom-0 flex flex-col items-center justify-center px-1 text-[10px] leading-tight font-medium text-slate-950 overflow-hidden whitespace-nowrap"
+              style={{ right: `${pct(l)}%`, width: `${w}%`, background: bg, borderLeft: "1px solid #0b1220", borderRight: "1px solid #0b1220" }}>
+              {w >= 9 ? <span className="max-w-full truncate">{ap.title}</span> : (w >= 4 && md ? <span>{modeIcon(md)}</span> : null)}
+              {w >= 9 && word && <span className="max-w-full truncate text-[9px] font-bold opacity-80">{w >= 14 ? `${modeIcon(md)} ${word}` : modeIcon(md)}</span>}
             </div>
           );
         })}
@@ -5793,7 +5797,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 ك
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 ل
       </div>
       <UndoBar item={undoItem} onUndo={doUndo} onClose={() => { clearTimeout(undoTimer.current); setUndoItem(null); }} />
       <QuickAdd appointments={appointments} addAppointment={addAppointment} deleteAppointment={deleteAppointment} accounts={accounts} addAccountEntry={addAccountEntry} projects={projects} novaTasks={novaTasks} updateProjects={updateProjects} updateNovaTasks={updateNovaTasks} />
