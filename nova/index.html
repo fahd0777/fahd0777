@@ -65,7 +65,7 @@ import {
   Zap, Clock3, CheckCircle2, Circle, Trash2, Plus, AlertTriangle, Radio,
   Loader2, Folder, Calendar, BookOpen, ChevronDown, ChevronRight, ChevronLeft, ChevronUp,
   X, Sparkles, Bell, Wallet, Sun, Flame, Users, User, LayoutDashboard, Search, Repeat, ListChecks, Target, Dumbbell, RefreshCw, Download, Upload, ArrowLeftRight, Briefcase, Pencil,
-  Mail, Lock, LogOut,
+  Mail, Lock, LogOut, Settings,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
@@ -5486,6 +5486,11 @@ function resizeImageToDataURL(file, maxSide = 1280, quality = 0.72) {
 
 function ThemePicker({ theme, updateTheme }) {
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const on = () => setOpen((o) => !o);
+    window.addEventListener("nova:toggle-theme", on);
+    return () => window.removeEventListener("nova:toggle-theme", on);
+  }, []);
   const [err, setErr] = useState("");
   const dim = typeof theme.dim === "number" ? theme.dim : 0.65;
 
@@ -5504,13 +5509,6 @@ function ThemePicker({ theme, updateTheme }) {
 
   return (
     <>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="fixed top-3 left-24 z-50 flex items-center gap-1.5 text-xs px-3 py-1.5 border border-slate-600 text-slate-300 hover:bg-slate-800"
-        style={{ clipPath: clip, background: "#0a1420" }}
-      >
-        <Sparkles size={13} /> الخلفية
-      </button>
       {open && (
         <div className="fixed top-14 left-3 right-3 sm:right-auto sm:w-80 z-50 border p-3 flex flex-col gap-3" style={{ background: "rgba(8,16,26,0.96)", borderColor: "rgba(34,211,238,0.35)", clipPath: clip }}>
           <div className="flex items-center justify-between">
@@ -5903,7 +5901,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-23 د
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-23 ذ
       </div>
       <UndoBar item={undoItem} onUndo={doUndo} onClose={() => { clearTimeout(undoTimer.current); setUndoItem(null); }} />
       <QuickAdd appointments={appointments} addAppointment={addAppointment} deleteAppointment={deleteAppointment} accounts={accounts} addAccountEntry={addAccountEntry} projects={projects} novaTasks={novaTasks} updateProjects={updateProjects} updateNovaTasks={updateNovaTasks} />
@@ -5969,6 +5967,7 @@ function AuthGate() {
   const [busy, setBusy] = useState(false);
   const [recovery, setRecovery] = useState(() => { try { return /type=recovery/.test(window.location.hash); } catch (e) { return false; } });
   const [pwOpen, setPwOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -6018,20 +6017,27 @@ function AuthGate() {
     return (
       <>
         {(recovery || pwOpen) && <PasswordForm title={recovery ? "اختار كلمة سر جديدة" : "تغيير كلمة السر"} onDone={closeRecovery} onCancel={recovery ? null : () => setPwOpen(false)} />}
-        <button
-          onClick={() => setPwOpen(true)}
-          className="fixed top-3 left-48 z-50 flex items-center gap-1.5 text-xs px-3 py-1.5 border border-slate-600 text-slate-300 hover:bg-slate-800"
-          style={{ clipPath: clipStyle, background: "#0a1420" }}
-        >
-          <Lock size={13} /> الباسورد
-        </button>
-        <button
-          onClick={() => supabase.auth.signOut()}
-          className="fixed top-3 left-3 z-50 flex items-center gap-1.5 text-xs px-3 py-1.5 border border-slate-600 text-slate-300 hover:bg-slate-800"
-          style={{ clipPath: clipStyle, background: "#0a1420" }}
-        >
-          <LogOut size={13} /> خروج
-        </button>
+        {menuOpen && <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />}
+        <div className="fixed top-3 left-3 z-50">
+          <button
+            onClick={() => setMenuOpen((o) => !o)}
+            className="w-10 h-10 rounded-full flex items-center justify-center border"
+            style={{ borderColor: menuOpen ? "rgba(34,211,238,0.7)" : "rgba(148,163,184,0.35)", color: menuOpen ? "#a5f3fc" : "#94a3b8", background: "#0a1420" }}
+            title="الإعدادات"
+          >
+            <Settings size={18} />
+          </button>
+          {menuOpen && (
+            <>
+              <div className="absolute top-12 left-0 w-48 border flex flex-col py-1" style={{ background: "rgba(8,16,28,0.99)", borderColor: "rgba(34,211,238,0.35)", clipPath: clipStyle }}>
+                <button onClick={() => { setMenuOpen(false); window.dispatchEvent(new Event("nova:toggle-theme")); }} className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-200 hover:bg-slate-800 text-right"><Sparkles size={15} className="text-cyan-300" /> الخلفية</button>
+                <button onClick={() => { setMenuOpen(false); setPwOpen(true); }} className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-200 hover:bg-slate-800 text-right"><Lock size={15} className="text-amber-300" /> تغيير الباسورد</button>
+                <div className="my-1 border-t border-slate-700/60" />
+                <button onClick={() => { setMenuOpen(false); supabase.auth.signOut(); }} className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-rose-300 hover:bg-slate-800 text-right"><LogOut size={15} /> خروج</button>
+              </div>
+            </>
+          )}
+        </div>
         <App />
       </>
     );
