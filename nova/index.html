@@ -5755,7 +5755,7 @@ function App() {
             <div className="text-xs text-slate-400">{dateStr}</div>
           </div>
         </div>
-        <div className="my-3 py-2 border-y text-center text-[12px] text-amber-300/90 italic" style={{ borderColor: "rgba(251,191,36,0.22)" }}>{quote}</div>
+        <div className="my-3 py-2.5 border-y text-center text-base text-amber-300/90 italic" style={{ borderColor: "rgba(251,191,36,0.22)" }}>{quote}</div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           {dayStatus && (
             <div className="flex items-center gap-3 min-w-0">
@@ -5859,7 +5859,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-23 ت
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-23 ث
       </div>
       <UndoBar item={undoItem} onUndo={doUndo} onClose={() => { clearTimeout(undoTimer.current); setUndoItem(null); }} />
       <QuickAdd appointments={appointments} addAppointment={addAppointment} deleteAppointment={deleteAppointment} accounts={accounts} addAccountEntry={addAccountEntry} projects={projects} novaTasks={novaTasks} updateProjects={updateProjects} updateNovaTasks={updateNovaTasks} />
