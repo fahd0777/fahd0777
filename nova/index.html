@@ -671,13 +671,6 @@ function TabNav({ tab, onTab, badges }) {
   const [dragKey, setDragKey] = useState(null);
   const orderRef = useRef(order);
   orderRef.current = order;
-  const [scrolled, setScrolled] = useState(false);
-  useEffect(() => {
-    const on = () => setScrolled(window.scrollY > 170);
-    on();
-    window.addEventListener("scroll", on, { passive: true });
-    return () => window.removeEventListener("scroll", on);
-  }, []);
   const tabs = order.map((k) => NAV_TABS.find((t) => t.key === k)).filter(Boolean);
   const saveOrder = (o) => { try { localStorage.setItem("nova:tabOrder", JSON.stringify(o)); } catch (e) { /* ignore */ } };
   const onMove = (e) => {
@@ -736,20 +729,6 @@ function TabNav({ tab, onTab, badges }) {
           </button>
         </div>
       </div>
-      {scrolled && !edit && (
-        <div className="fixed bottom-0 inset-x-0 z-40 flex justify-around items-center px-1 py-1.5 border-t" style={{ background: "rgba(6,13,22,0.97)", borderColor: "rgba(34,211,238,0.3)" }}>
-          {tabs.map(({ key, label, Icon, color }) => {
-            const active = tab === key;
-            const b = badges && badges[key];
-            return (
-              <button key={key} onClick={() => onTab(key)} title={label} className="relative p-2" style={{ color: active ? color : "#64748b", filter: active ? `drop-shadow(0 0 5px ${color})` : "none" }}>
-                <Icon size={20} />
-                {b > 0 && <span className="absolute top-0 left-0 w-2.5 h-2.5 rounded-full bg-rose-500" />}
-              </button>
-            );
-          })}
-        </div>
-      )}
     </>
   );
 }
@@ -5900,9 +5879,8 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-23 أ
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-23 ب
       </div>
-      <div className="h-14" />
       <UndoBar item={undoItem} onUndo={doUndo} onClose={() => { clearTimeout(undoTimer.current); setUndoItem(null); }} />
       <QuickAdd appointments={appointments} addAppointment={addAppointment} deleteAppointment={deleteAppointment} accounts={accounts} addAccountEntry={addAccountEntry} projects={projects} novaTasks={novaTasks} updateProjects={updateProjects} updateNovaTasks={updateNovaTasks} />
     </div>
