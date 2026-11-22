@@ -542,7 +542,7 @@ function DayTimeline({ appointments, date, slots }) {
         {isToday && pastW > 0 && <div className="absolute top-0 bottom-0" style={{ right: 0, width: `${pastW}%`, background: "rgba(2,6,23,0.6)" }} />}
         {showNow && <div className="absolute top-0 bottom-0" style={{ right: `${pct(nowMin)}%`, width: 2, background: "#fde047", boxShadow: "0 0 6px #fde047" }} />}
       </div>
-      <div className="relative h-4 mt-0.5 text-[9px] text-slate-500">
+      <div className="relative h-5 mt-1 text-[12px] text-slate-300">
         {hours.map((h) => (
           <span key={h} className="absolute translate-x-1/2" style={{ right: `${pct(h * 60)}%` }}>{hourLabel(h)}</span>
         ))}
@@ -5391,7 +5391,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 ح
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 ط
       </div>
     </div>
   );
