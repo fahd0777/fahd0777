@@ -534,13 +534,13 @@ function DayTimeline({ appointments, date, slots }) {
           const w = ((r - l) / total) * 100;
           return (
             <div key={`b${i}`} title={`${ap.title} · ${fmtMin(st)}`} className="absolute top-0 bottom-0 flex items-center justify-center px-1 text-[10px] font-medium text-slate-950 overflow-hidden whitespace-nowrap"
-              style={{ right: `${pct(l)}%`, width: `${w}%`, background: "rgba(34,211,238,0.85)", borderLeft: "1px solid #0b1220", borderRight: "1px solid #0b1220" }}>
+              style={{ right: `${pct(l)}%`, width: `${w}%`, background: "rgba(251,113,133,0.92)", borderLeft: "1px solid #0b1220", borderRight: "1px solid #0b1220" }}>
               {w >= 9 ? ap.title : ""}
             </div>
           );
         })}
         {isToday && pastW > 0 && <div className="absolute top-0 bottom-0" style={{ right: 0, width: `${pastW}%`, background: "rgba(2,6,23,0.6)" }} />}
-        {showNow && <div className="absolute top-0 bottom-0" style={{ right: `${pct(nowMin)}%`, width: 2, background: "#fb7185", boxShadow: "0 0 6px #fb7185" }} />}
+        {showNow && <div className="absolute top-0 bottom-0" style={{ right: `${pct(nowMin)}%`, width: 2, background: "#fde047", boxShadow: "0 0 6px #fde047" }} />}
       </div>
       <div className="relative h-4 mt-0.5 text-[9px] text-slate-500">
         {hours.map((h) => (
@@ -5391,7 +5391,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 ز
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 ح
       </div>
     </div>
   );
