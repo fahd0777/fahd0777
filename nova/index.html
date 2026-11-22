@@ -5314,7 +5314,7 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
       </Panel>
       </Fold>
 
-      <Fold id="week" title="الأسبوع ده" summary="" color="#34d399" {...fp}>
+      <Fold id="week" title="خريطة الأسبوع" summary="" color="#34d399" {...fp}>
         <Panel className="p-3">
           <CornerTicks />
           <WeekStrip appointments={appointments} onPickDay={onGoDay} />
@@ -5905,7 +5905,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-23 ز
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-23 س
       </div>
       <UndoBar item={undoItem} onUndo={doUndo} onClose={() => { clearTimeout(undoTimer.current); setUndoItem(null); }} />
       <QuickAdd appointments={appointments} addAppointment={addAppointment} deleteAppointment={deleteAppointment} accounts={accounts} addAccountEntry={addAccountEntry} projects={projects} novaTasks={novaTasks} updateProjects={updateProjects} updateNovaTasks={updateNovaTasks} />
