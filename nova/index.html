@@ -1597,6 +1597,130 @@ const startLabel = (iso) => {
 };
 const courseStage = (c) => (c.done ? "done" : c.finished ? "pending" : "active");
 
+/* ---------------- Auto schedule planner (courses) ---------------- */
+const SCHEDULE_PRESETS = [
+  { key: "sat_tue", label: "سبت وتلات", days: [6, 2] },
+  { key: "sun_wed", label: "الأحد والأربعاء", days: [0, 3] },
+  { key: "mon_thu", label: "الاثنين والخميس", days: [1, 4] },
+  { key: "fri", label: "الجمعة", days: [5] },
+  { key: "custom", label: "Custom — اختار الأيام", days: null },
+];
+const WEEKDAY_SHORT = ["أحد", "اثنين", "ثلاثاء", "أربعاء", "خميس", "جمعة", "سبت"];
+function buildScheduleDates(startISO, days, count) {
+  if (!startISO || !days.length || count < 1) return [];
+  const out = [];
+  const d = parseISO(startISO);
+  for (let guard = 0; guard < 900 && out.length < count; guard++) {
+    if (days.includes(d.getDay())) out.push(toISO(d));
+    d.setDate(d.getDate() + 1);
+  }
+  return out;
+}
+
+function SchedulePlanner({ startDate, onStartDate, count, appointments, excludeIds = [], lockedIdx = [], onResult }) {
+  const [preset, setPreset] = useState("");
+  const [customDays, setCustomDays] = useState([]);
+  const [time, setTime] = useState("19:00");
+  const [durKey, setDurKey] = useState("120");
+  const [customHours, setCustomHours] = useState("3");
+  const [override, setOverride] = useState({});
+
+  const presetDays = (SCHEDULE_PRESETS.find((x) => x.key === preset) || {}).days || [];
+  const days = preset === "custom" ? customDays : presetDays;
+  const duration = durKey === "custom" ? Math.round((Number(customHours) || 0) * 60) : Number(durKey);
+  const daysKey = days.join(",");
+  const exKey = excludeIds.join(",");
+  const lockKey = lockedIdx.join(",");
+
+  const dates = useMemo(() => buildScheduleDates(startDate, days, count), [startDate, daysKey, count]);
+  const apptsForCheck = useMemo(() => (appointments || []).filter((a) => !excludeIds.includes(a.id)), [appointments, exKey]);
+  const ready = !!time && duration > 0;
+  const rows = dates.map((date, i) => ({
+    idx: i,
+    date,
+    locked: lockedIdx.includes(i),
+    conflicts: ready ? findConflicts(apptsForCheck, date, time, duration, null) : [],
+  }));
+  const included = rows.filter((r) => !r.locked && ready && (override[r.idx] != null ? override[r.idx] : r.conflicts.length === 0));
+  const key = JSON.stringify(included.map((r) => [r.idx, r.date])) + "|" + time + "|" + duration;
+
+  useEffect(() => { setOverride({}); }, [startDate, daysKey, count, time, duration, lockKey]);
+  useEffect(() => {
+    onResult(included.map((r) => ({ idx: r.idx, date: r.date, time, duration })));
+  }, [key]);
+
+  const chip = (active, c = "#22d3ee") => ({ clipPath: clip, borderColor: active ? c : "rgba(148,163,184,0.25)", color: active ? c : "#94a3b8", background: active ? c + "14" : "transparent" });
+  const toggleDay = (d) => setCustomDays((cur) => (cur.includes(d) ? cur.filter((x) => x !== d) : [...cur, d]));
+  const hint = !startDate ? "حدد تاريخ بداية الكورس الأول." : !days.length ? "اختار الأيام." : !ready ? "حدد وقت البداية والمدة." : "";
+  const conflictCount = rows.filter((r) => r.conflicts.length > 0).length;
+
+  return (
+    <div className="flex flex-col gap-3 border border-cyan-500/25 p-3" style={{ clipPath: clip }}>
+      <div className="flex flex-wrap gap-1.5">
+        {SCHEDULE_PRESETS.map((x) => (
+          <button key={x.key} type="button" onClick={() => setPreset(x.key)} className="text-xs px-2.5 py-1.5 border" style={chip(preset === x.key)}>{x.label}</button>
+        ))}
+      </div>
+      {preset === "custom" && (
+        <div className="flex flex-wrap gap-1.5">
+          {WEEKDAY_SHORT.map((w, d) => (
+            <button key={d} type="button" onClick={() => toggleDay(d)} className="text-xs px-2.5 py-1.5 border" style={chip(customDays.includes(d), "#a78bfa")}>{w}</button>
+          ))}
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-3">
+        {onStartDate && (
+          <label className="flex items-center gap-1.5 border border-cyan-500/25 px-2.5 text-[10px] text-slate-500" style={{ clipPath: clip }}>
+            بداية الكورس
+            <input value={startDate || ""} onChange={(e) => onStartDate(e.target.value)} type="date" className="bg-transparent outline-none text-sm text-slate-100 py-1.5" />
+          </label>
+        )}
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] text-slate-500">يبدأ الساعة</span>
+          <TimeField value={time} onChange={setTime} inputCls="bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none px-2.5 py-1.5 text-sm text-slate-100" />
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] text-slate-500">المدة</span>
+          {[["120", "ساعتين"], ["240", "4 ساعات"], ["custom", "Custom"]].map(([k, l]) => (
+            <button key={k} type="button" onClick={() => setDurKey(k)} className="text-xs px-2.5 py-1.5 border" style={chip(durKey === k, "#fbbf24")}>{l}</button>
+          ))}
+          {durKey === "custom" && (
+            <div className="flex items-center gap-1 border border-amber-400/40 px-2" style={{ clipPath: clip }}>
+              <input value={customHours} onChange={(e) => setCustomHours(e.target.value)} type="number" min="0.5" step="0.5" className="w-12 bg-transparent outline-none text-sm text-slate-100 text-center py-1" />
+              <span className="text-[10px] text-slate-500">ساعة</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {hint ? (
+        <div className="text-xs text-slate-500">{hint}</div>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          <div className="text-[11px] text-slate-400">
+            هيتسجل {included.length} من {rows.length} ميعاد{conflictCount > 0 ? ` · ${conflictCount} فيهم تعارض (مش متعلّم عليهم — علّم عليهم لو عايزهم)` : ""}
+          </div>
+          {rows.map((r) => {
+            const on = included.some((x) => x.idx === r.idx);
+            const d = parseISO(r.date);
+            const startM = toMinutes(time);
+            return (
+              <label key={r.idx} className="flex flex-wrap items-center gap-2 text-xs border px-2.5 py-1.5" style={{ borderColor: r.conflicts.length ? "rgba(251,191,36,0.4)" : "rgba(148,163,184,0.15)", clipPath: clip, opacity: r.locked ? 0.45 : 1 }}>
+                <input type="checkbox" disabled={r.locked} checked={on} onChange={() => setOverride((o) => ({ ...o, [r.idx]: !on }))} />
+                <span className="text-amber-300 shrink-0">سيشن {r.idx + 1}</span>
+                <span className="text-slate-200">{WEEKDAY_SHORT[d.getDay()]} {r.date}</span>
+                <span className="text-slate-400">{fmtMin(startM)} ← {fmtMin(startM + duration)}</span>
+                {r.locked && <span className="text-emerald-300">خلصت — اتخطّت</span>}
+                {r.conflicts.length > 0 && <span className="text-amber-300">⚠ تعارض مع: {r.conflicts.map((c) => `${c.title} (${formatTime12(c.time)})`).join("، ")}</span>}
+              </label>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CourseCard({ course, appointments, onUpdate, onDelete, addAppointment, deleteAppointment, addAccountEntry, removeAccountEntry, onMoveUp, onMoveDown, canMoveUp, canMoveDown, position }) {
   const [open, setOpen] = useState(false);
   const [collecting, setCollecting] = useState(false);
@@ -1611,6 +1735,23 @@ function CourseCard({ course, appointments, onUpdate, onDelete, addAppointment, 
   const [startDraft, setStartDraft] = useState("");
   const [modeDraft, setModeDraft] = useState("");
   const [trackDraft, setTrackDraft] = useState("");
+  const [planOpen, setPlanOpen] = useState(false);
+  const [planResult, setPlanResult] = useState([]);
+
+  const applyPlan = () => {
+    if (!planResult.length) return;
+    const lectures = course.lectures.map((l, i) => {
+      const sel = planResult.find((r) => r.idx === i);
+      if (!sel || l.done) return l;
+      if (l.apptId) deleteAppointment(l.apptId);
+      const id = uid();
+      addAppointment({ id, title: l.title || `محاضرة ${i + 1}`, date: sel.date, time: sel.time, duration: sel.duration, courseId: course.id, lectureIdx: i, projectName: course.name, source: "lecture" });
+      return { ...l, date: sel.date, time: sel.time, duration: sel.duration, apptId: id };
+    });
+    onUpdate({ ...course, lectures });
+    setPlanOpen(false);
+    setPlanResult([]);
+  };
 
   const startEdit = () => {
     setNameDraft(course.name);
@@ -1871,6 +2012,39 @@ function CourseCard({ course, appointments, onUpdate, onDelete, addAppointment, 
 
       {open && (
         <div className="px-4 pb-4 flex flex-col gap-2">
+          <div>
+            <button
+              onClick={() => { setPlanOpen((o) => !o); setPlanResult([]); }}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-cyan-400/40 text-cyan-200 hover:bg-cyan-400/10"
+              style={{ clipPath: clip }}
+            >
+              <Calendar size={13} /> {planOpen ? "إغلاق الجدولة" : "جدولة تلقائية للمواعيد"}
+            </button>
+          </div>
+          {planOpen && (
+            <div className="flex flex-col gap-2">
+              <SchedulePlanner
+                startDate={course.startDate || ""}
+                onStartDate={(v) => onUpdate({ ...course, startDate: v })}
+                count={course.lectures.length}
+                appointments={appointments}
+                excludeIds={course.lectures.filter((l) => !l.done && l.apptId).map((l) => l.apptId)}
+                lockedIdx={course.lectures.map((l, i) => (l.done ? i : -1)).filter((i) => i >= 0)}
+                onResult={setPlanResult}
+              />
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={applyPlan}
+                  disabled={!planResult.length}
+                  className="flex items-center gap-1.5 px-4 py-2 text-sm border border-emerald-400/60 text-emerald-200 hover:bg-emerald-400/10 disabled:opacity-40"
+                  style={{ clipPath: clip }}
+                >
+                  <Plus size={14} /> سجّل {planResult.length} ميعاد على الكاليندر
+                </button>
+                <span className="text-[11px] text-slate-500">هيستبدل مواعيد السيشنات الحالية (غير الخالصة).</span>
+              </div>
+            </div>
+          )}
           {course.lectures.map((lecture, idx) => (
             <LectureRow
               key={idx}
@@ -1897,6 +2071,8 @@ function CoursesTab({ courses, appointments, updateCourses, addAppointment, dele
   const [newStart, setNewStart] = useState("");
   const [newMode, setNewMode] = useState("online");
   const [newTrack, setNewTrack] = useState("");
+  const [planOpen, setPlanOpen] = useState(false);
+  const [planResult, setPlanResult] = useState([]);
   const [openSec, setOpenSec] = useState({ active: false, pending: false, done: false });
   const toggleSec = (k) => setOpenSec((o) => ({ ...o, [k]: !o[k] }));
 
@@ -1907,12 +2083,24 @@ function CoursesTab({ courses, appointments, updateCourses, addAppointment, dele
       return;
     }
     const count = Math.max(1, Number(newSessions) || 1);
-    const lectures = Array.from({ length: count }, () => ({ title: "", description: "", notes: "", done: false, date: "", time: "", duration: 60, apptId: null }));
-    updateCourses([...courses, { id: uid(), name: newCourse.trim(), price: priceNum, type: newType, done: false, accountEntryId: null, lectures, startDate: newStart, mode: newMode, track: newTrack }]);
+    const courseId = uid();
+    let lectures = Array.from({ length: count }, () => ({ title: "", description: "", notes: "", done: false, date: "", time: "", duration: 60, apptId: null }));
+    if (planOpen && planResult.length) {
+      lectures = lectures.map((l, i) => {
+        const sel = planResult.find((r) => r.idx === i);
+        if (!sel) return l;
+        const id = uid();
+        addAppointment({ id, title: `محاضرة ${i + 1}`, date: sel.date, time: sel.time, duration: sel.duration, courseId, lectureIdx: i, projectName: newCourse.trim(), source: "lecture" });
+        return { ...l, date: sel.date, time: sel.time, duration: sel.duration, apptId: id };
+      });
+    }
+    updateCourses([...courses, { id: courseId, name: newCourse.trim(), price: priceNum, type: newType, done: false, accountEntryId: null, lectures, startDate: newStart, mode: newMode, track: newTrack }]);
     setNewCourse("");
     setNewPrice("");
     setNewSessions(8);
     setNewStart("");
+    setPlanOpen(false);
+    setPlanResult([]);
     setPriceError(false);
   };
 
@@ -2023,6 +2211,26 @@ function CoursesTab({ courses, appointments, updateCourses, addAppointment, dele
           <button onClick={addCourse} className="flex items-center gap-1.5 px-4 py-2 text-sm text-cyan-100 border border-cyan-400/50 hover:bg-cyan-400/10" style={{ clipPath: clip }}>
             <Plus size={15} /> كورس
           </button>
+        </div>
+        <div className="mt-3">
+          <button
+            onClick={() => { setPlanOpen((o) => !o); setPlanResult([]); }}
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-cyan-400/40 text-cyan-200 hover:bg-cyan-400/10"
+            style={{ clipPath: clip }}
+          >
+            <Calendar size={13} /> {planOpen ? "إلغاء الجدولة التلقائية" : "جدولة المواعيد تلقائي (اختياري)"}
+          </button>
+          {planOpen && (
+            <div className="mt-2">
+              <SchedulePlanner
+                startDate={newStart}
+                count={Math.max(1, Number(newSessions) || 1)}
+                appointments={appointments}
+                onResult={setPlanResult}
+              />
+              <div className="text-[11px] text-slate-500 mt-1.5">المواعيد دي هتتسجل على الكاليندر أول ما تدوس "كورس".</div>
+            </div>
+          )}
         </div>
         {priceError && <div className="text-xs text-rose-300 mt-2">لازم تحط سعر الكورس عشان تقدر تضيفه.</div>}
       </Panel>
@@ -5150,7 +5358,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 هـ
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 و
       </div>
     </div>
   );
