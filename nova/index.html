@@ -32,6 +32,7 @@
   @keyframes nova-fall { 0% { transform: translateY(-12vh) rotate(0deg); opacity: 1; } 100% { transform: translateY(108vh) rotate(720deg); opacity: 0.9; } }
   @keyframes nova-edge { 0% { box-shadow: inset 0 0 0 rgba(52,211,153,0); } 30% { box-shadow: inset 0 0 90px rgba(52,211,153,0.35); } 100% { box-shadow: inset 0 0 0 rgba(52,211,153,0); } }
   @keyframes nova-pop { 0% { transform: scale(0.6); opacity: 0; } 60% { transform: scale(1.06); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+  @keyframes nova-wiggle { 0%,100% { transform: rotate(-1.6deg); } 50% { transform: rotate(1.6deg); } }
   @keyframes nova-undo { from { width: 100%; } to { width: 0%; } }
   input[type="date"], input[type="month"], input[type="time"] { color-scheme: dark; cursor: pointer; }
   input[type="date"]::-webkit-calendar-picker-indicator, input[type="month"]::-webkit-calendar-picker-indicator { opacity: 1; cursor: pointer; }
@@ -639,6 +640,116 @@ function CornerTicks() {
       <span className="absolute top-0 left-0 w-3 h-3 border-t border-l pointer-events-none" style={{ borderColor: "rgba(34,211,238,0.4)" }} />
       <span className="absolute bottom-0 left-0 w-3 h-3 border-b border-l pointer-events-none" style={{ borderColor: "#22d3ee" }} />
       <span className="absolute bottom-0 right-0 w-3 h-3 border-b border-r pointer-events-none" style={{ borderColor: "rgba(34,211,238,0.4)" }} />
+    </>
+  );
+}
+
+/* ---------------- Tab grid (phone home-screen style) ---------------- */
+const NAV_TABS = [
+  { key: "dashboard", label: "الرئيسية", Icon: LayoutDashboard, color: "#22d3ee" },
+  { key: "projects", label: "المشاريع", Icon: Folder, color: "#60a5fa" },
+  { key: "daily", label: "يومي", Icon: Sun, color: "#fbbf24" },
+  { key: "calendar", label: "الكاليندر", Icon: Calendar, color: "#a78bfa" },
+  { key: "courses", label: "الكورسات", Icon: BookOpen, color: "#f472b6" },
+  { key: "goals", label: "الأهداف", Icon: Target, color: "#fb7185" },
+  { key: "accounts", label: "الحسابات", Icon: Wallet, color: "#34d399" },
+  { key: "workout", label: "Workout", Icon: Dumbbell, color: "#fb923c" },
+  { key: "clients", label: "العملاء", Icon: Users, color: "#2dd4bf" },
+  { key: "nova", label: "NOVA", Icon: Briefcase, color: "#e2e8f0" },
+];
+
+function TabNav({ tab, onTab, badges }) {
+  const [order, setOrder] = useState(() => {
+    const keys = NAV_TABS.map((t) => t.key);
+    try {
+      const saved = JSON.parse(localStorage.getItem("nova:tabOrder") || "null");
+      if (Array.isArray(saved)) return [...saved.filter((k) => keys.includes(k)), ...keys.filter((k) => !saved.includes(k))];
+    } catch (e) { /* ignore */ }
+    return keys;
+  });
+  const [edit, setEdit] = useState(false);
+  const [dragKey, setDragKey] = useState(null);
+  const orderRef = useRef(order);
+  orderRef.current = order;
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const on = () => setScrolled(window.scrollY > 170);
+    on();
+    window.addEventListener("scroll", on, { passive: true });
+    return () => window.removeEventListener("scroll", on);
+  }, []);
+  const tabs = order.map((k) => NAV_TABS.find((t) => t.key === k)).filter(Boolean);
+  const saveOrder = (o) => { try { localStorage.setItem("nova:tabOrder", JSON.stringify(o)); } catch (e) { /* ignore */ } };
+  const onMove = (e) => {
+    if (!dragKey) return;
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const tgt = el && el.closest ? el.closest("[data-tabkey]") : null;
+    const to = tgt && tgt.getAttribute("data-tabkey");
+    if (!to || to === dragKey) return;
+    const cur = orderRef.current.slice();
+    const from = cur.indexOf(dragKey), at = cur.indexOf(to);
+    if (from < 0 || at < 0) return;
+    cur.splice(from, 1);
+    cur.splice(at, 0, dragKey);
+    setOrder(cur);
+  };
+  const endDrag = () => { if (dragKey) saveOrder(orderRef.current); setDragKey(null); };
+  return (
+    <>
+      <div className="mt-8 mb-4">
+        <div className="grid grid-cols-5 gap-2">
+          {tabs.map(({ key, label, Icon, color }) => {
+            const active = tab === key;
+            const b = badges && badges[key];
+            return (
+              <button
+                key={key}
+                data-tabkey={key}
+                onClick={() => { if (!edit) onTab(key); }}
+                onPointerDown={(e) => { if (edit) { e.currentTarget.setPointerCapture(e.pointerId); setDragKey(key); } }}
+                onPointerMove={onMove}
+                onPointerUp={endDrag}
+                onPointerCancel={endDrag}
+                className="relative flex flex-col items-center justify-center gap-1 py-2.5 border select-none"
+                style={{
+                  clipPath: clip,
+                  borderColor: active ? color : "rgba(148,163,184,0.18)",
+                  background: active ? color + "1c" : "rgba(15,23,42,0.35)",
+                  boxShadow: active ? `0 0 12px ${color}55` : "none",
+                  touchAction: edit ? "none" : "manipulation",
+                  animation: edit && dragKey !== key ? "nova-wiggle .28s ease-in-out infinite" : "none",
+                  opacity: dragKey === key ? 0.6 : 1,
+                  transform: dragKey === key ? "scale(1.08)" : undefined,
+                }}
+              >
+                <Icon size={22} style={{ color: active ? color : color + "b3" }} />
+                <span className="text-[11px] leading-none" style={{ color: active ? "#e2e8f0" : "#94a3b8" }}>{label}</span>
+                {b > 0 && <span className="absolute -top-1 -left-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] flex items-center justify-center">{b}</span>}
+                {active && <span className="absolute left-2 right-2 bottom-0 h-[2px]" style={{ background: color, boxShadow: `0 0 6px ${color}` }} />}
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex justify-end mt-1.5">
+          <button onClick={() => { setEdit((x) => !x); setDragKey(null); }} className="text-[11px] px-2 py-0.5 border" style={{ clipPath: clip, borderColor: edit ? "rgba(52,211,153,0.6)" : "rgba(148,163,184,0.25)", color: edit ? "#6ee7b7" : "#64748b" }}>
+            {edit ? "تم الترتيب" : "ترتيب الأيقونات"}
+          </button>
+        </div>
+      </div>
+      {scrolled && !edit && (
+        <div className="fixed bottom-0 inset-x-0 z-40 flex justify-around items-center px-1 py-1.5 border-t" style={{ background: "rgba(6,13,22,0.97)", borderColor: "rgba(34,211,238,0.3)" }}>
+          {tabs.map(({ key, label, Icon, color }) => {
+            const active = tab === key;
+            const b = badges && badges[key];
+            return (
+              <button key={key} onClick={() => onTab(key)} title={label} className="relative p-2" style={{ color: active ? color : "#64748b", filter: active ? `drop-shadow(0 0 5px ${color})` : "none" }}>
+                <Icon size={20} />
+                {b > 0 && <span className="absolute top-0 left-0 w-2.5 h-2.5 rounded-full bg-rose-500" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </>
   );
 }
@@ -5716,18 +5827,7 @@ function App() {
         </div>
       )}
 
-      <div className="flex gap-2 mb-4 flex-wrap">
-        <TabButton active={tab === "dashboard"} onClick={() => setTab("dashboard")} icon={LayoutDashboard} label="الرئيسية" />
-        <TabButton active={tab === "projects"} onClick={() => setTab("projects")} icon={Folder} label="المشاريع" />
-        <TabButton active={tab === "daily"} onClick={() => setTab("daily")} icon={Sun} label="يومي" />
-        <TabButton active={tab === "calendar"} onClick={() => setTab("calendar")} icon={Calendar} label="الكاليندر" />
-        <TabButton active={tab === "courses"} onClick={() => setTab("courses")} icon={BookOpen} label="الكورسات" />
-        <TabButton active={tab === "goals"} onClick={() => setTab("goals")} icon={Target} label="الأهداف" />
-        <TabButton active={tab === "accounts"} onClick={() => setTab("accounts")} icon={Wallet} label="الحسابات" />
-        <TabButton active={tab === "workout"} onClick={() => setTab("workout")} icon={Dumbbell} label="Workout" />
-        <TabButton active={tab === "clients"} onClick={() => setTab("clients")} icon={Users} label="العملاء" badge={(clients || []).filter((c) => { if (c.status === "paused" || c.payType !== "monthly") return false; const st = clientStatus(c); return st.state === "overdue" || (st.missed && st.missed.length > 0); }).length} />
-        <TabButton active={tab === "nova"} onClick={() => setTab("nova")} icon={Briefcase} label="NOVA" />
-      </div>
+      <TabNav tab={tab} onTab={setTab} badges={{ clients: (clients || []).filter((c) => { if (c.status === "paused" || c.payType !== "monthly") return false; const st = clientStatus(c); return st.state === "overdue" || (st.missed && st.missed.length > 0); }).length }} />
 
       {!loaded ? (
         <div className="flex items-center gap-2 text-sm text-slate-400 py-10 justify-center">
@@ -5797,8 +5897,9 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 ل
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 م
       </div>
+      <div className="h-14" />
       <UndoBar item={undoItem} onUndo={doUndo} onClose={() => { clearTimeout(undoTimer.current); setUndoItem(null); }} />
       <QuickAdd appointments={appointments} addAppointment={addAppointment} deleteAppointment={deleteAppointment} accounts={accounts} addAccountEntry={addAccountEntry} projects={projects} novaTasks={novaTasks} updateProjects={updateProjects} updateNovaTasks={updateNovaTasks} />
     </div>
