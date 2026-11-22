@@ -1654,11 +1654,15 @@ function inferSchedule(course) {
   const dated = ((course && course.lectures) || []).filter((l) => l.date && l.time);
   if (!dated.length) return null;
   const days = [...new Set(dated.map((l) => parseISO(l.date).getDay()))].sort();
-  const match = SCHEDULE_PRESETS.find((x) => x.days && x.days.length === days.length && x.days.every((d) => days.includes(d)));
+  const dayTimes = {};
+  dated.forEach((l) => { const d = parseISO(l.date).getDay(); if (!dayTimes[d]) dayTimes[d] = l.time; });
+  const sameTime = new Set(Object.values(dayTimes)).size === 1;
+  const match = sameTime ? SCHEDULE_PRESETS.find((x) => x.days && x.days.length === days.length && x.days.every((d) => days.includes(d))) : null;
   const dur = Number(dated[0].duration) || 120;
   return {
     preset: match ? match.key : "custom",
     customDays: days,
+    dayTimes,
     time: dated[0].time,
     durKey: dur === 120 ? "120" : dur === 240 ? "240" : "custom",
     customHours: String(dur / 60),
@@ -1668,10 +1672,12 @@ function inferSchedule(course) {
 function SchedulePlanner({ initial = null, startDate, onStartDate, count, appointments, excludeIds = [], lockedIdx = [], onResult }) {
   const [preset, setPreset] = useState((initial && initial.preset) || "");
   const [customDays, setCustomDays] = useState((initial && initial.customDays) || []);
+  const [dayTimes, setDayTimes] = useState((initial && initial.dayTimes) || {});
   const [time, setTime] = useState((initial && initial.time) || "19:00");
   const [durKey, setDurKey] = useState((initial && initial.durKey) || "120");
   const [customHours, setCustomHours] = useState((initial && initial.customHours) || "3");
   const [override, setOverride] = useState({});
+  const [rowTimes, setRowTimes] = useState({});
 
   const presetDays = (SCHEDULE_PRESETS.find((x) => x.key === preset) || {}).days || [];
   const days = preset === "custom" ? customDays : presetDays;
@@ -1679,28 +1685,39 @@ function SchedulePlanner({ initial = null, startDate, onStartDate, count, appoin
   const daysKey = days.join(",");
   const exKey = excludeIds.join(",");
   const lockKey = lockedIdx.join(",");
+  const dayTimesKey = JSON.stringify(dayTimes);
+
+  const timeFor = (date, idx) => {
+    if (rowTimes[idx]) return rowTimes[idx];
+    if (preset === "custom") return dayTimes[parseISO(date).getDay()] || time;
+    return time;
+  };
 
   const dates = useMemo(() => buildScheduleDates(startDate, days, count), [startDate, daysKey, count]);
   const apptsForCheck = useMemo(() => (appointments || []).filter((a) => !excludeIds.includes(a.id)), [appointments, exKey]);
-  const ready = !!time && duration > 0;
-  const rows = dates.map((date, i) => ({
-    idx: i,
-    date,
-    locked: lockedIdx.includes(i),
-    conflicts: ready ? findConflicts(apptsForCheck, date, time, duration, null) : [],
-  }));
-  const included = rows.filter((r) => !r.locked && ready && (override[r.idx] != null ? override[r.idx] : r.conflicts.length === 0));
-  const key = JSON.stringify(included.map((r) => [r.idx, r.date])) + "|" + time + "|" + duration;
+  const rows = dates.map((date, i) => {
+    const t = timeFor(date, i);
+    const ok = !!t && duration > 0;
+    return { idx: i, date, time: t, ok, locked: lockedIdx.includes(i), conflicts: ok ? findConflicts(apptsForCheck, date, t, duration, null) : [] };
+  });
+  const included = rows.filter((r) => !r.locked && r.ok && (override[r.idx] != null ? override[r.idx] : r.conflicts.length === 0));
+  const key = JSON.stringify(included.map((r) => [r.idx, r.date, r.time])) + "|" + duration;
 
-  useEffect(() => { setOverride({}); }, [startDate, daysKey, count, time, duration, lockKey]);
+  useEffect(() => { setRowTimes({}); }, [startDate, daysKey, count, preset, lockKey]);
+  useEffect(() => { setOverride({}); }, [startDate, daysKey, count, time, dayTimesKey, duration, lockKey, preset]);
   useEffect(() => {
-    onResult(included.map((r) => ({ idx: r.idx, date: r.date, time, duration })), { preset, customDays, time, durKey, customHours });
+    onResult(included.map((r) => ({ idx: r.idx, date: r.date, time: r.time, duration })), { preset, customDays, dayTimes, time, durKey, customHours });
   }, [key]);
 
   const chip = (active, c = "#22d3ee") => ({ clipPath: clip, borderColor: active ? c : "rgba(148,163,184,0.25)", color: active ? c : "#94a3b8", background: active ? c + "14" : "transparent" });
-  const toggleDay = (d) => setCustomDays((cur) => (cur.includes(d) ? cur.filter((x) => x !== d) : [...cur, d]));
-  const hint = !startDate ? "حدد تاريخ بداية الكورس الأول." : !days.length ? "اختار الأيام." : !ready ? "حدد وقت البداية والمدة." : "";
+  const toggleDay = (d) => {
+    setCustomDays((cur) => (cur.includes(d) ? cur.filter((x) => x !== d) : [...cur, d]));
+    setDayTimes((m) => (m[d] ? m : { ...m, [d]: time }));
+  };
+  const timeInputCls = "bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none px-2.5 py-1.5 text-sm text-slate-100";
+  const hint = !startDate ? "حدد تاريخ بداية الكورس الأول." : !days.length ? "اختار الأيام." : duration <= 0 ? "حدد المدة." : "";
   const conflictCount = rows.filter((r) => r.conflicts.length > 0).length;
+  const sortedCustom = [...customDays].sort((a, b) => ((a + 1) % 7) - ((b + 1) % 7));
 
   return (
     <div className="flex flex-col gap-3 border border-cyan-500/25 p-3" style={{ clipPath: clip }}>
@@ -1710,10 +1727,23 @@ function SchedulePlanner({ initial = null, startDate, onStartDate, count, appoin
         ))}
       </div>
       {preset === "custom" && (
-        <div className="flex flex-wrap gap-1.5">
-          {WEEKDAY_SHORT.map((w, d) => (
-            <button key={d} type="button" onClick={() => toggleDay(d)} className="text-xs px-2.5 py-1.5 border" style={chip(customDays.includes(d), "#a78bfa")}>{w}</button>
-          ))}
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap gap-1.5">
+            {WEEKDAY_SHORT.map((w, d) => (
+              <button key={d} type="button" onClick={() => toggleDay(d)} className="text-xs px-2.5 py-1.5 border" style={chip(customDays.includes(d), "#a78bfa")}>{w}</button>
+            ))}
+          </div>
+          {sortedCustom.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <div className="text-[11px] text-slate-500">ساعة كل يوم (تقدر تخليهم مختلفين):</div>
+              {sortedCustom.map((d) => (
+                <div key={d} className="flex items-center gap-2">
+                  <span className="text-xs text-violet-300 w-14 shrink-0">{WEEKDAY_SHORT[d]}</span>
+                  <TimeField value={dayTimes[d] || time} onChange={(v) => setDayTimes((m) => ({ ...m, [d]: v }))} inputCls={timeInputCls} />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
       <div className="flex flex-wrap items-center gap-3">
@@ -1723,10 +1753,12 @@ function SchedulePlanner({ initial = null, startDate, onStartDate, count, appoin
             <input value={startDate || ""} onChange={(e) => onStartDate(e.target.value)} type="date" className="bg-transparent outline-none text-sm text-slate-100 py-1.5" />
           </label>
         )}
-        <div className="flex items-center gap-1.5">
-          <span className="text-[10px] text-slate-500">يبدأ الساعة</span>
-          <TimeField value={time} onChange={setTime} inputCls="bg-transparent border border-cyan-500/25 focus:border-cyan-400/60 outline-none px-2.5 py-1.5 text-sm text-slate-100" />
-        </div>
+        {preset !== "custom" && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-slate-500">يبدأ الساعة</span>
+            <TimeField value={time} onChange={setTime} inputCls={timeInputCls} />
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-[10px] text-slate-500">المدة</span>
           {[["120", "ساعتين"], ["240", "4 ساعات"], ["custom", "Custom"]].map(([k, l]) => (
@@ -1746,21 +1778,27 @@ function SchedulePlanner({ initial = null, startDate, onStartDate, count, appoin
       ) : (
         <div className="flex flex-col gap-1.5">
           <div className="text-[11px] text-slate-400">
-            هيتسجل {included.length} من {rows.length} ميعاد{conflictCount > 0 ? ` · ${conflictCount} فيهم تعارض (مش متعلّم عليهم — علّم عليهم لو عايزهم)` : ""}
+            هيتسجل {included.length} من {rows.length} ميعاد{conflictCount > 0 ? ` · ${conflictCount} فيهم تعارض (مش متعلّم عليهم — علّم عليهم لو عايزهم)` : ""} · تقدر تغيّر ساعة أي سيشن لوحدها من القايمة
           </div>
           {rows.map((r) => {
             const on = included.some((x) => x.idx === r.idx);
             const d = parseISO(r.date);
-            const startM = toMinutes(time);
+            const startM = toMinutes(r.time);
             return (
-              <label key={r.idx} className="flex flex-wrap items-center gap-2 text-xs border px-2.5 py-1.5" style={{ borderColor: r.conflicts.length ? "rgba(251,191,36,0.4)" : "rgba(148,163,184,0.15)", clipPath: clip, opacity: r.locked ? 0.45 : 1 }}>
+              <div key={r.idx} className="flex flex-wrap items-center gap-2 text-xs border px-2.5 py-1.5" style={{ borderColor: r.conflicts.length ? "rgba(251,191,36,0.4)" : "rgba(148,163,184,0.15)", clipPath: clip, opacity: r.locked ? 0.45 : 1 }}>
                 <input type="checkbox" disabled={r.locked} checked={on} onChange={() => setOverride((o) => ({ ...o, [r.idx]: !on }))} />
                 <span className="text-amber-300 shrink-0">سيشن {r.idx + 1}</span>
                 <span className="text-slate-200">{WEEKDAY_SHORT[d.getDay()]} {r.date}</span>
-                <span className="text-slate-400">{fmtMin(startM)} ← {fmtMin(startM + duration)}</span>
-                {r.locked && <span className="text-emerald-300">خلصت — اتخطّت</span>}
+                {r.locked ? (
+                  <span className="text-emerald-300">خلصت — اتخطّت</span>
+                ) : (
+                  <>
+                    <TimeField value={r.time} onChange={(v) => { setRowTimes((m) => ({ ...m, [r.idx]: v })); setOverride((o) => { const n = { ...o }; delete n[r.idx]; return n; }); }} inputCls={timeInputCls} />
+                    {startM != null && <span className="text-slate-400">← {fmtMin(startM + duration)}</span>}
+                  </>
+                )}
                 {r.conflicts.length > 0 && <span className="text-amber-300">⚠ تعارض مع: {r.conflicts.map((c) => `${c.title} (${formatTime12(c.time)})`).join("، ")}</span>}
-              </label>
+              </div>
             );
           })}
         </div>
@@ -5417,7 +5455,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 ك
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 ل
       </div>
     </div>
   );
