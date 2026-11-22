@@ -444,6 +444,85 @@ function findConflicts(appointments, date, time, duration, excludeId) {
   });
 }
 
+// ---- Free time: window 9 AM → 12 AM, gaps >= 30 min ----
+const DAY_START = 9 * 60, DAY_END = 24 * 60, MIN_GAP = 30;
+const minToHHMM = (m) => { const x = Math.min(Math.max(m, 0), 1439); return `${pad2(Math.floor(x / 60))}:${pad2(x % 60)}`; };
+const fmtMin = (m) => (m >= 1440 ? "12:00 ص" : formatTime12(minToHHMM(m)));
+const durText = (m) => { if (m < 60) return `${m} دقيقة`; const h = Math.floor(m / 60), r = m % 60; return r === 0 ? `${h} ساعة` : r === 30 ? `${h} ساعة ونص` : `${h} ساعة و${r} دقيقة`; };
+function busyIntervals(appts, dateISO, excludeId) {
+  return (appts || [])
+    .filter((a) => a.date === dateISO && a.id !== excludeId && toMinutes(a.time) != null)
+    .map((a) => { const st = toMinutes(a.time); return [st, st + (Number(a.duration) || 60), a]; })
+    .sort((x, y) => x[0] - y[0]);
+}
+function freeSlotsFor(appts, dateISO, excludeId, fromMin) {
+  let cur = Math.max(DAY_START, fromMin || 0);
+  const slots = [];
+  for (const [st, en] of busyIntervals(appts, dateISO, excludeId)) {
+    const stEnd = Math.min(st, DAY_END);
+    if (cur < DAY_END && stEnd - cur >= MIN_GAP) slots.push([cur, stEnd]);
+    cur = Math.max(cur, en);
+    if (cur >= DAY_END) break;
+  }
+  if (DAY_END - cur >= MIN_GAP) slots.push([cur, DAY_END]);
+  return slots;
+}
+const nowFromMin = (dateISO) => {
+  if (dateISO !== todayISO()) return 0;
+  const n = new Date();
+  return Math.ceil((n.getHours() * 60 + n.getMinutes()) / 5) * 5;
+};
+
+function FreeSlotsList({ slots, onPick, emptyText = "اليوم كله مشغول" }) {
+  if (!slots.length) return <div className="text-xs text-rose-300/80">{emptyText}</div>;
+  const biggest = slots.reduce((b, x) => (x[1] - x[0] > b[1] - b[0] ? x : b), slots[0]);
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {slots.map((sl, i) => {
+        const big = sl === biggest && slots.length > 1;
+        const Tag = onPick ? "button" : "div";
+        return (
+          <Tag
+            key={i}
+            type={onPick ? "button" : undefined}
+            onClick={onPick ? (e) => { e.stopPropagation(); onPick(sl[0]); } : undefined}
+            className="text-[11px] px-2 py-1 border"
+            style={{
+              clipPath: clip,
+              borderColor: big ? "rgba(52,211,153,0.7)" : "rgba(52,211,153,0.3)",
+              color: big ? "#6ee7b7" : "#a7f3d0",
+              background: big ? "rgba(52,211,153,0.12)" : "transparent",
+            }}
+          >
+            {fmtMin(sl[0])} → {fmtMin(sl[1])} · {durText(sl[1] - sl[0])}
+          </Tag>
+        );
+      })}
+    </div>
+  );
+}
+
+function DayTimeline({ appointments, date }) {
+  const total = DAY_END - DAY_START;
+  const busy = busyIntervals(appointments, date, null);
+  return (
+    <div className="mb-2" dir="ltr">
+      <div className="relative h-3 border border-emerald-400/30 bg-emerald-400/10" style={{ clipPath: clip }}>
+        {busy.map(([st, en, a], i) => {
+          const l = Math.max(st, DAY_START), r = Math.min(en, DAY_END);
+          if (r <= l) return null;
+          return <div key={i} title={`${a.title} · ${fmtMin(st)}`} className="absolute top-0 bottom-0 bg-cyan-400/70" style={{ left: `${((l - DAY_START) / total) * 100}%`, width: `${((r - l) / total) * 100}%`, borderLeft: "1px solid #0b1220", borderRight: "1px solid #0b1220" }} />;
+        })}
+      </div>
+      <div className="relative h-3 mt-0.5 text-[9px] text-slate-500">
+        {[9, 12, 15, 18, 21, 24].map((h) => (
+          <span key={h} className="absolute -translate-x-1/2" style={{ left: `${(((h * 60) - DAY_START) / total) * 100}%` }}>{h === 24 ? "12ص" : h === 12 ? "12م" : h > 12 ? h - 12 : h}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function commitmentRemaining(c) {
   const paidTotal = (c.payments || []).reduce((s, p) => s + Number(p.amount), 0);
   return Math.max(0, Number(c.amount) - paidTotal);
@@ -644,6 +723,7 @@ function AppointmentForm({ appointments, initialTitle = "", initialDate = "", in
   const [confirming, setConfirming] = useState(false);
 
   const conflicts = useMemo(() => findConflicts(appointments, date, time, duration, excludeId), [appointments, date, time, duration, excludeId]);
+  const formSlots = useMemo(() => (date ? freeSlotsFor(appointments, date, excludeId, nowFromMin(date)) : []), [appointments, date, excludeId]);
 
   const submit = () => {
     if (!title.trim() || !date || !time) return;
@@ -696,6 +776,12 @@ function AppointmentForm({ appointments, initialTitle = "", initialDate = "", in
           </button>
         )}
       </div>
+      {date && (
+        <div className="flex flex-col gap-1">
+          <span className="text-[10px] text-slate-500">فاضي في اليوم ده — دوس تختار الوقت:</span>
+          <FreeSlotsList slots={formSlots} onPick={(m) => { setTime(minToHHMM(m)); setConfirming(false); }} />
+        </div>
+      )}
       {conflicts.length > 0 && (
         <div className="flex items-start gap-1.5 text-xs text-amber-300 border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5" style={{ clipPath: clip }}>
           <Bell size={13} className="mt-0.5 shrink-0" />
@@ -1252,6 +1338,7 @@ function CalendarTab({ appointments, addAppointment, deleteAppointment, courses 
 
   const dateStr = (d) => `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
   const countFor = (d) => appointments.filter((a) => a.date === dateStr(d)).length;
+  const busyMinFor = (d) => busyIntervals(appointments, dateStr(d), null).reduce((t, [st, en]) => t + Math.max(0, Math.min(en, DAY_END) - Math.max(st, DAY_START)), 0);
 
   const dayAppointments = useMemo(
     () => appointments.filter((a) => a.date === selectedDay).sort((a, b) => toMinutes(a.time) - toMinutes(b.time)),
@@ -1299,7 +1386,7 @@ function CalendarTab({ appointments, addAppointment, deleteAppointment, courses 
                 }}
               >
                 {d}
-                {count > 0 && <span className="absolute bottom-0.5 w-1 h-1 rounded-full bg-cyan-400" style={{ boxShadow: "0 0 4px #22d3ee" }} />}
+                {count > 0 && (() => { const heavy = busyMinFor(d) >= 360; return <span className="absolute bottom-0.5 w-1 h-1 rounded-full" style={{ background: heavy ? "#fb7185" : "#22d3ee", boxShadow: `0 0 4px ${heavy ? "#fb7185" : "#22d3ee"}` }} />; })()}
               </button>
             );
           })}
@@ -1329,6 +1416,11 @@ function CalendarTab({ appointments, addAppointment, deleteAppointment, courses 
               ))}
             </div>
           )}
+          <DayTimeline appointments={appointments} date={selectedDay} />
+          <div className="mb-3">
+            <div className="text-[11px] text-slate-400 mb-1">الساعات الفاضية (٩ ص ← ١٢ ص)</div>
+            <FreeSlotsList slots={freeSlotsFor(appointments, selectedDay, null, nowFromMin(selectedDay))} />
+          </div>
           {linkable.length > 0 && (
             <div className="flex flex-wrap items-center gap-2 mb-2 text-[11px] text-slate-400">
               اربطه بسيشن كورس (اختياري):
@@ -4241,7 +4333,7 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
       (c.lectures || []).forEach((l, i) => {
         if (l.done || l.date !== today || !l.time) return;
         if (l.apptId && seen.has(l.apptId)) return;
-        list.push({ id: `lec:${c.id}:${i}`, date: l.date, time: l.time, title: l.title || `محاضرة ${i + 1}` });
+        list.push({ id: `lec:${c.id}:${i}`, date: l.date, time: l.time, duration: l.duration || 60, title: l.title || `محاضرة ${i + 1}` });
       });
     });
     return list.sort((a, b) => toMinutes(a.time) - toMinutes(b.time));
@@ -4412,6 +4504,10 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
             ))}
           </div>
         )}
+        <div className="mt-3 pt-2 border-t border-cyan-500/15">
+          <div className="text-[11px] text-slate-500 mb-1">فاضي النهاردة (٩ ص ← ١٢ ص)</div>
+          <FreeSlotsList slots={freeSlotsFor(todayAppts, today, null, nowFromMin(today))} emptyText="باقي اليوم كله مشغول" />
+        </div>
         {upcomingAppts.length > 0 && (
           <div className="mt-3 pt-2 border-t border-cyan-500/15">
             <div className="text-[11px] text-slate-500 mb-1">الجاي (٧ أيام)</div>
@@ -5009,7 +5105,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-19 أ
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-22 أ
       </div>
     </div>
   );
