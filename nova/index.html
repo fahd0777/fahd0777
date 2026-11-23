@@ -4618,7 +4618,7 @@ function Celebration({ emoji = "💪", title, text, onClose }) {
     round: i % 3 === 0,
   })), []);
   return (
-    <div className="fixed inset-0 z-50" style={{ pointerEvents: "none" }}>
+    <div className="fixed inset-0 z-[90]" style={{ pointerEvents: "none" }}>
       {pieces.map((p, i) => (
         <span key={i} style={{ position: "absolute", top: 0, left: p.left + "%", width: p.size, height: p.size * (p.round ? 1 : 1.6), background: p.color, borderRadius: p.round ? "50%" : 2, animation: `nova-fall ${p.dur}s ${p.delay}s ease-in forwards`, opacity: 0 }} />
       ))}
@@ -4635,7 +4635,7 @@ function Celebration({ emoji = "💪", title, text, onClose }) {
 
 function TaskToast({ text }) {
   return (
-    <div className="fixed inset-0 z-50" style={{ pointerEvents: "none", animation: "nova-edge 1.4s ease-out both" }}>
+    <div className="fixed inset-0 z-[90]" style={{ pointerEvents: "none", animation: "nova-edge 1.4s ease-out both" }}>
       <div className="absolute inset-x-0 top-4 flex justify-center px-4">
         <div className="px-5 py-3 border text-sm text-emerald-100 text-center max-w-md" style={{ clipPath: clip, borderColor: "rgba(52,211,153,0.6)", background: "rgba(6,13,22,0.95)", boxShadow: "0 0 24px rgba(52,211,153,0.35)", animation: "nova-pop 0.35s ease-out both" }}>
           {text}
@@ -5642,18 +5642,22 @@ function App() {
     NOVA_UNITS.forEach((u) => ((novaTasks && novaTasks[u.key]) || []).forEach((t) => { if (t.done) taskDone++; }));
     const habits = daily.filter((d) => d.type === "habit");
     const habitsAll = habits.length > 0 && habits.every((d) => d.history && d.history[today]);
+    const habitsDoneN = habits.filter((d) => d.history && d.history[today]).length;
+    let lecDone = 0;
+    (courses || []).forEach((c) => (c.lectures || []).forEach((l) => { if (l.done) lecDone++; }));
+    const workoutDone = !!(workout && workout.doneDate === today);
     const t3 = topThree && topThree.date === today ? topThree.items.filter((i) => i.text && i.text.trim()) : [];
     const t3Done = t3.filter((i) => i.done).length;
     const t3All = t3.length === 3 && t3Done === 3;
-    const cur = { taskDone, habitsAll, t3Done, t3All };
+    const cur = { taskDone, habitsAll, t3Done, t3All, habitsDoneN, lecDone, workoutDone };
     const prev = celePrev.current;
     celePrev.current = cur;
     if (!prev) return;
     const id = Date.now();
     if (t3All && !prev.t3All) setCele({ id, kind: "day", emoji: "💪", title: "اليوم اتقفل", text: pickPhrase(CELE_DAY, lastPhrase.current, "day") });
     else if (habitsAll && !prev.habitsAll) setCele({ id, kind: "habits", emoji: "🌙", title: "عادات اليوم خلصت", text: pickPhrase(CELE_HABITS, lastPhrase.current, "habits") });
-    else if (t3Done > prev.t3Done || taskDone > prev.taskDone) setCele({ id, kind: "task", text: pickPhrase(CELE_TASK, lastPhrase.current, "task") });
-  }, [loaded, projects, novaTasks, daily, topThree]);
+    else if (t3Done > prev.t3Done || taskDone > prev.taskDone || habitsDoneN > prev.habitsDoneN || lecDone > prev.lecDone || (workoutDone && !prev.workoutDone)) setCele({ id, kind: "task", text: pickPhrase(CELE_TASK, lastPhrase.current, "task") });
+  }, [loaded, projects, novaTasks, daily, topThree, courses, workout]);
 
   useEffect(() => {
     if (!cele) return undefined;
@@ -5905,7 +5909,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-23 س
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-23 ش
       </div>
       <UndoBar item={undoItem} onUndo={doUndo} onClose={() => { clearTimeout(undoTimer.current); setUndoItem(null); }} />
       <QuickAdd appointments={appointments} addAppointment={addAppointment} deleteAppointment={deleteAppointment} accounts={accounts} addAccountEntry={addAccountEntry} projects={projects} novaTasks={novaTasks} updateProjects={updateProjects} updateNovaTasks={updateNovaTasks} />
