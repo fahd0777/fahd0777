@@ -5581,15 +5581,6 @@ function App() {
   const [apptDone, setApptDone] = useState({});
   const apptDoneRef = useRef({});
   apptDoneRef.current = apptDone;
-  const toggleDone = (a) => {
-    const prev = apptDoneRef.current;
-    const nowDone = !prev[a.id];
-    const next = { ...prev };
-    if (nowDone) next[a.id] = true; else delete next[a.id];
-    setApptDone(next);
-    persist(KEYS.apptDone, next);
-    pushUndo(nowDone ? `اتعلّم "${a.title}" خلصان` : `اتشالت علامة الخلصان من "${a.title}"`, () => { setApptDone(prev); persist(KEYS.apptDone, prev); });
-  };
   const [calDay, setCalDay] = useState(null);
   const [undoItem, setUndoItem] = useState(null);
   const undoTimer = useRef(null);
@@ -5607,6 +5598,56 @@ function App() {
   const [projects, setProjects] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [courses, setCourses] = useState([]);
+
+  // ---- appointment "done" is two-way linked to course lectures and project tasks ----
+  const linkOf = (a) => {
+    if (a.source === "lecture" && a.courseId) {
+      const c = courses.find((x) => x.id === a.courseId);
+      if (c) {
+        let i = (c.lectures || []).findIndex((l) => l.apptId === a.id);
+        if (i < 0 && a.lectureIdx != null) i = a.lectureIdx;
+        if (i >= 0 && c.lectures[i]) return { kind: "lec", c, i, done: !!c.lectures[i].done };
+      }
+    }
+    if (a.source === "task" && a.taskId) {
+      const pr = projects.find((x) => x.name === a.projectName);
+      const tk = pr && (pr.tasks || []).find((t) => t.id === a.taskId);
+      if (tk) return { kind: "task", pr, tk, done: !!tk.done };
+    }
+    return null;
+  };
+  const effDone = {};
+  appointments.forEach((a) => {
+    const l = linkOf(a);
+    if (l) { if (l.done) effDone[a.id] = true; }
+    else if (apptDone[a.id]) effDone[a.id] = true;
+  });
+  const toggleDone = (a) => {
+    const l = linkOf(a);
+    if (l && l.kind === "lec") {
+      const nextC = courses.map((c) => (c.id === l.c.id ? { ...c, lectures: c.lectures.map((x, i) => (i === l.i ? { ...x, done: !l.done } : x)) } : c));
+      if (!l.done) { updateCourses(nextC); return; } // marking: undo + celebration come from updateCourses
+      const prevC = courses;
+      setCourses(nextC); persist(KEYS.courses, nextC);
+      pushUndo(`اتشالت علامة الخلصان من "${a.title}"`, () => { setCourses(prevC); persist(KEYS.courses, prevC); });
+      return;
+    }
+    if (l && l.kind === "task") {
+      const nextP = projects.map((x) => (x === l.pr ? { ...x, tasks: x.tasks.map((t) => (t.id === l.tk.id ? { ...t, done: !l.done } : t)) } : x));
+      if (!l.done) { updateProjects(nextP); return; }
+      const prevP = projects;
+      setProjects(nextP); persist(KEYS.projects, nextP);
+      pushUndo(`اتشالت علامة الخلصان من "${a.title}"`, () => { setProjects(prevP); persist(KEYS.projects, prevP); });
+      return;
+    }
+    const prev = apptDoneRef.current;
+    const nowDone = !prev[a.id];
+    const next = { ...prev };
+    if (nowDone) next[a.id] = true; else delete next[a.id];
+    setApptDone(next);
+    persist(KEYS.apptDone, next);
+    pushUndo(nowDone ? `اتعلّم "${a.title}" خلصان` : `اتشالت علامة الخلصان من "${a.title}"`, () => { setApptDone(prev); persist(KEYS.apptDone, prev); });
+  };
   const [accounts, setAccounts] = useState([]);
   const [daily, setDaily] = useState([]);
   const [commitments, setCommitments] = useState([]);
@@ -5897,7 +5938,7 @@ function App() {
               updateTop3={updateTopThree}
               onGo={setTab}
               onDayStatus={setDayStatus}
-              apptDone={apptDone}
+              apptDone={effDone}
               toggleDone={toggleDone}
               onGoDay={(iso) => { setCalDay(iso); setTab("calendar"); }}
               updateCourses={updateCourses}
@@ -5906,7 +5947,7 @@ function App() {
           {tab === "goals" && <GoalsTab goals={goals} updateGoals={updateGoals} />}
           {tab === "projects" && <ProjectsTab projects={projects} appointments={appointments} updateProjects={updateProjects} addAppointment={addAppointment} />}
           {tab === "daily" && <DailyTab daily={daily} updateDaily={updateDaily} />}
-          {tab === "calendar" && <CalendarTab appointments={appointments} addAppointment={addAppointment} deleteAppointment={deleteAppointment} updateAppointment={updateAppointment} courses={courses} updateCourses={updateCourses} focusDay={calDay} onFocusDone={() => setCalDay(null)} apptDone={apptDone} toggleDone={toggleDone} />}
+          {tab === "calendar" && <CalendarTab appointments={appointments} addAppointment={addAppointment} deleteAppointment={deleteAppointment} updateAppointment={updateAppointment} courses={courses} updateCourses={updateCourses} focusDay={calDay} onFocusDone={() => setCalDay(null)} apptDone={effDone} toggleDone={toggleDone} />}
           {tab === "courses" && (
             <CoursesTab
               courses={courses}
@@ -5945,7 +5986,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-24 ب
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-25 أ
       </div>
       <UndoBar item={undoItem} onUndo={doUndo} onClose={() => { clearTimeout(undoTimer.current); setUndoItem(null); }} />
       <QuickAdd appointments={appointments} addAppointment={addAppointment} deleteAppointment={deleteAppointment} accounts={accounts} addAccountEntry={addAccountEntry} projects={projects} novaTasks={novaTasks} updateProjects={updateProjects} updateNovaTasks={updateNovaTasks} />
