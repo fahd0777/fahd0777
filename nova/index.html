@@ -523,7 +523,7 @@ function ModeTag({ mode }) {
 // small "I did it" checkbox for an appointment (marker only, never deletes anything)
 function DoneBox({ done, onToggle, size = 18 }) {
   return (
-    <button onClick={onToggle} title={done ? "شيل علامة الخلصان" : "علّمه خلصان"} className="shrink-0 flex items-center justify-center border rounded-md" style={{ width: size, height: size, borderColor: done ? "#34d399" : "rgba(148,163,184,0.5)", background: done ? "rgba(52,211,153,0.2)" : "transparent", color: "#34d399", fontSize: size * 0.7, lineHeight: 1 }}>
+    <button onClick={(e) => { e.stopPropagation(); onToggle && onToggle(); }} title={done ? "شيل علامة الخلصان" : "علّمه خلصان"} className="shrink-0 flex items-center justify-center border rounded-md" style={{ width: size, height: size, borderColor: done ? "#34d399" : "rgba(148,163,184,0.5)", background: done ? "rgba(52,211,153,0.2)" : "transparent", color: "#34d399", fontSize: size * 0.7, lineHeight: 1 }}>
       {done ? "✓" : ""}
     </button>
   );
@@ -5945,7 +5945,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-24 أ
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-24 ب
       </div>
       <UndoBar item={undoItem} onUndo={doUndo} onClose={() => { clearTimeout(undoTimer.current); setUndoItem(null); }} />
       <QuickAdd appointments={appointments} addAppointment={addAppointment} deleteAppointment={deleteAppointment} accounts={accounts} addAccountEntry={addAccountEntry} projects={projects} novaTasks={novaTasks} updateProjects={updateProjects} updateNovaTasks={updateNovaTasks} />
