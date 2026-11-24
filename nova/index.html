@@ -126,6 +126,7 @@ const KEYS = {
   topThree: "jarvis:topthree:v1",
   workout: "jarvis:workout:v1",
   novaTasks: "jarvis:nova-tasks:v1",
+  apptDone: "jarvis:appt-done:v1",
   theme: "jarvis:theme:v1",
 };
 
@@ -519,7 +520,16 @@ function ModeTag({ mode }) {
   return <span className="shrink-0 text-[10px] px-1.5 py-0.5 border" style={{ borderColor: off ? "rgba(251,191,36,0.45)" : "rgba(34,211,238,0.45)", color: off ? "#fcd34d" : "#67e8f9" }}>{off ? "أوفلاين" : "أونلاين"}</span>;
 }
 
-function DayTimeline({ appointments, date, slots, courses }) {
+// small "I did it" checkbox for an appointment (marker only, never deletes anything)
+function DoneBox({ done, onToggle, size = 18 }) {
+  return (
+    <button onClick={onToggle} title={done ? "شيل علامة الخلصان" : "علّمه خلصان"} className="shrink-0 flex items-center justify-center border rounded-md" style={{ width: size, height: size, borderColor: done ? "#34d399" : "rgba(148,163,184,0.5)", background: done ? "rgba(52,211,153,0.2)" : "transparent", color: "#34d399", fontSize: size * 0.7, lineHeight: 1 }}>
+      {done ? "✓" : ""}
+    </button>
+  );
+}
+
+function DayTimeline({ appointments, date, slots, courses, apptDone }) {
   const total = DAY_END - DAY_START;
   const busy = busyIntervals(appointments, date, null);
   const pct = (m) => ((m - DAY_START) / total) * 100;
@@ -555,7 +565,7 @@ function DayTimeline({ appointments, date, slots, courses }) {
           return (
             <div key={`b${i}`} title={`${ap.title} · ${fmtMin(st)}${word ? " · " + word : ""}`} className="absolute top-0 bottom-0 flex flex-col items-center justify-center px-1 text-[10px] leading-tight font-medium text-slate-950 overflow-hidden whitespace-nowrap"
               style={{ right: `${pct(l)}%`, width: `${w}%`, background: bg, borderLeft: "1px solid #0b1220", borderRight: "1px solid #0b1220" }}>
-              {w >= 9 ? <span className="max-w-full truncate">{ap.title}</span> : (w >= 4 && md ? <span>{modeIcon(md)}</span> : null)}
+              {w >= 9 ? <span className="max-w-full truncate">{apptDone && apptDone[ap.id] ? "✓ " : ""}{ap.title}</span> : (w >= 4 && md ? <span>{modeIcon(md)}</span> : null)}
               {w >= 9 && word && <span className="max-w-full truncate text-[9px] font-bold opacity-80">{w >= 14 ? `${modeIcon(md)} ${word}` : modeIcon(md)}</span>}
             </div>
           );
@@ -572,7 +582,7 @@ function DayTimeline({ appointments, date, slots, courses }) {
   );
 }
 
-function FreeTimePanel({ appointments, date, emptyText, courses }) {
+function FreeTimePanel({ appointments, date, emptyText, courses, apptDone }) {
   const from = nowFromMin(date);
   const slots = freeSlotsFor(appointments, date, null, from);
   const lo = Math.max(DAY_START, from);
@@ -584,7 +594,7 @@ function FreeTimePanel({ appointments, date, emptyText, courses }) {
   return (
     <div>
       <div className="text-sm text-slate-200 mb-2">{parts.join(" · ")}</div>
-      <DayTimeline appointments={appointments} date={date} slots={slots} courses={courses} />
+      <DayTimeline appointments={appointments} date={date} slots={slots} courses={courses} apptDone={apptDone} />
       <FreeSlotsList slots={slots} emptyText={emptyText} />
     </div>
   );
@@ -1456,7 +1466,7 @@ function DailyTab({ daily, updateDaily }) {
 }
 
 /* ---------------- Calendar tab ---------------- */
-function CalendarTab({ appointments, addAppointment, deleteAppointment, updateAppointment, courses = [], updateCourses, focusDay = null, onFocusDone = null }) {
+function CalendarTab({ appointments, addAppointment, deleteAppointment, updateAppointment, courses = [], updateCourses, focusDay = null, onFocusDone = null, apptDone = {}, toggleDone }) {
   const pushUndo = useContext(UndoCtx);
   const [editingId, setEditingId] = useState(null);
   const saveEdit = (a, v) => {
@@ -1577,7 +1587,7 @@ function CalendarTab({ appointments, addAppointment, deleteAppointment, updateAp
           <div className="text-xs text-slate-400 mb-2">
             ساعات يوم {new Date(selectedDay).toLocaleDateString("ar-EG", { day: "numeric", month: "long" })} (٩ ص ← ١٢ ص)
           </div>
-          <FreeTimePanel appointments={appointments} date={selectedDay} courses={courses} />
+          <FreeTimePanel appointments={appointments} date={selectedDay} courses={courses} apptDone={apptDone} />
         </div>
       </Panel>
 
@@ -1611,9 +1621,9 @@ function CalendarTab({ appointments, addAppointment, deleteAppointment, updateAp
                   </div>
                 ) : (
                   <div key={a.id} className="flex items-center gap-2 text-sm border px-2.5 py-1.5" style={{ borderColor: "rgba(148,163,184,0.15)", clipPath: clip }}>
-                    <Clock3 size={13} className="text-cyan-400 shrink-0" />
-                    <span className="text-slate-400 text-xs font-mono">{formatTime12(a.time)}</span>
-                    <span className="flex-1 text-slate-100 truncate">{a.title}</span>
+                    <DoneBox done={!!apptDone[a.id]} onToggle={() => toggleDone && toggleDone(a)} />
+                    <span className="text-slate-400 text-xs font-mono" style={{ opacity: apptDone[a.id] ? 0.5 : 1 }}>{formatTime12(a.time)}</span>
+                    <span className={`flex-1 truncate ${apptDone[a.id] ? "text-slate-500 line-through" : "text-slate-100"}`}>{a.title}</span>
                     <ModeTag mode={apptMode(a, courses)} />
                     {a.projectName && <span className="text-[10px] text-slate-500 shrink-0">{a.projectName}</span>}
                     <button onClick={() => setEditingId(a.id)} className="text-slate-500 hover:text-cyan-300 shrink-0" title="تعديل">
@@ -4833,13 +4843,14 @@ function fmtCountdown(ms) {
   return hh ? `${d} يوم و${hh} ساعة` : `${d} يوم`;
 }
 
-function NextSessionCard({ appointments, courses, updateCourses, projects, updateProjects }) {
+function NextSessionCard({ appointments, courses, updateCourses, projects, updateProjects, apptDone = {}, toggleDone }) {
   const [noting, setNoting] = useState(false);
   const [note, setNote] = useState("");
   const nowMs = Date.now();
   let best = null;
   (appointments || []).forEach((a) => {
     if (!a.date || !a.time) return;
+    if (apptDone[a.id]) return; // marked as done by you
     const st = new Date(`${a.date}T${a.time}:00`).getTime();
     if (isNaN(st)) return;
     const en = st + (Number(a.duration) || 60) * 60000;
@@ -4882,6 +4893,11 @@ function NextSessionCard({ appointments, courses, updateCourses, projects, updat
       </div>
       <div className="text-base text-slate-100 mt-1.5">{isSession ? `سيشن ${best.i + 1} — ` : ""}{best.a.title}</div>
       <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-2"><span className="truncate">{isSession ? `${best.c.name} · ` : ""}{best.a.date} · {formatTime12(best.a.time)}</span><ModeTag mode={apptMode(best.a, courses)} /></div>
+      {!isSession && !taskProj && toggleDone && (
+        <button onClick={() => toggleDone(best.a)} className="mt-3 flex items-center gap-1.5 text-sm px-3 py-1.5 border border-emerald-400/50 text-emerald-200 hover:bg-emerald-400/10" style={{ clipPath: clip }}>
+          <CheckCircle2 size={15} /> تم
+        </button>
+      )}
       {taskProj && (
         <button onClick={finishTask} className="mt-3 flex items-center gap-1.5 text-sm px-3 py-1.5 border border-emerald-400/50 text-emerald-200 hover:bg-emerald-400/10" style={{ clipPath: clip }}>
           <CheckCircle2 size={15} /> تم
@@ -5064,7 +5080,7 @@ function QuickAdd({ appointments, addAppointment, deleteAppointment, accounts, a
 
 let dashFoldSession = {};
 try { localStorage.removeItem("nova:dashFold"); } catch (e) { /* ignore */ }
-function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNovaTasks, appointments, daily, accounts, courses, commitments, goals, top3, updateTop3, onGo, onGoDay, updateCourses, onDayStatus }) {
+function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNovaTasks, appointments, daily, accounts, courses, commitments, goals, top3, updateTop3, onGo, onGoDay, updateCourses, onDayStatus, apptDone = {}, toggleDone }) {
   const today = todayISO();
   const [justDone, setJustDone] = useState({});
 
@@ -5195,7 +5211,7 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
 
   return (
     <div className="flex flex-col gap-4">
-      <NextSessionCard appointments={appointments} courses={courses} updateCourses={updateCourses} projects={projects} updateProjects={updateProjects} />
+      <NextSessionCard appointments={appointments} apptDone={apptDone} toggleDone={toggleDone} courses={courses} updateCourses={updateCourses} projects={projects} updateProjects={updateProjects} />
       <div className="grid grid-cols-3 gap-3">
       <Fold id="focus" title="التركيز دلوقتي" summary={focusTask ? (focusTask.text.length > 22 ? focusTask.text.slice(0, 22) + "…" : focusTask.text) : "مفيش"} {...fp}>
         <FocusCard hideTitle task={focusTask} tasks={pendingList} picked={!!pickedTask} onPick={setFocusKey} onDone={() => { if (focusTask) toggleDashTask(focusTask); setFocusKey(null); }} />
@@ -5279,34 +5295,35 @@ function DashboardTab({ clients, projects, updateProjects, novaTasks, updateNova
       </Panel>
       </Fold>
 
-      <Fold id="appts" title="المواعيد" summary={todayAppts.length + upcomingAppts.length} color="#22d3ee" className="" {...fp}>
+      <Fold id="appts" title="المواعيد" summary={todayAppts.filter((a) => !apptDone[a.id]).length + upcomingAppts.filter((a) => !apptDone[a.id]).length} color="#22d3ee" className="" {...fp}>
       <Panel className="p-4" onClick={() => onGo("calendar")}>
         <CornerTicks />
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs tracking-wide text-slate-400 fold-title">المواعيد</span>
-          <span className="text-lg font-mono text-cyan-300">{todayAppts.length}</span>
+          <span className="text-lg font-mono text-cyan-300">{todayAppts.filter((a) => !apptDone[a.id]).length}</span>
         </div>
         {todayAppts.length === 0 ? (
           <div className="text-xs text-slate-500">مفيش مواعيد النهاردة.</div>
         ) : (
           <div className="flex flex-col gap-1.5">
             {todayAppts.slice(0, 5).map((a) => (
-              <div key={a.id} className="text-sm text-slate-200 flex items-baseline gap-2"><span className="truncate">🕐 {formatTime12(a.time)} — {a.title}</span><ModeTag mode={apptMode(a, courses)} /></div>
+              <div key={a.id} className="text-sm text-slate-200 flex items-center gap-2"><DoneBox size={16} done={!!apptDone[a.id]} onToggle={() => toggleDone && toggleDone(a)} /><span className={`truncate ${apptDone[a.id] ? "text-slate-500 line-through" : ""}`}>{formatTime12(a.time)} — {a.title}</span><ModeTag mode={apptMode(a, courses)} /></div>
             ))}
           </div>
         )}
         <div className="mt-3 pt-2 border-t border-cyan-500/15">
           <div className="text-[11px] text-slate-500 mb-1">فاضي النهاردة (٩ ص ← ١٢ ص)</div>
-          <FreeTimePanel appointments={todayAppts} date={today} emptyText="باقي اليوم كله مشغول" courses={courses} />
+          <FreeTimePanel appointments={todayAppts} date={today} emptyText="باقي اليوم كله مشغول" courses={courses} apptDone={apptDone} />
         </div>
         {upcomingAppts.length > 0 && (
           <div className="mt-3 pt-2 border-t border-cyan-500/15">
             <div className="text-[11px] text-slate-500 mb-1">الجاي (٧ أيام)</div>
             <div className="flex flex-col gap-1.5">
               {upcomingAppts.slice(0, 6).map((a) => (
-                <div key={a.id} className="text-sm text-slate-300 flex flex-wrap items-baseline gap-x-2">
+                <div key={a.id} className="text-sm text-slate-300 flex flex-wrap items-center gap-x-2">
+                  <DoneBox size={16} done={!!apptDone[a.id]} onToggle={() => toggleDone && toggleDone(a)} />
                   <span className="text-amber-300 text-xs shrink-0">{dayLabel(a.date)}</span>
-                  <span className="truncate">{a.time ? `${formatTime12(a.time)} — ` : ""}{a.title}</span>
+                  <span className={`truncate ${apptDone[a.id] ? "text-slate-500 line-through" : ""}`}>{a.time ? `${formatTime12(a.time)} — ` : ""}{a.title}</span>
                   <ModeTag mode={a.mode} />
                   {a.course && <span className="text-[10px] text-slate-500 truncate">{a.course}</span>}
                 </div>
@@ -5561,6 +5578,18 @@ function ThemePicker({ theme, updateTheme }) {
 function App() {
   const [tab, setTab] = useState("dashboard");
   const [dayStatus, setDayStatus] = useState(null);
+  const [apptDone, setApptDone] = useState({});
+  const apptDoneRef = useRef({});
+  apptDoneRef.current = apptDone;
+  const toggleDone = (a) => {
+    const prev = apptDoneRef.current;
+    const nowDone = !prev[a.id];
+    const next = { ...prev };
+    if (nowDone) next[a.id] = true; else delete next[a.id];
+    setApptDone(next);
+    persist(KEYS.apptDone, next);
+    pushUndo(nowDone ? `اتعلّم "${a.title}" خلصان` : `اتشالت علامة الخلصان من "${a.title}"`, () => { setApptDone(prev); persist(KEYS.apptDone, prev); });
+  };
   const [calDay, setCalDay] = useState(null);
   const [undoItem, setUndoItem] = useState(null);
   const undoTimer = useRef(null);
@@ -5631,6 +5660,7 @@ function App() {
         loadOne(KEYS.topThree, setTopThree),
         loadOne(KEYS.workout, setWorkout),
         loadOne(KEYS.novaTasks, setNovaTasks),
+        loadOne(KEYS.apptDone, setApptDone),
         loadOne(KEYS.theme, setTheme),
       ]);
       setLoaded(true);
@@ -5652,15 +5682,16 @@ function App() {
     const t3 = topThree && topThree.date === today ? topThree.items.filter((i) => i.text && i.text.trim()) : [];
     const t3Done = t3.filter((i) => i.done).length;
     const t3All = t3.length === 3 && t3Done === 3;
-    const cur = { taskDone, habitsAll, t3Done, t3All, habitsDoneN, lecDone, workoutDone };
+    const apptDoneN = Object.values(apptDone).filter(Boolean).length;
+    const cur = { taskDone, habitsAll, t3Done, t3All, habitsDoneN, lecDone, workoutDone, apptDoneN };
     const prev = celePrev.current;
     celePrev.current = cur;
     if (!prev) return;
     const id = Date.now();
     if (t3All && !prev.t3All) setCele({ id, kind: "day", emoji: "💪", title: "اليوم اتقفل", text: pickPhrase(CELE_DAY, lastPhrase.current, "day") });
     else if (habitsAll && !prev.habitsAll) setCele({ id, kind: "habits", emoji: "🌙", title: "عادات اليوم خلصت", text: pickPhrase(CELE_HABITS, lastPhrase.current, "habits") });
-    else if (t3Done > prev.t3Done || taskDone > prev.taskDone || habitsDoneN > prev.habitsDoneN || lecDone > prev.lecDone || (workoutDone && !prev.workoutDone)) setCele({ id, kind: "task", text: pickPhrase(CELE_TASK, lastPhrase.current, "task") });
-  }, [loaded, projects, novaTasks, daily, topThree, courses, workout]);
+    else if (t3Done > prev.t3Done || taskDone > prev.taskDone || habitsDoneN > prev.habitsDoneN || lecDone > prev.lecDone || (workoutDone && !prev.workoutDone) || apptDoneN > prev.apptDoneN) setCele({ id, kind: "task", text: pickPhrase(CELE_TASK, lastPhrase.current, "task") });
+  }, [loaded, projects, novaTasks, daily, topThree, courses, workout, apptDone]);
 
   useEffect(() => {
     if (!cele) return undefined;
@@ -5866,6 +5897,8 @@ function App() {
               updateTop3={updateTopThree}
               onGo={setTab}
               onDayStatus={setDayStatus}
+              apptDone={apptDone}
+              toggleDone={toggleDone}
               onGoDay={(iso) => { setCalDay(iso); setTab("calendar"); }}
               updateCourses={updateCourses}
             />
@@ -5873,7 +5906,7 @@ function App() {
           {tab === "goals" && <GoalsTab goals={goals} updateGoals={updateGoals} />}
           {tab === "projects" && <ProjectsTab projects={projects} appointments={appointments} updateProjects={updateProjects} addAppointment={addAppointment} />}
           {tab === "daily" && <DailyTab daily={daily} updateDaily={updateDaily} />}
-          {tab === "calendar" && <CalendarTab appointments={appointments} addAppointment={addAppointment} deleteAppointment={deleteAppointment} updateAppointment={updateAppointment} courses={courses} updateCourses={updateCourses} focusDay={calDay} onFocusDone={() => setCalDay(null)} />}
+          {tab === "calendar" && <CalendarTab appointments={appointments} addAppointment={addAppointment} deleteAppointment={deleteAppointment} updateAppointment={updateAppointment} courses={courses} updateCourses={updateCourses} focusDay={calDay} onFocusDone={() => setCalDay(null)} apptDone={apptDone} toggleDone={toggleDone} />}
           {tab === "courses" && (
             <CoursesTab
               courses={courses}
@@ -5912,7 +5945,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-23 ص
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-24 أ
       </div>
       <UndoBar item={undoItem} onUndo={doUndo} onClose={() => { clearTimeout(undoTimer.current); setUndoItem(null); }} />
       <QuickAdd appointments={appointments} addAppointment={addAppointment} deleteAppointment={deleteAppointment} accounts={accounts} addAccountEntry={addAccountEntry} projects={projects} novaTasks={novaTasks} updateProjects={updateProjects} updateNovaTasks={updateNovaTasks} />
