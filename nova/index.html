@@ -5815,9 +5815,15 @@ function App() {
   useEffect(() => {
     if (!loaded || !loadOk.current[KEYS.appointments]) return;
     const seenIds = new Set();
-    const uniq = appointments.filter((a) => { if (!a || seenIds.has(a.id)) return false; seenIds.add(a.id); return true; });
+    let uniq = appointments.filter((a) => { if (!a || seenIds.has(a.id)) return false; seenIds.add(a.id); return true; });
+    // a lecture appointment linked to no lecture, sitting on the exact same slot as the linked one of the same course = leftover copy
+    if (loadOk.current[KEYS.courses]) {
+      const linked = new Set();
+      courses.forEach((c) => (c.lectures || []).forEach((l) => { if (l.apptId) linked.add(l.apptId); }));
+      uniq = uniq.filter((a) => !(a.source === "lecture" && !linked.has(a.id) && uniq.some((b) => b.id !== a.id && linked.has(b.id) && b.courseId === a.courseId && b.date === a.date && b.time === a.time)));
+    }
     if (uniq.length !== appointments.length) { setAppointments(uniq); persist(KEYS.appointments, uniq); }
-  }, [loaded, appointments]);
+  }, [loaded, appointments, courses]);
   // Self-heal: a session linked to an appointment that no longer exists gets its appointment back
   useEffect(() => {
     if (!loaded || !loadOk.current[KEYS.appointments] || !loadOk.current[KEYS.courses]) return;
@@ -6019,7 +6025,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-26 أ
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-26 ب
       </div>
       <UndoBar item={undoItem} onUndo={doUndo} onClose={() => { clearTimeout(undoTimer.current); setUndoItem(null); }} />
       <QuickAdd appointments={appointments} addAppointment={addAppointment} deleteAppointment={deleteAppointment} accounts={accounts} addAccountEntry={addAccountEntry} projects={projects} novaTasks={novaTasks} updateProjects={updateProjects} updateNovaTasks={updateNovaTasks} />
