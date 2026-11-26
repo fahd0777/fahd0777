@@ -1660,8 +1660,9 @@ function CalendarTab({ appointments, addAppointment, deleteAppointment, updateAp
 }
 
 /* ---------------- Courses tab ---------------- */
-function LectureRow({ lecture, idx, appointments, onUpdate, addAppointment, deleteAppointment }) {
+function LectureRow({ lecture, idx, appointments, onUpdate, addAppointment, deleteAppointment, onRemove = null }) {
   const [scheduling, setScheduling] = useState(false);
+  const [confirmRm, setConfirmRm] = useState(false);
   const l = { title: "", description: "", notes: "", done: false, date: "", time: "", duration: 60, apptId: null, ...lecture };
 
   const freeAppts = (appointments || []).filter((a) => a.source !== "lecture" && a.source !== "task").sort((a, b) => (a.date < b.date ? 1 : -1));
@@ -1704,6 +1705,16 @@ function LectureRow({ lecture, idx, appointments, onUpdate, addAppointment, dele
         >
           <Calendar size={11} /> {l.date ? `${l.date} ${l.time ? formatTime12(l.time) : ""}` : "حدد الميعاد"}
         </button>
+        {onRemove && (confirmRm ? (
+          <span className="shrink-0 flex items-center gap-1">
+            <button onClick={() => { setConfirmRm(false); onRemove(); }} className="text-[11px] px-2 py-1 border border-rose-400/60 text-rose-300 hover:bg-rose-400/10" style={{ clipPath: clip }}>أكيد، شيلها</button>
+            <button onClick={() => setConfirmRm(false)} className="text-[11px] px-2 py-1 border border-slate-600/60 text-slate-300" style={{ clipPath: clip }}>لا</button>
+          </span>
+        ) : (
+          <button onClick={() => setConfirmRm(true)} title="يشيل المحاضرة ويلغي ميعادها" className="shrink-0 flex items-center gap-1 text-[11px] px-2 py-1 border border-rose-400/30 text-rose-300/80 hover:bg-rose-400/10" style={{ clipPath: clip }}>
+            <Trash2 size={11} /> شيل المحاضرة
+          </button>
+        ))}
       </div>
 
       {scheduling && (
@@ -2020,6 +2031,20 @@ function CourseCard({ course, appointments, onUpdate, onDelete, addAppointment, 
     setEditingName(false);
   };
 
+  const removeLastLecture = () => {
+    const last = course.lectures.length - 1;
+    if (last < 1) return;
+    const prevCourse = course;
+    const l = course.lectures[last];
+    const prevAppt = l.apptId ? (appointments || []).find((a) => a.id === l.apptId) : null;
+    if (l.apptId) deleteAppointment(l.apptId);
+    onUpdate({ ...course, lectures: course.lectures.slice(0, last) });
+    pushUndo(`اتشالت المحاضرة ${last + 1} من "${course.name}"`, () => {
+      onUpdate(prevCourse);
+      if (prevAppt) addAppointment(prevAppt);
+    });
+  };
+
   const updateLecture = (idx, patch) => {
     const lectures = course.lectures.map((l, i) => (i === idx ? { ...l, ...patch } : l));
     onUpdate({ ...course, lectures });
@@ -2298,6 +2323,7 @@ function CourseCard({ course, appointments, onUpdate, onDelete, addAppointment, 
               onUpdate={(patch) => updateLecture(idx, patch)}
               addAppointment={(appt) => addAppointment({ ...appt, courseId: course.id, lectureIdx: idx, projectName: course.name, source: "lecture" })}
               deleteAppointment={deleteAppointment}
+              onRemove={idx === course.lectures.length - 1 && course.lectures.length > 1 ? () => removeLastLecture() : null}
             />
           ))}
         </div>
@@ -5785,6 +5811,13 @@ function App() {
   const updateWorkout = (next) => { setWorkout(next); persist(KEYS.workout, next); };
   const updateTheme = (next) => { setTheme(next); persist(KEYS.theme, next); };
   const updateNovaTasks = (next) => { trackUndo("مهام NOVA", novaTasks, next, setNovaTasks, KEYS.novaTasks); setNovaTasks(next); persist(KEYS.novaTasks, next); };
+  // Clean-up: identical appointment ids saved more than once (old duplicate bug) -> keep one copy
+  useEffect(() => {
+    if (!loaded || !loadOk.current[KEYS.appointments]) return;
+    const seenIds = new Set();
+    const uniq = appointments.filter((a) => { if (!a || seenIds.has(a.id)) return false; seenIds.add(a.id); return true; });
+    if (uniq.length !== appointments.length) { setAppointments(uniq); persist(KEYS.appointments, uniq); }
+  }, [loaded, appointments]);
   // Self-heal: a session linked to an appointment that no longer exists gets its appointment back
   useEffect(() => {
     if (!loaded || !loadOk.current[KEYS.appointments] || !loadOk.current[KEYS.courses]) return;
@@ -5808,7 +5841,7 @@ function App() {
     }
   }, [loaded, courses, appointments]);
 
-  const addAppointment = (appt) => { setAppointments((prev) => { const next = [...prev, appt]; persist(KEYS.appointments, next); return next; }); };
+  const addAppointment = (appt) => { setAppointments((prev) => { const next = [...prev.filter((x) => x.id !== appt.id), appt]; persist(KEYS.appointments, next); return next; }); };
   const updateAppointment = (id, patch) => { setAppointments((prev) => { const next = prev.map((a) => (a.id === id ? { ...a, ...patch } : a)); persist(KEYS.appointments, next); return next; }); };
   const deleteAppointment = (id) => { setAppointments((prev) => { const next = prev.filter((a) => a.id !== id); persist(KEYS.appointments, next); return next; }); };
 
@@ -5986,7 +6019,7 @@ function App() {
       )}
 
       <div className="text-center text-[11px] text-slate-600 mt-6 tracking-wide">
-        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-25 أ
+        NOVA — نظام فهد الشخصي. كل حاجة بتتحفظ تلقائي وبتتزامن مع الكاليندر والحسابات. · نسخة 2026-11-26 أ
       </div>
       <UndoBar item={undoItem} onUndo={doUndo} onClose={() => { clearTimeout(undoTimer.current); setUndoItem(null); }} />
       <QuickAdd appointments={appointments} addAppointment={addAppointment} deleteAppointment={deleteAppointment} accounts={accounts} addAccountEntry={addAccountEntry} projects={projects} novaTasks={novaTasks} updateProjects={updateProjects} updateNovaTasks={updateNovaTasks} />
